@@ -1,6 +1,8 @@
 package cell_tracking;
 
 import java.awt.AWTEvent;
+import java.util.Arrays;
+
 import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
@@ -24,6 +26,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private int nPasses = 1;          // The number of passes (filter directions * color channels * stack slices)
 	private int nChannels = 1;        // The number of color channels
 	private int pass;                 // Current pass
+	private final float sigmaMax = 50;	// max value of sigmas
 	
 	protected ImagePlus image;
 	protected ImageProcessor img_proc; //current imageProcessor
@@ -49,7 +52,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private boolean calledAsPlugin;
 	private MexicanHatFilter mHat;
 	private ContrastEnhancer enchancer;
-
+	private Gaussian gaussian;
+	private ImageProcessorCalculator calc;
+	
 	@Override
 	public int setup(String arg, ImagePlus imp) {
 		if (arg.equals("about")) {
@@ -63,6 +68,8 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		imgCalc = new ImageCalculator();
 		mHat = new MexicanHatFilter();
 		enchancer = new ContrastEnhancer();
+		gaussian = new Gaussian();
+		calc = new ImageProcessorCalculator();
 		//return DOES_8G | DOES_16 | DOES_32 | DOES_RGB;
 		return DOES_ALL;
 	}
@@ -95,6 +102,10 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		sigma1 = gd.getNextNumber();
 		sigma2 = gd.getNextNumber();
 		sigma3 = gd.getNextNumber();
+		if (sigma1 > sigmaMax) sigma1 = sigmaMax;
+		if (sigma2 > sigmaMax) sigma2 = sigmaMax;
+		if (sigma3 > sigmaMax) sigma3 = sigmaMax;
+		
         if (sigma1 < 0 || sigma2 < 0 || sigma3 < 0 || gd.invalidNumber())
             return false;
         return true;
@@ -115,10 +126,12 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		/*
 		ip.medianFilter();
 		mHat.mexicanHat(ip, sigma3);
-		enchancer.stretchHistogram(ip, 0);
 		*/
-		
-		bandwidthFilter(ip);
+		ImageProcessor ip_t = ip.duplicate();
+		gaussian.GradientMagnitudeGaussian(ip, (float)sigma1);
+		gaussian.GradientMagnitudeGaussian(ip_t, (float)sigma2);
+		//calc.sub(ip, ip_t);
+		//bandwidthFilter(ip);
 		//ip = img_proc;
 		//image.updateAndDraw();
 
@@ -126,6 +139,8 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			process(ip);
 			image.updateAndDraw();
 		}*/
+
+		enchancer.stretchHistogram(ip, 0);
 	}
 
 	/**
@@ -211,26 +226,34 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			"a template for processing each pixel of an image"
 		);
 	}
-	public static void main(String[] args) {
-		// set the plugins.dir property to make the plugin appear in the Plugins menu
-		Class<?> clazz = CellTracker_.class;
-		String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
-		String pluginsDir = url.substring("file:".length(), url.length() - clazz.getName().length() - ".class".length());
-		System.setProperty("plugins.dir", pluginsDir);
-
-		// start ImageJ
-		new ImageJ();
-
-		// open the Clown sample
-		ImagePlus image = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0001\\c0010901\\T0104.tif");
-		ImageConverter converter = new ImageConverter(image);
-		converter.convertToGray32();
-		image.show();
-
-		// run the plugin
-		IJ.runPlugIn(clazz.getName(), "");
-	}
 	
+	public static void main(String[] args) {
+		boolean testImageJ = true;
+		if (!testImageJ) {
+			System.out.println("HELLO THERE");
+			Gaussian gaus = new Gaussian();
+		}
+		else {
+			// set the plugins.dir property to make the plugin appear in the Plugins menu
+			Class<?> clazz = CellTracker_.class;
+			String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
+			String pluginsDir = url.substring("file:".length(), url.length() - clazz.getName().length() - ".class".length());
+			System.setProperty("plugins.dir", pluginsDir);
+
+			// start ImageJ
+			new ImageJ();
+
+			// open the Clown sample
+			ImagePlus image = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0104.tif");
+			ImageConverter converter = new ImageConverter(image);
+			converter.convertToGray32();
+			image.show();
+
+			// run the plugin
+			IJ.runPlugIn(clazz.getName(), "");
+		}
+	}
+
 	/* method for getting floag images histogram, since it's not implemented 
 	public int[] getHistogram(FloatProcessor fp) {
 		int[] histogram = new int[65536];
