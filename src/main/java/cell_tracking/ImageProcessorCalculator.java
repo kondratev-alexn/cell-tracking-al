@@ -1,5 +1,7 @@
 package cell_tracking;
 
+import ij.process.ByteProcessor;
+import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
 /* Class providing different mathematical operations on images 
@@ -44,4 +46,47 @@ public class ImageProcessorCalculator {
 			}
 		}
 	}
+	
+	public void threshold(ImageProcessor ip, double minValue, double maxValue) {
+		int w = ip.getWidth(), h = ip.getHeight();
+		for (int y=0; y < h; y++) {
+			for (int x=0; x < w; x++) {
+				 /*if (ip.getf(x, y) < minValue)
+					ip.setf(x, y, (float)minValue);
+				else if (ip.getf(x, y) > maxValue)
+					ip.setf(x, y, (float)maxValue); */
+				if (ip.getf(x, y) < minValue || ip.getf(x,y) > maxValue)
+					ip.setf(x, y, 0);
+				else ip.setf(x, y, 255);				
+			}
+		}
+	}
+	
+	/* "convert" float binary image to byte binary image with values 0, 255 */
+	public void floatToByteBinary(ByteProcessor ip, FloatProcessor fp) {
+		int w = ip.getWidth(), h = ip.getHeight();
+		if (w != fp.getWidth() || h!= fp.getHeight())
+			return;
+		for (int y=0; y < h; y++) {
+			for (int x=0; x < w; x++) {
+				if (fp.getf(x,y) > 200 )
+					ip.setf(x, y, 255);
+			}
+		}
+	}
+	
+	/* "convert" byte binary image tofloat binary image with values 0, 255 */
+	public void byteToFloatBinary(FloatProcessor ip, ByteProcessor fp) {
+		int w = ip.getWidth(), h = ip.getHeight();
+		if (w != fp.getWidth() || h!= fp.getHeight())
+			return;
+		for (int y=0; y < h; y++) {
+			for (int x=0; x < w; x++) {
+				if (fp.getf(x,y) > 200 )
+					ip.setf(x, y, 255);
+			}
+		}
+	}
+	
+	
 }

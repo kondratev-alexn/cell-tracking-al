@@ -1,6 +1,7 @@
 package cell_tracking;
 
 import java.awt.AWTEvent;
+
 import java.util.Arrays;
 
 import ij.IJ;
@@ -9,60 +10,128 @@ import ij.ImagePlus;
 import ij.Macro;
 import ij.gui.DialogListener;
 import ij.gui.GenericDialog;
+import ij.gui.ImageLayout;
 import ij.plugin.filter.PlugInFilter;
 import ij.plugin.filter.PlugInFilterRunner;
 import ij.process.Blitter;
+import ij.process.ByteProcessor;
+import ij.process.ColorProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageConverter;
 import ij.process.ImageProcessor;
+import ij.process.StackConverter;
+import ij.process.StackProcessor;
 import ij.plugin.filter.ExtendedPlugInFilter;
 import ij.plugin.filter.GaussianBlur;
 import ij.plugin.Duplicator;
 import ij.plugin.ImageCalculator;
 import cell_tracking.MexicanHatFilter;
 import ij.plugin.ContrastEnhancer;
+import ij.plugin.Converter;
+import ij.plugin.filter.BackgroundSubtracter;
+import inra.ijpb.morphology.AttributeFiltering;
+import inra.ijpb.morphology.GeodesicReconstruction;
+import inra.ijpb.morphology.Morphology.Operation;
+import inra.ijpb.morphology.Strel;
+import inra.ijpb.morphology.Strel.Shape;
+import inra.ijpb.morphology.attrfilt.AreaOpeningQueue;
+import inra.ijpb.plugins.*;
 
 public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
+	
+	private int flags = DOES_ALL | KEEP_PREVIEW | FINAL_PROCESSING | NO_CHANGES;
+	
 	private int nPasses = 1;          // The number of passes (filter directions * color channels * stack slices)
 	private int nChannels = 1;        // The number of color channels
 	private int pass;                 // Current pass
-	private final float sigmaMax = 50;	// max value of sigmas
 	
-	protected ImagePlus image;
-	protected ImageProcessor img_proc; //current imageProcessor
+	private int nSlices;
+		
+	/** need to keep the instance of ImagePlus */ 
+	private ImagePlus imagePlus;
 	
-	protected GaussianBlur gBlur;
-	protected Duplicator dupl;
-	protected ImageCalculator imgCalc;
+	/** keep the original image, to restore it after the preview */
+	private ImageProcessor baseImage;
 	
+	/** Keep instance of result image */
+	private ImageProcessor result;		
+	
+	/* image for displaing result on stacks */
+	private ImagePlus stackImage;
+	
+	private int currSlice = 1;
 
-	// image property members
-	private int width;
-	private int height;
-
-	// plugin parameters
-	public double value;
-	public String name;
-	
 	// sigmas for bandpass algorithm
 	public double sigma1 = 3.00;
 	public double sigma2 = 5.00;
 	public double sigma3;
 	
-	private boolean calledAsPlugin;
+	private double minThreshold = -15;
+	private double maxThreshold = -1.5;
+	private boolean isBandpass = false;
+	private boolean doThreshold = false;
+	private boolean previewing = false;
+
+	private final float sigmaMax = 50;	// max value of sigmas
+	
+	// plugins
+	private GaussianBlur gBlur;
+	private Duplicator dupl;
+	private ImageCalculator imgCalc;
 	private MexicanHatFilter mHat;
 	private ContrastEnhancer enchancer;
 	private Gaussian gaussian;
 	private ImageProcessorCalculator calc;
+	private BackgroundSubtracter backgroundSub;
+	private MorphologicalFilterPlugin morph; 
 	
 	@Override
 	public int setup(String arg, ImagePlus imp) {
+		if (imp == null) {
+			IJ.showMessage("Image is required");
+			return DONE;
+		}
 		if (arg.equals("about")) {
 			showAbout();
 			return DONE;
 		}
+				
+		if (arg.equals("final")) 
+		{
+			// replace the preview image by the original image 
+			resetPreview();
+			imagePlus.updateAndDraw();
+	    	
+			stackImage.copyScale(imagePlus);
+			stackImage.resetDisplayRange();
+			stackImage.show();
+			// Create a new ImagePlus with the filter result
+			/*String newName = createResultImageName(imagePlus);
+			ImagePlus resPlus = new ImagePlus(newName, result);
+			resPlus.copyScale(imagePlus);
+			resPlus.resetDisplayRange();
+			resPlus.show();*/
+			return DONE;
+		}
+		
+		nSlices = imp.getStackSize();
+		// convert to float if plugin just started
+		if (nSlices == 1) {
+			Converter conv = new Converter();
+			conv.run("32-bit");
+		}
+		else {
+			StackConverter stackConv = new StackConverter(imp);
+			stackConv.convertToGray32();
+		}
+		instancePlugins();
 
-		image = imp;
+		return flags;
+	}
+	
+	/* creates instances of used plugins 
+	 * */
+	private void instancePlugins() {
 		gBlur = new GaussianBlur();
 		dupl = new Duplicator();
 		imgCalc = new ImageCalculator();
@@ -70,77 +139,156 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		enchancer = new ContrastEnhancer();
 		gaussian = new Gaussian();
 		calc = new ImageProcessorCalculator();
-		//return DOES_8G | DOES_16 | DOES_32 | DOES_RGB;
-		return DOES_ALL;
+		backgroundSub = new BackgroundSubtracter();
+		morph = new MorphologicalFilterPlugin();
 	}
 
 	@Override
 	public int showDialog(ImagePlus imp, String command, PlugInFilterRunner pfr) {
-		calledAsPlugin = true;
+		// Normal setup
+    	this.imagePlus = imp;
+    	this.baseImage = imp.getProcessor().duplicate();
+    	stackImage = imp.duplicate();
         nChannels = imp.getProcessor().getNChannels();
         
         GenericDialog gd = new GenericDialog(command);
-        //sigma = Math.abs(sigma);
-        gd.addNumericField("Sigma1:", sigma1, 2);
+        fillGenericDialog(gd, pfr);
+        
+        gd.showDialog();                    // input by the user (or macro) happens here
+        
+        if (gd.wasCanceled()) { 
+        	resetPreview();
+        	return DONE;
+        }
+        
+        currSlice = imp.getCurrentSlice();
+        IJ.register(this.getClass());       // protect static class variables (parameters) from garbage collection
+        //return flags;
+        flags = IJ.setupDialog(imp, flags); // ask whether to process all slices of stack (if a stack)
+        	
+        return flags;  
+	}
+	
+	private void fillGenericDialog(GenericDialog gd, PlugInFilterRunner pfr) {
+		gd.addNumericField("Sigma1:", sigma1, 2);
         gd.addNumericField("Sigma2:", sigma2, 2);
         gd.addNumericField("Sigma (hat)", 5.00, 2);
-        /*if (imp.getCalibration()!=null && !imp.getCalibration().getUnits().equals("pixels")) {
-            hasScale = true;
-            gd.addCheckbox("Scaled Units ("+imp.getCalibration().getUnits()+")", sigmaScaled);
-        } else
-            sigmaScaled = false;*/
+        gd.addNumericField("Min threshold", minThreshold, 3);
+        gd.addNumericField("Max threshold", maxThreshold, 3);
+        gd.addCheckbox("Bandpass?", false);
+        gd.addCheckbox("Threshold", false);
         gd.addPreviewCheckbox(pfr);
         gd.addDialogListener(this);
-        gd.showDialog();                    // input by the user (or macro) happens here
-        if (gd.wasCanceled()) return DONE;
-        IJ.register(this.getClass());       // protect static class variables (parameters) from garbage collection
-        return IJ.setupDialog(imp, SNAPSHOT);  // ask whether to process all slices of stack (if a stack)
 	}
 
 	@Override
 	public boolean dialogItemChanged(GenericDialog gd, AWTEvent e) {
+		boolean wasPreview = this.previewing;
+		parseDialogParameters(gd);
+        if (sigma1 < 0 || sigma2 < 0 || sigma3 < 0 || gd.invalidNumber())
+            return false;
+    	
+    	// if preview checkbox was unchecked, replace the preview image by the original image
+    	if (wasPreview && !this.previewing)
+    	{
+    		resetPreview();
+    	}
+    	return true;
+	}
+
+	private void parseDialogParameters(GenericDialog gd) 
+	{
+		// extract chosen parameters
 		sigma1 = gd.getNextNumber();
 		sigma2 = gd.getNextNumber();
 		sigma3 = gd.getNextNumber();
+		minThreshold = gd.getNextNumber();
+		maxThreshold = gd.getNextNumber();
+		isBandpass = gd.getNextBoolean();
+		doThreshold = gd.getNextBoolean();
+		previewing = gd.getPreviewCheckbox().getState();
+		
 		if (sigma1 > sigmaMax) sigma1 = sigmaMax;
 		if (sigma2 > sigmaMax) sigma2 = sigmaMax;
 		if (sigma3 > sigmaMax) sigma3 = sigmaMax;
-		
-        if (sigma1 < 0 || sigma2 < 0 || sigma3 < 0 || gd.invalidNumber())
-            return false;
-        return true;
 	}
 
 	@Override
 	public void setNPasses(int nPasses) {
-		this.nPasses = 2 * nChannels * nPasses;
+		//this.nPasses = 2 * nChannels * nPasses;
+		this.nPasses = nPasses;
         pass = 0;
 	}
 
 	@Override
 	public void run(ImageProcessor ip) {
-		img_proc = ip;
-		// get width and height
-		width = ip.getWidth();
-		height = ip.getHeight();
-		/*
-		ip.medianFilter();
-		mHat.mexicanHat(ip, sigma3);
-		*/
-		ImageProcessor ip_t = ip.duplicate();
-		gaussian.GradientMagnitudeGaussian(ip, (float)sigma1);
-		gaussian.GradientMagnitudeGaussian(ip_t, (float)sigma2);
-		//calc.sub(ip, ip_t);
-		//bandwidthFilter(ip);
-		//ip = img_proc;
-		//image.updateAndDraw();
+		// System.out.println(imagePlus.getCurrentSlice()); - prints out only '1'-s
+				
+		if (previewing)
+			result = baseImage.duplicate();
+		else 
+			result = ip.duplicate();
 
-		/*if (showDialog()) {
-			process(ip);
-			image.updateAndDraw();
-		}*/
+		//result.medianFilter();
+		backgroundSub.rollingBallBackground(result, 20, false, false, false, false, false);
+				
+		segmentation(result);
+		
+		if (previewing)
+    	{
+    		// Fill up the values of original image with values of the result
+    		for (int i = 0; i < ip.getPixelCount(); i++)
+    		{
+    			ip.setf(i, result.getf(i));
+    		}
+    		ip.resetMinAndMax();
+        }
+		if (nSlices == 1)
+			stackImage.setProcessor(result);
+		else 
+			stackImage.getImageStack().setProcessor(result, currSlice);
+		//IJ.selectWindow(stackImage.getID());
+		//System.out.println("aftershow");
+		
+		if ((flags & DOES_STACKS) != 0) { //process stacks
+			currSlice++;
+			//System.out.println("in curr_slice++");
+		}
+	}
+	
+	private void segmentation(ImageProcessor ip) {
+		if (isBandpass) {
+			bandpassFilter(result);
+		}
+		else { //gradient
+			gaussian.GradientMagnitudeGaussian(result, (float)sigma1);
+			//gaussian.GradientMagnitudeGaussian(result_t, (float)sigma2);
+			//calc.sub(result, result_t);
+		}
+		if (doThreshold) {
+			calc.threshold(result, minThreshold, maxThreshold);
+			result = GeodesicReconstruction.fillHoles(result);
+			
+			Operation op = Operation.BOTTOMHAT;
+			Shape shape = Shape.DISK;
+			Strel strel = shape.fromRadius(20);
 
-		enchancer.stretchHistogram(ip, 0);
+			result = op.apply(result, strel);
+			result.invert();
+			
+			result = GeodesicReconstruction.killBorders(result);
+			//bp = (ByteProcessor) op.apply(bp, strel);
+			//bp = (ByteProcessor) GeodesicReconstruction.killBorders(bp);
+			GrayscaleAttributeFilteringPlugin attrFilt = new GrayscaleAttributeFilteringPlugin();
+			AreaOpeningQueue algo = new AreaOpeningQueue();
+			algo.setConnectivity(4);
+			result = algo.process(result, 80);
+			//attrFilt.
+			//calc.byteToFloatBinary((FloatProcessor)result, bp);
+			//ImagePlus img_t = new ImagePlus("test", bp);
+			//img_t.show();
+			//IJ.selectWindow(img_t.getID());
+		}
 	}
 
 	/**
@@ -164,7 +312,6 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			process(image.getStack().getProcessor(i));
 	}
 
-	// Select processing method depending on image type
 	public void process(ImageProcessor ip) {
 		/* int type = image.getType();
 		if (type == ImagePlus.GRAY16)
@@ -172,53 +319,29 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		else {
 			throw new RuntimeException("not supported");
 		} */
-		bandwidthFilter(ip);
+		bandpassFilter(ip);
 	}
 
-	private void bandwidthFilter(ImageProcessor ip) {
+	private void bandpassFilter(ImageProcessor ip) {
+		ImageProcessor ip1 = ip.duplicate();
+		ImageProcessor ip2 = ip.duplicate();
+		ip2.blurGaussian(sigma2);
+		ip1.blurGaussian(sigma1);
+		calc.sub(ip1, ip2);
+		FloatProcessor fp = null;
+		fp = ip1.toFloat(0, fp);
+		ip.setPixels(0, fp);
+		/*
 		ImagePlus img1 = dupl.run(image);
 		ImagePlus img2 = dupl.run(image);	
-//		ip.copy
+		
 		img1.getProcessor().blurGaussian(sigma1);
 		img2.getProcessor().blurGaussian(sigma2);
 		img1 = imgCalc.run("sub create float", img1, img2);
 		FloatProcessor fp = null;
 		fp = img1.getProcessor().toFloat(0, fp);
-		ip.setPixels(0, fp);
+		ip.setPixels(0, fp); */
 		//ip = img1.getProcessor();
-	}
-
-	// processing of GRAY8 images
-	public void process(byte[] pixels) {
-		for (int y=0; y < height; y++) {
-			for (int x=0; x < width; x++) {
-				// process each pixel of the line
-				// example: add 'number' to each pixel
-				pixels[x + y * width] += (byte)value;
-			}
-		}
-	}
-
-	// processing of GRAY16 images
-	public void process(short[] pixels) {
-		for (int y=0; y < height; y++) {
-			for (int x=0; x < width; x++) {
-				// process each pixel of the line
-				// example: add 'number' to each pixel
-				pixels[x + y * width] += (short)value;
-			}
-		}
-	}
-
-	// processing of GRAY32 images
-	public void process(float[] pixels) {
-		for (int y=0; y < height; y++) {
-			for (int x=0; x < width; x++) {
-				// process each pixel of the line
-				// example: add 'number' to each pixel
-				pixels[x + y * width] += (float)value;
-			}
-		}
 	}
 
 	public void showAbout() {
@@ -243,8 +366,10 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			// start ImageJ
 			new ImageJ();
 
-			// open the Clown sample
-			ImagePlus image = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0104.tif");
+			// open one image of sequence. T0104 is for segmentation, T0050 is with mitosis
+			ImagePlus image = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0015.tif");
+			ImagePlus image_stack20 = IJ.openImage("C:\\Tokyo\\C002_Movement.tif");
+			//image = image_stack20;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();
@@ -253,17 +378,32 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			IJ.runPlugIn(clazz.getName(), "");
 		}
 	}
-
-	/* method for getting floag images histogram, since it's not implemented 
-	public int[] getHistogram(FloatProcessor fp) {
-		int[] histogram = new int[65536];
-		float[] pixels = (float[])fp.getPixels();
-		for (int y=0; y<fp.getHeight(); y++) {
-			int i = y*fp.getWidth();
-			for (int x=0; x<fp.getWidth(); x++)
-					histogram[pixels[i++]&0xffff]++;
+	
+	private void resetPreview()
+	{
+		ImageProcessor image = this.imagePlus.getProcessor();
+		if (image instanceof FloatProcessor)
+		{
+			for (int i = 0; i < image.getPixelCount(); i++)
+				image.setf(i, this.baseImage.getf(i));
 		}
-		return histogram;
-	}*/
+		else
+		{
+			for (int i = 0; i < image.getPixelCount(); i++)
+				image.set(i, this.baseImage.get(i));
+		}
+		imagePlus.resetDisplayRange();
+		imagePlus.updateAndDraw();
+	}
+	
+	/**
+	 * Creates the name for result image, by adding a suffix to the base name
+	 * of original image.
+	 * "Taken from MorphoLibJ"
+	 */
+	private String createResultImageName(ImagePlus baseImage) 
+	{
+		return baseImage.getShortTitle() + "-" + "result";
+	}
 
 }
