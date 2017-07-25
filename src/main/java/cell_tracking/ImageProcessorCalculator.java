@@ -47,6 +47,7 @@ public class ImageProcessorCalculator {
 		}
 	}
 	
+	/* leave areas with values between minValue and maxValue */
 	public void threshold(ImageProcessor ip, double minValue, double maxValue) {
 		int w = ip.getWidth(), h = ip.getHeight();
 		for (int y=0; y < h; y++) {
@@ -60,33 +61,5 @@ public class ImageProcessorCalculator {
 				else ip.setf(x, y, 255);				
 			}
 		}
-	}
-	
-	/* "convert" float binary image to byte binary image with values 0, 255 */
-	public void floatToByteBinary(ByteProcessor ip, FloatProcessor fp) {
-		int w = ip.getWidth(), h = ip.getHeight();
-		if (w != fp.getWidth() || h!= fp.getHeight())
-			return;
-		for (int y=0; y < h; y++) {
-			for (int x=0; x < w; x++) {
-				if (fp.getf(x,y) > 200 )
-					ip.setf(x, y, 255);
-			}
-		}
-	}
-	
-	/* "convert" byte binary image tofloat binary image with values 0, 255 */
-	public void byteToFloatBinary(FloatProcessor ip, ByteProcessor fp) {
-		int w = ip.getWidth(), h = ip.getHeight();
-		if (w != fp.getWidth() || h!= fp.getHeight())
-			return;
-		for (int y=0; y < h; y++) {
-			for (int x=0; x < w; x++) {
-				if (fp.getf(x,y) > 200 )
-					ip.setf(x, y, 255);
-			}
-		}
-	}
-	
-	
+	}		
 }

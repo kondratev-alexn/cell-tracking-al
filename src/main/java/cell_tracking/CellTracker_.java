@@ -29,6 +29,8 @@ import cell_tracking.MexicanHatFilter;
 import ij.plugin.ContrastEnhancer;
 import ij.plugin.Converter;
 import ij.plugin.filter.BackgroundSubtracter;
+import ij.plugin.filter.RankFilters;
+import inra.ijpb.binary.BinaryImages;
 import inra.ijpb.morphology.AttributeFiltering;
 import inra.ijpb.morphology.GeodesicReconstruction;
 import inra.ijpb.morphology.Morphology.Operation;
@@ -60,14 +62,17 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private ImagePlus stackImage;
 	
 	private int currSlice = 1;
+	private int selectedSlice;
 
 	// sigmas for bandpass algorithm
-	public double sigma1 = 3.00;
+	public double sigma1 = 1.40;
 	public double sigma2 = 5.00;
 	public double sigma3;
 	
-	private double minThreshold = -15;
-	private double maxThreshold = -1.5;
+	private double medianSize = 5;
+	private double minThreshold = -50;
+	private double maxThreshold = -2;
+	private boolean useMedian = false;
 	private boolean isBandpass = false;
 	private boolean doThreshold = false;
 	private boolean previewing = false;
@@ -84,6 +89,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private ImageProcessorCalculator calc;
 	private BackgroundSubtracter backgroundSub;
 	private MorphologicalFilterPlugin morph; 
+	private RankFilters rankFilters;
 	
 	@Override
 	public int setup(String arg, ImagePlus imp) {
@@ -141,6 +147,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		calc = new ImageProcessorCalculator();
 		backgroundSub = new BackgroundSubtracter();
 		morph = new MorphologicalFilterPlugin();
+		rankFilters = new RankFilters();
 	}
 
 	@Override
@@ -161,22 +168,25 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
         	return DONE;
         }
         
-        currSlice = imp.getCurrentSlice();
+        currSlice = 1;
+        selectedSlice = imp.getCurrentSlice();
         IJ.register(this.getClass());       // protect static class variables (parameters) from garbage collection
         //return flags;
         flags = IJ.setupDialog(imp, flags); // ask whether to process all slices of stack (if a stack)
-        	
+        
         return flags;  
 	}
 	
 	private void fillGenericDialog(GenericDialog gd, PlugInFilterRunner pfr) {
+		gd.addNumericField("median filter size", medianSize, 0);
 		gd.addNumericField("Sigma1:", sigma1, 2);
         gd.addNumericField("Sigma2:", sigma2, 2);
         gd.addNumericField("Sigma (hat)", 5.00, 2);
         gd.addNumericField("Min threshold", minThreshold, 3);
         gd.addNumericField("Max threshold", maxThreshold, 3);
-        gd.addCheckbox("Bandpass?", false);
-        gd.addCheckbox("Threshold", false);
+        gd.addCheckbox("Median Filter", true);
+        gd.addCheckbox("Bandpass?", true);
+        gd.addCheckbox("Threshold", true);
         gd.addPreviewCheckbox(pfr);
         gd.addDialogListener(this);
 	}
@@ -189,8 +199,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
             return false;
     	
     	// if preview checkbox was unchecked, replace the preview image by the original image
-    	if (wasPreview && !this.previewing)
-    	{
+    	if (wasPreview && !this.previewing)     	{
     		resetPreview();
     	}
     	return true;
@@ -199,14 +208,16 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private void parseDialogParameters(GenericDialog gd) 
 	{
 		// extract chosen parameters
+		medianSize = gd.getNextNumber();
 		sigma1 = gd.getNextNumber();
 		sigma2 = gd.getNextNumber();
 		sigma3 = gd.getNextNumber();
 		minThreshold = gd.getNextNumber();
 		maxThreshold = gd.getNextNumber();
+		useMedian = gd.getNextBoolean();
 		isBandpass = gd.getNextBoolean();
 		doThreshold = gd.getNextBoolean();
-		previewing = gd.getPreviewCheckbox().getState();
+		previewing = gd.getPreviewCheckbox().getState();		
 		
 		if (sigma1 > sigmaMax) sigma1 = sigmaMax;
 		if (sigma2 > sigmaMax) sigma2 = sigmaMax;
@@ -222,27 +233,26 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 
 	@Override
 	public void run(ImageProcessor ip) {
-		// System.out.println(imagePlus.getCurrentSlice()); - prints out only '1'-s
-				
-		if (previewing)
-			result = baseImage.duplicate();
-		else 
+		if ((flags&DOES_STACKS) !=0 ) {//stack processing
 			result = ip.duplicate();
-
-		//result.medianFilter();
-		backgroundSub.rollingBallBackground(result, 20, false, false, false, false, false);
-				
-		segmentation(result);
+		}
+		else 
+			result = baseImage.duplicate();
 		
-		if (previewing)
-    	{
-    		// Fill up the values of original image with values of the result
-    		for (int i = 0; i < ip.getPixelCount(); i++)
-    		{
-    			ip.setf(i, result.getf(i));
-    		}
-    		ip.resetMinAndMax();
-        }
+		
+		ImageComponentsAnalisis compAnalisys;
+		
+		//if we already processed image for previewing the current slide, then don't process it again
+		if (!(currSlice == selectedSlice && previewing && (flags&DOES_STACKS) !=0)) {
+			if (useMedian) 
+				rankFilters.rank(result, medianSize/2, RankFilters.MEDIAN);
+			backgroundSub.rollingBallBackground(result, 20, false, false, false, false, false);	
+			//ImageFunctions.normalize(result, 0.0f, 255.0f);
+			segmentation(result);
+			compAnalisys = new ImageComponentsAnalisis(result);
+			System.out.println(compAnalisys.toString());
+		}
+		
 		if (nSlices == 1)
 			stackImage.setProcessor(result);
 		else 
@@ -254,21 +264,33 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			currSlice++;
 			//System.out.println("in curr_slice++");
 		}
+		
+		if (previewing && (flags&DOES_STACKS) == 0)
+    	{
+			// System.out.println("in prev");
+    		// Fill up the values of original image with values of the result
+    		for (int i = 0; i < ip.getPixelCount(); i++)     		{
+    			ip.setf(i, result.getf(i));
+    		}
+    		ip.resetMinAndMax();
+        }
 	}
 	
 	private void segmentation(ImageProcessor ip) {
 		if (isBandpass) {
 			bandpassFilter(result);
+			//ImageFunctions.normalize(result, 0f, 255f);
 		}
 		else { //gradient
 			gaussian.GradientMagnitudeGaussian(result, (float)sigma1);
+			ImageFunctions.clippingIntensity(result, 0, 500);
 			//gaussian.GradientMagnitudeGaussian(result_t, (float)sigma2);
 			//calc.sub(result, result_t);
 		}
 		if (doThreshold) {
 			calc.threshold(result, minThreshold, maxThreshold);
-			result = GeodesicReconstruction.fillHoles(result);
-			
+			//result = GeodesicReconstruction.fillHoles(result);
+			/*
 			Operation op = Operation.BOTTOMHAT;
 			Shape shape = Shape.DISK;
 			Strel strel = shape.fromRadius(20);
@@ -282,13 +304,18 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			GrayscaleAttributeFilteringPlugin attrFilt = new GrayscaleAttributeFilteringPlugin();
 			AreaOpeningQueue algo = new AreaOpeningQueue();
 			algo.setConnectivity(4);
-			result = algo.process(result, 80);
+			result = algo.process(result, 80);*/
+			
 			//attrFilt.
 			//calc.byteToFloatBinary((FloatProcessor)result, bp);
 			//ImagePlus img_t = new ImagePlus("test", bp);
 			//img_t.show();
 			//IJ.selectWindow(img_t.getID());
 		}
+	}
+	
+	void componentFiltering(ImageProcessor ip) {
+		
 	}
 
 	/**
@@ -367,9 +394,13 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			new ImageJ();
 
 			// open one image of sequence. T0104 is for segmentation, T0050 is with mitosis
-			ImagePlus image = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0015.tif");
+			ImagePlus image = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0001.tif");
 			ImagePlus image_stack20 = IJ.openImage("C:\\Tokyo\\C002_Movement.tif");
+			ImagePlus image105 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0105.tif");
+			ImagePlus image_c10 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010910\\T0001.tif");			
+			
 			//image = image_stack20;
+			//image = image_c10;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();
@@ -405,5 +436,4 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	{
 		return baseImage.getShortTitle() + "-" + "result";
 	}
-
 }

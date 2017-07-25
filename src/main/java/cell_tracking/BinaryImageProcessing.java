@@ -3,12 +3,21 @@ package cell_tracking;
 import ij.process.ImageProcessor;
 import java.util.ArrayList;
 import java.util.List;
+import inra.ijpb.morphology.AttributeFiltering;
+import inra.ijpb.morphology.GeodesicReconstruction;
+import inra.ijpb.morphology.Morphology.Operation;
+import inra.ijpb.morphology.Strel;
+import inra.ijpb.morphology.Strel.Shape;
+import inra.ijpb.morphology.attrfilt.AreaOpeningQueue;
+import inra.ijpb.plugins.*;
 
 /* Class for processing binary images */
 // better use already existing MorphoLibJ plugin...
 public class BinaryImageProcessing {
 	
-	/* labels connected components in binary image with different intensity values */
+	/**
+	 * @deprecated - doesn't work, using from morpholibj
+	 * labels connected components in binary image with different intensity values */
 	public void labelBinary(ImageProcessor ip) {
 		// let's try to make two-path algorithm
 		// first, set all 255 values to -1 (aka "not seen")
@@ -49,6 +58,23 @@ public class BinaryImageProcessing {
 				}
 			}
 		}
+	}
+	
+	/* function does invertion, then opening with big radius to remove holes and reduce concavities in binary image */
+	public void FillAndAmoothForegroundFloatBinary(ImageProcessor ip) {	
+		Operation op = Operation.CLOSING;
+		Shape shape = Shape.DISK;
+		Strel strel = shape.fromRadius(10);
+		
+		ip = op.apply(ip, strel);
+		
+		/*bp = (ByteProcessor) op.apply(bp, strel);
+		bp = (ByteProcessor) GeodesicReconstruction.killBorders(bp);
+		GrayscaleAttributeFilteringPlugin attrFilt = new GrayscaleAttributeFilteringPlugin();
+		AreaOpeningQueue algo = new AreaOpeningQueue();
+		algo.setConnectivity(4);
+		result = algo.process(result, 80);*/
+		
 	}
 	
 	/* returns label of top or left pixel if it has one. Otherwise returns the next index */
