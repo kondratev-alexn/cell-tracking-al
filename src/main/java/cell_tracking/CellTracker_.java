@@ -240,7 +240,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			result = baseImage.duplicate();
 		
 		
-		ImageComponentsAnalisis compAnalisys;
+		
 		
 		//if we already processed image for previewing the current slide, then don't process it again
 		if (!(currSlice == selectedSlice && previewing && (flags&DOES_STACKS) !=0)) {
@@ -248,9 +248,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 				rankFilters.rank(result, medianSize/2, RankFilters.MEDIAN);
 			backgroundSub.rollingBallBackground(result, 20, false, false, false, false, false);	
 			//ImageFunctions.normalize(result, 0.0f, 255.0f);
-			segmentation(result);
-			compAnalisys = new ImageComponentsAnalisis(result);
-			System.out.println(compAnalisys.toString());
+			segmentation(result);	
+			result = result.convertToFloatProcessor();
+			
 		}
 		
 		if (nSlices == 1)
@@ -282,35 +282,20 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			//ImageFunctions.normalize(result, 0f, 255f);
 		}
 		else { //gradient
-			gaussian.GradientMagnitudeGaussian(result, (float)sigma1);
-			ImageFunctions.clippingIntensity(result, 0, 500);
+			//gaussian.GradientMagnitudeGaussian(result, (float)sigma1);
+			//ImageFunctions.clippingIntensity(result, 0, 500);
 			//gaussian.GradientMagnitudeGaussian(result_t, (float)sigma2);
 			//calc.sub(result, result_t);
 		}
 		if (doThreshold) {
 			calc.threshold(result, minThreshold, maxThreshold);
-			//result = GeodesicReconstruction.fillHoles(result);
-			/*
-			Operation op = Operation.BOTTOMHAT;
-			Shape shape = Shape.DISK;
-			Strel strel = shape.fromRadius(20);
-
-			result = op.apply(result, strel);
-			result.invert();
 			
-			result = GeodesicReconstruction.killBorders(result);
-			//bp = (ByteProcessor) op.apply(bp, strel);
-			//bp = (ByteProcessor) GeodesicReconstruction.killBorders(bp);
-			GrayscaleAttributeFilteringPlugin attrFilt = new GrayscaleAttributeFilteringPlugin();
-			AreaOpeningQueue algo = new AreaOpeningQueue();
-			algo.setConnectivity(4);
-			result = algo.process(result, 80);*/
+			ImageComponentsAnalysis compAnalisys;
+			compAnalisys = new ImageComponentsAnalysis(result);
+			//System.out.println(compAnalisys.toString());
+			result = compAnalisys.getFilteredComponentsIp(50, 600, 0.7f, 0.95f);
+			//System.out.println(compAnalisys.toString());
 			
-			//attrFilt.
-			//calc.byteToFloatBinary((FloatProcessor)result, bp);
-			//ImagePlus img_t = new ImagePlus("test", bp);
-			//img_t.show();
-			//IJ.selectWindow(img_t.getID());
 		}
 	}
 	
@@ -399,7 +384,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image105 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0105.tif");
 			ImagePlus image_c10 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010910\\T0001.tif");			
 			
-			//image = image_stack20;
+			image = image_stack20;
 			//image = image_c10;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
