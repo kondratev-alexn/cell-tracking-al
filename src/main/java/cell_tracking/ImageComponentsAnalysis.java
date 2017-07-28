@@ -19,7 +19,6 @@ public class ImageComponentsAnalysis {
 		h = ip.getHeight();
 		image = BinaryImages.componentsLabeling(ip, 4, 16);
 		nComponents = (int)image.getMax();
-		System.out.println(nComponents);
 		properties = new ArrayList<ComponentProperties>(nComponents);
 		for (int i=0; i<nComponents; i++)
 			properties.add(new ComponentProperties());
@@ -97,8 +96,6 @@ public class ImageComponentsAnalysis {
 		
 		// delete components
 		for (int i=list.size() - 1; i>=0 ; i--) {
-			System.out.println(list.get(i)+1);
-			System.out.println(properties.get(list.get(i)).intensity);
 			removeComponent(image, properties.get(list.get(i)).intensity);
 		}
 	}
@@ -111,7 +108,7 @@ public class ImageComponentsAnalysis {
 	/* removes component with given intensity from properties, and deletes it from image */
 	private void removeComponent(ImageProcessor image, int intensity) {
 		int x0,x1,y0,y1, nComp;
-		nComp = findComponentIndexByIntencity(intensity);
+		nComp = findComponentIndexByIntensity(intensity);
 		x0 = properties.get(nComp).xmin;
 		x1 = properties.get(nComp).xmax;
 		y0 = properties.get(nComp).ymin;
@@ -126,7 +123,7 @@ public class ImageComponentsAnalysis {
 	}
 	
 	/* return index of component with given intensity. Returns -1 if not found */
-	private int findComponentIndexByIntencity(int intensity) {
+	private int findComponentIndexByIntensity(int intensity) {
 		for (int i=0; i<properties.size(); i++)
 			if (properties.get(i).intensity == intensity) return i;
 		return -1;

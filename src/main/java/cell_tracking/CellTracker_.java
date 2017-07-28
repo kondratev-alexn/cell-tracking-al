@@ -1,8 +1,9 @@
 package cell_tracking;
 
 import java.awt.AWTEvent;
-
+import java.awt.Scrollbar;
 import java.util.Arrays;
+import java.util.Vector;
 
 import ij.IJ;
 import ij.ImageJ;
@@ -31,6 +32,7 @@ import ij.plugin.Converter;
 import ij.plugin.filter.BackgroundSubtracter;
 import ij.plugin.filter.RankFilters;
 import inra.ijpb.binary.BinaryImages;
+import inra.ijpb.binary.ChamferWeights;
 import inra.ijpb.morphology.AttributeFiltering;
 import inra.ijpb.morphology.GeodesicReconstruction;
 import inra.ijpb.morphology.Morphology.Operation;
@@ -38,6 +40,8 @@ import inra.ijpb.morphology.Strel;
 import inra.ijpb.morphology.Strel.Shape;
 import inra.ijpb.morphology.attrfilt.AreaOpeningQueue;
 import inra.ijpb.plugins.*;
+import inra.ijpb.watershed.ExtendedMinimaWatershed;
+import inra.ijpb.watershed.Watershed;
 
 public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	
@@ -56,13 +60,16 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private ImageProcessor baseImage;
 	
 	/** Keep instance of result image */
-	private ImageProcessor result;		
+	private ImageProcessor result;	
+	
+	/* for storing thresholded intensity image */
+	private ImageProcessor thresholdedIntensity;
 	
 	/* image for displaing result on stacks */
 	private ImagePlus stackImage;
 	
-	private int currSlice = 1;
-	private int selectedSlice;
+	private int currSlice = 1;		// slice number for stack processing
+	private int selectedSlice;		// currently selected slice
 
 	// sigmas for bandpass algorithm
 	public double sigma1 = 1.40;
@@ -72,10 +79,17 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private double medianSize = 5;
 	private double minThreshold = -50;
 	private double maxThreshold = -2;
+	private int minArea = 70;
+	private int maxArea = 500;
+	private float minCircularity = 0.5f;
+	private float maxCircularity = 0.95f;
 	private boolean useMedian = false;
 	private boolean isBandpass = false;
 	private boolean doThreshold = false;
+	private boolean filterComponents = false;
 	private boolean previewing = false;
+	
+	private Vector sliders;
 
 	private final float sigmaMax = 50;	// max value of sigmas
 	
@@ -157,6 +171,8 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
     	this.baseImage = imp.getProcessor().duplicate();
     	stackImage = imp.duplicate();
         nChannels = imp.getProcessor().getNChannels();
+        currSlice = 1;
+        selectedSlice = imp.getCurrentSlice();
         
         GenericDialog gd = new GenericDialog(command);
         fillGenericDialog(gd, pfr);
@@ -168,8 +184,6 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
         	return DONE;
         }
         
-        currSlice = 1;
-        selectedSlice = imp.getCurrentSlice();
         IJ.register(this.getClass());       // protect static class variables (parameters) from garbage collection
         //return flags;
         flags = IJ.setupDialog(imp, flags); // ask whether to process all slices of stack (if a stack)
@@ -184,11 +198,17 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
         gd.addNumericField("Sigma (hat)", 5.00, 2);
         gd.addNumericField("Min threshold", minThreshold, 3);
         gd.addNumericField("Max threshold", maxThreshold, 3);
+        gd.addNumericField("Min area", minArea, 0);
+        gd.addNumericField("Max area", maxArea, 0);
+        gd.addNumericField("Min circularity", minCircularity, 3);
+        gd.addNumericField("Max circularity", maxCircularity, 3);
         gd.addCheckbox("Median Filter", true);
         gd.addCheckbox("Bandpass?", true);
         gd.addCheckbox("Threshold", true);
+        gd.addCheckbox("Filter components", false);
         gd.addPreviewCheckbox(pfr);
         gd.addDialogListener(this);
+        gd.addSlider("Slice", 1, nSlices, selectedSlice);
 	}
 
 	@Override
@@ -214,10 +234,23 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		sigma3 = gd.getNextNumber();
 		minThreshold = gd.getNextNumber();
 		maxThreshold = gd.getNextNumber();
+		minArea = (int)gd.getNextNumber();
+		maxArea = (int)gd.getNextNumber();
+		minCircularity = (float)gd.getNextNumber();
+		maxCircularity = (float)gd.getNextNumber();
 		useMedian = gd.getNextBoolean();
 		isBandpass = gd.getNextBoolean();
 		doThreshold = gd.getNextBoolean();
-		previewing = gd.getPreviewCheckbox().getState();		
+		filterComponents = gd.getNextBoolean();
+		previewing = gd.getPreviewCheckbox().getState();
+		
+		// change image if current slice changed
+		sliders = gd.getSliders();
+		selectedSlice = ((Scrollbar)sliders.get(0)).getValue();
+		resetPreview();
+		imagePlus.setSlice(selectedSlice);
+		stackImage.setSliceWithoutUpdate(selectedSlice);
+		baseImage = imagePlus.getProcessor().duplicate();		
 		
 		if (sigma1 > sigmaMax) sigma1 = sigmaMax;
 		if (sigma2 > sigmaMax) sigma2 = sigmaMax;
@@ -237,21 +270,21 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			result = ip.duplicate();
 		}
 		else 
-			result = baseImage.duplicate();
-		
-		
-		
+			result = baseImage.duplicate();		
+		thresholdedIntensity = result.duplicate();
 		
 		//if we already processed image for previewing the current slide, then don't process it again
-		if (!(currSlice == selectedSlice && previewing && (flags&DOES_STACKS) !=0)) {
-			if (useMedian) 
-				rankFilters.rank(result, medianSize/2, RankFilters.MEDIAN);
-			backgroundSub.rollingBallBackground(result, 20, false, false, false, false, false);	
-			//ImageFunctions.normalize(result, 0.0f, 255.0f);
-			segmentation(result);	
-			result = result.convertToFloatProcessor();
-			
-		}
+		//if (!(currSlice == selectedSlice && previewing && (flags&DOES_STACKS) !=0)) {
+		if (useMedian) 
+			rankFilters.rank(result, medianSize/2, RankFilters.MEDIAN);
+		backgroundSub.rollingBallBackground(result, 20, false, false, false, false, false);
+		//ImageFunctions.normalize(result, 0.0f, 255.0f);
+		segmentation(result);
+		result = result.convertToFloatProcessor();
+		result.resetMinAndMax();
+		//}
+		
+
 		
 		if (nSlices == 1)
 			stackImage.setProcessor(result);
@@ -269,7 +302,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
     	{
 			// System.out.println("in prev");
     		// Fill up the values of original image with values of the result
-    		for (int i = 0; i < ip.getPixelCount(); i++)     		{
+    		for (int i = 0; i < ip.getPixelCount(); i++) {
     			ip.setf(i, result.getf(i));
     		}
     		ip.resetMinAndMax();
@@ -288,15 +321,53 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			//calc.sub(result, result_t);
 		}
 		if (doThreshold) {
-			calc.threshold(result, minThreshold, maxThreshold);
-			
-			ImageComponentsAnalysis compAnalisys;
-			compAnalisys = new ImageComponentsAnalysis(result);
-			//System.out.println(compAnalisys.toString());
-			result = compAnalisys.getFilteredComponentsIp(50, 600, 0.7f, 0.95f);
-			//System.out.println(compAnalisys.toString());
-			
+			//need to use the result of the algo from the first frame somehow, and/or result of intensity thresholding
+			ImageFunctions.threshold(result, minThreshold, maxThreshold);
+
+			if (filterComponents) {
+				// first, do some watershedding
+				float[] weights = ChamferWeights.BORGEFORS.getFloatWeights();
+				final ImageProcessor dist =
+						BinaryImages.distanceMap(ImageFunctions.getBinary(result), weights, true );
+				dist.invert();
+				//ImagePlus test = new ImagePlus("dist", dist);
+				//test.show();
+
+				result = ExtendedMinimaWatershed.extendedMinimaWatershed(
+						dist, result, 1, 4, false );
+				
+				ImageComponentsAnalysis compAnalisys;
+				compAnalisys = new ImageComponentsAnalysis(result);
+				
+				result = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity);
+
+				/* here, after the main part of the algorithm, do the following to obtain better segmentation:
+				 * - Do closing with disc_5 radius on T-d bandpass image.
+				 * - Get T-d intensity image (median 8, Tmin = -100, Tmax = 15)
+				 * - Watershed T-d intensity image
+				 * - add black background from intensity T-d to bandpassed (simple AND)
+				 * - ???
+				 * - PROFIT. Now sells are separated. I hope.
+				 * */
+				
+				/*Operation op = Operation.CLOSING;
+				Strel.Shape shape = Strel.Shape.DISK;
+				Strel strel = shape.fromRadius(5);
+				result = result.convertToShortProcessor();
+				op.apply(result, strel); //closing with disc_5 R
+				result = result.convertToFloatProcessor();*/
+				
+				
+				rankFilters.rank(thresholdedIntensity, 4, RankFilters.MEDIAN);
+				backgroundSub.rollingBallBackground(thresholdedIntensity, 20, false, false, false, false, false);
+				ImageFunctions.threshold(thresholdedIntensity, -100, 15);
+				
+				
+				
+				//ImageFunctions.AND(result, thresholdedIntensity);
+			}
 		}
+
 	}
 	
 	void componentFiltering(ImageProcessor ip) {

@@ -27,6 +27,30 @@ public class ImageFunctions {
 		}		
 	}
 	
+	/* leave areas with values between minValue and maxValue */
+	public static void threshold(ImageProcessor ip, double minValue, double maxValue) {
+		int w = ip.getWidth(), h = ip.getHeight();
+		for (int y=0; y < h; y++) {
+			for (int x=0; x < w; x++) {
+				 /*if (ip.getf(x, y) < minValue)
+					ip.setf(x, y, (float)minValue);
+				else if (ip.getf(x, y) > maxValue)
+					ip.setf(x, y, (float)maxValue); */
+				if (ip.getf(x, y) < minValue || ip.getf(x,y) > maxValue)
+					ip.setf(x, y, 0);
+				else ip.setf(x, y, 255);				
+			}
+		}
+	}
+	
+	/* computes AND of two float-binary images and saves result into ip1 */
+	public static void AND(ImageProcessor ip1, ImageProcessor ip2) {
+		//if (ip1.getPixelCount() != ip2.getPixelCount()) return;
+		for (int i=0; i<ip1.getPixelCount(); i++) {			
+			ip1.setf(i, ip1.get(i)&ip2.get(i));
+		}
+	}
+	
 	/* sets pixels below minValue to minValue, and higher than maxValue to maxValue */ 
 	public static void clippingIntensity(ImageProcessor ip, float minValue, float maxValue) {
 		for (int i=0; i<ip.getPixelCount(); i++) {
@@ -37,13 +61,13 @@ public class ImageFunctions {
 		}
 	}
 	
-	/* return binary image by 200-value thresholding */
+	/* return binary image by 0-value thresholding */
 	public static ImageProcessor getBinary(ImageProcessor fp) {
 		int w = fp.getWidth(), h = fp.getHeight();
 		ImageProcessor ip = new ByteProcessor(w, h);
 		for (int y=0; y < h; y++) {
 			for (int x=0; x < w; x++) {
-				if (fp.getf(x,y) > 200 )
+				if (fp.getf(x,y) > 0)
 					ip.setf(x, y, 255);
 			}
 		}

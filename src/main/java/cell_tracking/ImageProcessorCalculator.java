@@ -46,20 +46,5 @@ public class ImageProcessorCalculator {
 			}
 		}
 	}
-	
-	/* leave areas with values between minValue and maxValue */
-	public void threshold(ImageProcessor ip, double minValue, double maxValue) {
-		int w = ip.getWidth(), h = ip.getHeight();
-		for (int y=0; y < h; y++) {
-			for (int x=0; x < w; x++) {
-				 /*if (ip.getf(x, y) < minValue)
-					ip.setf(x, y, (float)minValue);
-				else if (ip.getf(x, y) > maxValue)
-					ip.setf(x, y, (float)maxValue); */
-				if (ip.getf(x, y) < minValue || ip.getf(x,y) > maxValue)
-					ip.setf(x, y, 0);
-				else ip.setf(x, y, 255);				
-			}
-		}
-	}		
+		
 }
