@@ -41,7 +41,9 @@ import inra.ijpb.morphology.Strel.Shape;
 import inra.ijpb.morphology.attrfilt.AreaOpeningQueue;
 import inra.ijpb.plugins.*;
 import inra.ijpb.watershed.ExtendedMinimaWatershed;
+import inra.ijpb.watershed.MarkerControlledWatershedTransform2D;
 import inra.ijpb.watershed.Watershed;
+import ij.plugin.filter.MaximumFinder;
 
 public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	
@@ -74,7 +76,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	// sigmas for bandpass algorithm
 	public double sigma1 = 1.40;
 	public double sigma2 = 5.00;
-	public double sigma3;
+	public double sigma3 = 1.40;
 	
 	private double medianSize = 5;
 	private double minThreshold = -50;
@@ -195,7 +197,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		gd.addNumericField("median filter size", medianSize, 0);
 		gd.addNumericField("Sigma1:", sigma1, 2);
         gd.addNumericField("Sigma2:", sigma2, 2);
-        gd.addNumericField("Sigma (hat)", 5.00, 2);
+        gd.addNumericField("Sigma3 (gradient)", sigma3, 2);
         gd.addNumericField("Min threshold", minThreshold, 3);
         gd.addNumericField("Max threshold", maxThreshold, 3);
         gd.addNumericField("Min area", minArea, 0);
@@ -275,16 +277,17 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		
 		//if we already processed image for previewing the current slide, then don't process it again
 		//if (!(currSlice == selectedSlice && previewing && (flags&DOES_STACKS) !=0)) {
-		if (useMedian) 
+		
+		// preprocess image first
+		if (useMedian)
 			rankFilters.rank(result, medianSize/2, RankFilters.MEDIAN);
 		backgroundSub.rollingBallBackground(result, 20, false, false, false, false, false);
-		//ImageFunctions.normalize(result, 0.0f, 255.0f);
-		segmentation(result);
+		
+		maximaWatershedSegmentation(result);
+		//segmentation(result);
 		result = result.convertToFloatProcessor();
 		result.resetMinAndMax();
 		//}
-		
-
 		
 		if (nSlices == 1)
 			stackImage.setProcessor(result);
@@ -309,13 +312,14 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
         }
 	}
 	
+	// first try on segmentation algorithm - threshold of bandpass filter with postprocessing of segmented blobs
 	private void segmentation(ImageProcessor ip) {
 		if (isBandpass) {
 			bandpassFilter(result);
 			//ImageFunctions.normalize(result, 0f, 255f);
 		}
 		else { //gradient
-			//gaussian.GradientMagnitudeGaussian(result, (float)sigma1);
+			gaussian.GradientMagnitudeGaussian(result, (float)sigma1);
 			//ImageFunctions.clippingIntensity(result, 0, 500);
 			//gaussian.GradientMagnitudeGaussian(result_t, (float)sigma2);
 			//calc.sub(result, result_t);
@@ -370,8 +374,28 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 
 	}
 	
-	void componentFiltering(ImageProcessor ip) {
+	// Yaginuma version of the algorithm, with finding maxima and marker-controlled watershed, then post-processing 
+	private void maximaWatershedSegmentation(ImageProcessor ip) {
+		// assume ip is already preprocessed, i.e. filtered, background subtracted
+		ImageProcessor marker = ip.duplicate();
+		gaussian.GradientMagnitudeGaussian(ip, (float) sigma3);
 		
+
+		marker = marker.convertToByteProcessor(false);
+		bandpassFilter(marker);
+		marker.invert();
+		ImagePlus img = new ImagePlus("test watershed", marker);
+		img.show();
+		MaximumFinder maxfinder = new MaximumFinder();
+		marker = maxfinder.findMaxima(marker, 5, MaximumFinder.SINGLE_POINTS, true);
+		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(ip, marker, null, 4);
+		
+		ip = watershed.applyWithPriorityQueue();
+		
+	}
+
+	void componentFiltering(ImageProcessor ip) {
+
 	}
 
 	/**
@@ -455,7 +479,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image105 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0105.tif");
 			ImagePlus image_c10 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010910\\T0001.tif");			
 			
-			image = image_stack20;
+			//image = image_stack20;
 			//image = image_c10;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();

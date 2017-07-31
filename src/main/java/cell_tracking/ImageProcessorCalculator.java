@@ -46,5 +46,13 @@ public class ImageProcessorCalculator {
 			}
 		}
 	}
+	
+	/* calculates square root for each pixel */
+	public void sqrt(ImageProcessor ip) {
+		int w = ip.getWidth(), h = ip.getHeight();
+		for (int i=0; i<ip.getPixelCount(); i++) {
+			ip.setf(i, (float) Math.sqrt(ip.getf(i)));
+		}
+	}
 		
 }

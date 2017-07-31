@@ -45,6 +45,7 @@ public class Gaussian {
 		calc.multiply(ip, ip);
 		calc.multiply(fpy, fpy);
 		calc.add(ip, fpy);
+		calc.sqrt(ip);
 	}
 	
 	/* get 1d gaussian kernel, normalized */
