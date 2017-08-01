@@ -76,17 +76,18 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	// sigmas for bandpass algorithm
 	public double sigma1 = 1.40;
 	public double sigma2 = 5.00;
-	public double sigma3 = 1.40;
+	public double sigma3 = 1.70;
 	
-	private double medianSize = 5;
-	private double minThreshold = -50;
-	private double maxThreshold = -2;
+	private double medianSize = 3;
+	private double minThreshold = 20;
+	private double maxThreshold = 50;
 	private int minArea = 70;
 	private int maxArea = 500;
 	private float minCircularity = 0.5f;
 	private float maxCircularity = 0.95f;
 	private boolean useMedian = false;
 	private boolean isBandpass = false;
+	private boolean useOtsuThreshold = false;
 	private boolean doThreshold = false;
 	private boolean filterComponents = false;
 	private boolean previewing = false;
@@ -206,6 +207,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
         gd.addNumericField("Max circularity", maxCircularity, 3);
         gd.addCheckbox("Median Filter", true);
         gd.addCheckbox("Bandpass?", true);
+        gd.addCheckbox("Use Auto Otsu threshold", useOtsuThreshold);
         gd.addCheckbox("Threshold", true);
         gd.addCheckbox("Filter components", false);
         gd.addPreviewCheckbox(pfr);
@@ -242,6 +244,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		maxCircularity = (float)gd.getNextNumber();
 		useMedian = gd.getNextBoolean();
 		isBandpass = gd.getNextBoolean();
+		useOtsuThreshold = gd.getNextBoolean();
 		doThreshold = gd.getNextBoolean();
 		filterComponents = gd.getNextBoolean();
 		previewing = gd.getPreviewCheckbox().getState();
@@ -283,7 +286,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			rankFilters.rank(result, medianSize/2, RankFilters.MEDIAN);
 		backgroundSub.rollingBallBackground(result, 20, false, false, false, false, false);
 		
-		maximaWatershedSegmentation(result);
+		result = maximaWatershedSegmentation(result, sigma3, minThreshold, maxThreshold);
 		//segmentation(result);
 		result = result.convertToFloatProcessor();
 		result.resetMinAndMax();
@@ -312,7 +315,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
         }
 	}
 	
-	// first try on segmentation algorithm - threshold of bandpass filter with postprocessing of segmented blobs
+	/* first try on segmentation algorithm - threshold of bandpass filter with postprocessing of segmented blobs */
 	private void segmentation(ImageProcessor ip) {
 		if (isBandpass) {
 			bandpassFilter(result);
@@ -374,28 +377,43 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 
 	}
 	
-	// Yaginuma version of the algorithm, with finding maxima and marker-controlled watershed, then post-processing 
-	private void maximaWatershedSegmentation(ImageProcessor ip) {
+	/* Yaginuma version of the algorithm, with finding maxima and marker-controlled watershed, then post-processing 
+	 * I changed gradient threshold to canny edge detection for flooding
+	 */
+	private ImageProcessor maximaWatershedSegmentation(ImageProcessor ip, double sigma, double minThreshold, double maxThreshold) {
 		// assume ip is already preprocessed, i.e. filtered, background subtracted
 		ImageProcessor marker = ip.duplicate();
-		gaussian.GradientMagnitudeGaussian(ip, (float) sigma3);
+		//gaussian.GradientMagnitudeGaussian(ip, (float) sigma);
+		if (isBandpass)
+			bandpassFilter(marker);
+		marker = ImageFunctions.operationMorph(marker, Operation.CLOSING, Strel.Shape.DISK, 2);
 		
-
-		marker = marker.convertToByteProcessor(false);
-		bandpassFilter(marker);
+		if (false) 
+			gaussian.GradientMagnitudeGaussian(ip, (float) sigma3);
+		else ip = ImageFunctions.Canny(marker, sigma, minThreshold, maxThreshold, 0, 0, useOtsuThreshold);
+		
+		if (doThreshold)
+			return ip;
+		if (isBandpass)
+			//bandpassFilter(marker);
 		marker.invert();
-		ImagePlus img = new ImagePlus("test watershed", marker);
-		img.show();
 		MaximumFinder maxfinder = new MaximumFinder();
-		marker = maxfinder.findMaxima(marker, 5, MaximumFinder.SINGLE_POINTS, true);
+		marker = maxfinder.findMaxima(marker, 3, MaximumFinder.SINGLE_POINTS, true);
+
 		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(ip, marker, null, 4);
 		
-		ip = watershed.applyWithPriorityQueue();
-		
-	}
+		//ImageFunctions.Copy(ip, ExtendedMinimaWatershed.extendedMinimaWatershed(ip, 1, 4));
 
-	void componentFiltering(ImageProcessor ip) {
-
+		//ImagePlus img = new ImagePlus("test watershed", ip);
+		//img.show();
+		ip = watershed.apply(0, 255);
+		if (filterComponents) {
+			ImageComponentsAnalysis compAnalisys;
+			compAnalisys = new ImageComponentsAnalysis(ip);
+			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity);
+		}
+			
+		return ip;
 	}
 
 	/**
@@ -479,7 +497,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image105 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0105.tif");
 			ImagePlus image_c10 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010910\\T0001.tif");			
 			
-			//image = image_stack20;
+			image = image_stack20;
 			//image = image_c10;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();

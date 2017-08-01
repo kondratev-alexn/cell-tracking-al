@@ -1,8 +1,11 @@
 package cell_tracking;
 
+import ij.ImagePlus;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import inra.ijpb.morphology.Strel;
+import inra.ijpb.morphology.Morphology.Operation;
 
 /* Class for different image processing functions, like maybe filtering for certain processors, or normalizing the image */
 public class ImageFunctions {
@@ -17,8 +20,6 @@ public class ImageFunctions {
 			if (v < ipmin) ipmin = v;
 			if (v > ipmax) ipmax = v;
 		}
-		System.out.println(ipmin);
-		System.out.println(ipmax);
 		
 		// normalize
 		for (int i=0; i<ip.getPixelCount(); i++) {
@@ -51,6 +52,169 @@ public class ImageFunctions {
 		}
 	}
 	
+	/* returns the result of morphological operation "op" from MorpholibJ plugin with element type "shape" and "radius" */
+	public static ImageProcessor operationMorph(ImageProcessor ip, Operation op, Strel.Shape shape, int radius) {
+		Strel strel = shape.fromRadius(radius);
+		return op.apply(ip, strel);
+	}
+	
+	/* copies src image to dest image */
+	public static void Copy(ImageProcessor dest, ImageProcessor src) {
+		for (int i=0; i<src.getPixelCount(); i++) {			
+			dest.setf(i, src.getf(i));
+		}
+	}
+	
+	// Canny edge detection with thresholds t1,t2 and sigma-gaussian blur
+    public static ImageProcessor Canny(ImageProcessor ip, double sigma, double t1, double t2, int offx, int offy, boolean useOtsuThreshold)
+    {
+    	final int h = ip.getHeight();
+    	final int w = ip.getWidth();
+        ImageProcessor Gx = ip.duplicate();
+        ImageProcessor Gy = ip.duplicate();
+        Gaussian gaus = new Gaussian();
+        gaus.GaussianDerivativeX(Gx, (float) sigma);
+        gaus.GaussianDerivativeY(Gy, (float) sigma);
+        final double cosPi8 = Math.cos(Math.PI / 8), cos3Pi8 = Math.cos(3 * Math.PI / 8);
+        final double Pi8=Math.PI/8;
+        final double Pi4 = Math.PI/4, _3Pi4 = Math.PI*3/4;
+
+        ImageProcessor Grad = ip.duplicate();
+        gaus.GradientMagnitudeGaussian(Grad, (float) sigma);
+        normalize(Grad, 0, 255);
+        ImageProcessor t = Grad.duplicate();
+        double theta;
+        float v1, v2;
+        
+        // Non-maximum supression
+        for (int y = 1; y < h - 1; y++)
+            for (int x = 1; x < w - 1; x++)
+            {
+                theta = Math.atan2(Gy.getf(x, y), Gx.getf(x, y));
+                /* first type of gradient orientation - not so good
+                if (theta < Pi8 && theta > -Pi8 || theta < -7 * Pi8 || theta > 7 * Pi8) //gradient is horizontal
+                {
+                    if (t.getf(x, y) < t.getf(x-1, y)) Grad.setf(x, y, 0);
+                    if (t.getf(x, y) < t.getf(x+1, y)) Grad.setf(x, y, 0);
+                }
+                else if (theta > 3 * Pi8 && theta < 5 * Pi8 || theta > -5 * Pi8 && theta < -3 * Pi8) //grad is vertical
+                {
+                    if (t.getf(x, y) < t.getf(x, y-1)) Grad.setf(x, y, 0);
+                    if (t.getf(x, y) < t.getf(x, y+1)) Grad.setf(x, y, 0);
+                }
+                else if (theta > -7 * Pi8 && theta < -5 * Pi8 || theta < 3 * Pi8 && theta > Pi8) //grad is 135
+                {
+                    if (t.getf(x, y) < t.getf(x-1, y-1)) Grad.setf(x, y, 0);
+                    if (t.getf(x, y) < t.getf(x+1, y+1)) Grad.setf(x, y, 0);
+                }
+                else //grad is 45
+                {
+                    if (t.getf(x, y) < t.getf(x+1, y-1)) Grad.setf(x, y, 0);
+                    if (t.getf(x, y) < t.getf(x-1, y+1)) Grad.setf(x, y, 0);
+                }
+                */
+               if (theta > -Pi4 && theta <= 0 || theta > 3*Pi4 && theta <= Math.PI) { //e-se
+            	   
+               }
+               else if (theta > 0 && theta <= Pi4 || theta >= - Math.PI && theta <= -3*Pi4) { //e-ne
+            	   
+               }
+               else if (theta > Pi4 && theta <= 2*Pi4 || theta > -3*Pi4 && theta < -2*Pi4) { //n-ne
+            	   
+               }
+               else { // n-nw
+            	   
+               }
+            }
+        
+        if (useOtsuThreshold) {
+        	t2 = otsu(t.convertToByteProcessor(true).getHistogram(), t.getPixelCount());
+        	t1 = t2/2.0;
+        }
+
+        // Double threshholding and tracking by hysteresis
+        for (int y = 1; y < h-1; y++)
+            for (int x = 1; x < w-1; x++)
+            {
+                if (Grad.getf(x, y) < t1) Grad.setf(x, y, 0);
+                //else if (Grad.getf(x, y) >= t1 && Grad.getf(x, y) < t2 && !CheckNearStrongEdge(Grad, x, y, t1, t2))
+                	//Grad.setf(x, y, 0);
+                else ;// Grad[x, y] = 255;  
+            }
+
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < offx; x++)
+            { 
+            	Grad.setf(x, y, 0); 
+            	Grad.setf(w-1-x, y, 0);
+            }
+        for (int x = 0; x < w; x++)
+            for (int y = 0; y < offy; y++)
+            {
+            	Grad.setf(x, y, 0);
+            	Grad.setf(x, h-1-y, 0);
+            }
+        
+        for (int y = 1; y < h-1; y++)
+            for (int x = 1; x < w-1; x++)
+            {
+                if (Grad.get(x, y) != 0) Grad.setf(x, y, 255);
+            }
+        return Grad;
+    }
+    
+    /* return interpolated value between two pixels, clockwise-oriented */
+    private float interpolatePixelByAngle(float p1, float p2, double theta) {
+    	theta = (theta + Math.PI) / Math.PI / 2.0; //norm to [0,1]
+    	return 0;
+    }
+
+    /* Function for Canny edge detection algorithm. Return true if edge at the point (x,y) belongs to the strong edge. */
+    private static boolean CheckNearStrongEdge(ImageProcessor grad, int x, int y, double t1, double t2)
+    {
+        if (grad.getf(x - 1, y - 1) >= t2) return true;
+        if (grad.getf(x - 1, y + 1) >= t2) return true;
+        if (grad.getf(x, y - 1) >= t2) return true;
+        if (grad.getf(x, y + 1) >= t2) return true;
+        if (grad.getf(x + 1, y - 1) >= t2) return true;
+        if (grad.getf(x + 1, y + 1) >= t2) return true;
+        if (grad.getf(x - 1, y) >= t2) return true;
+        if (grad.getf(x + 1, y) >= t2) return true;
+        return false;
+    }
+    
+    /* calculates otsu threshold, taken from wikipedia. Histogram is 8-bit image histogtram, pixelsNumber is total number of pixels */
+    public static float otsu(int[] histogram, int pixelsNumber) {
+    	float sum = 0;
+    	for (int i = 0; i < histogram.length; i++) //normally it will be 255 but sometimes we want to change step
+    		sum += i * histogram[i];
+    	float sumB = 0
+    			, wB = 0
+    			, wF = 0
+    			, mB
+    			, mF
+    			, max = 0
+    			, between
+    			, threshold = 0;
+    	for (int i = 0; i < 256; ++i) {
+    		wB += histogram[i];
+    		if (wB == 0)
+    			continue;
+    		wF = pixelsNumber - wB;
+    		if (wF == 0)
+    			break;
+    		sumB += i * histogram[i];
+    		mB = sumB / wB;
+    		mF = (sum - sumB) / wF;
+    		between = (float) (wB * wF * Math.pow(mB - mF, 2));
+    		if (between > max) {
+    			max = between;
+    			threshold = i;
+    		}
+    	}
+    	return threshold;
+    }
+
 	/* sets pixels below minValue to minValue, and higher than maxValue to maxValue */ 
 	public static void clippingIntensity(ImageProcessor ip, float minValue, float maxValue) {
 		for (int i=0; i<ip.getPixelCount(); i++) {
