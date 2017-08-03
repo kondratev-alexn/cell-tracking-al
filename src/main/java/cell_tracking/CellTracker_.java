@@ -283,7 +283,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		
 		// preprocess image first
 		if (useMedian)
-			rankFilters.rank(result, medianSize/2, RankFilters.MEDIAN);
+			//rankFilters.rank(result, medianSize/2, RankFilters.MEDIAN);
 		backgroundSub.rollingBallBackground(result, 20, false, false, false, false, false);
 		
 		result = maximaWatershedSegmentation(result, sigma3, minThreshold, maxThreshold);
@@ -386,19 +386,25 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		//gaussian.GradientMagnitudeGaussian(ip, (float) sigma);
 		if (isBandpass)
 			bandpassFilter(marker);
-		marker = ImageFunctions.operationMorph(marker, Operation.CLOSING, Strel.Shape.DISK, 2);
-		
-		if (false) 
-			gaussian.GradientMagnitudeGaussian(ip, (float) sigma3);
+		//marker = ImageFunctions.operationMorph(marker, Operation.CLOSING, Strel.Shape.DISK, 2);
+		if (useMedian)
+			rankFilters.rank(marker, medianSize/2, RankFilters.MEDIAN);
+		if (false)
+			gaussian.GradientMagnitudeGaussian(marker, (float) sigma3);
 		else ip = ImageFunctions.Canny(marker, sigma, minThreshold, maxThreshold, 0, 0, useOtsuThreshold);
-		
+		ImageProcessor t1 = ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_HORIZ, 1);
+		ImageProcessor t2 = ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_VERT, 1);
+		ImageProcessor t3 = ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_DIAG_UP, 1);
+		ImageProcessor t4 = ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_DIAG_DOWN, 1);
+		ImageFunctions.OR(ip, t1);
+		ImageFunctions.OR(ip, t2);
+		ImageFunctions.OR(ip, t3);
+		ImageFunctions.OR(ip, t4);
 		if (doThreshold)
 			return ip;
-		if (isBandpass)
-			//bandpassFilter(marker);
 		marker.invert();
 		MaximumFinder maxfinder = new MaximumFinder();
-		marker = maxfinder.findMaxima(marker, 3, MaximumFinder.SINGLE_POINTS, true);
+		marker = maxfinder.findMaxima(marker, 5, MaximumFinder.SINGLE_POINTS, true);
 
 		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(ip, marker, null, 4);
 		

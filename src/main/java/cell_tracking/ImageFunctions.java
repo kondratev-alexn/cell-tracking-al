@@ -1,11 +1,13 @@
 package cell_tracking;
 
 import ij.ImagePlus;
+import ij.plugin.filter.RankFilters;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import inra.ijpb.morphology.Strel;
 import inra.ijpb.morphology.Morphology.Operation;
+
 
 /* Class for different image processing functions, like maybe filtering for certain processors, or normalizing the image */
 public class ImageFunctions {
@@ -52,6 +54,14 @@ public class ImageFunctions {
 		}
 	}
 	
+	/* computes OR of two float-binary images and saves result into ip1 */
+	public static void OR(ImageProcessor ip1, ImageProcessor ip2) {
+		//if (ip1.getPixelCount() != ip2.getPixelCount()) return;
+		for (int i=0; i<ip1.getPixelCount(); i++) {			
+			if (ip1.getf(i) > 10 || ip2.getf(i) > 10) ip1.setf(i, 255);
+		}
+	}
+	
 	/* returns the result of morphological operation "op" from MorpholibJ plugin with element type "shape" and "radius" */
 	public static ImageProcessor operationMorph(ImageProcessor ip, Operation op, Strel.Shape shape, int radius) {
 		Strel strel = shape.fromRadius(radius);
@@ -73,36 +83,38 @@ public class ImageFunctions {
         ImageProcessor Gx = ip.duplicate();
         ImageProcessor Gy = ip.duplicate();
         Gaussian gaus = new Gaussian();
+        
         gaus.GaussianDerivativeX(Gx, (float) sigma);
         gaus.GaussianDerivativeY(Gy, (float) sigma);
-        final double cosPi8 = Math.cos(Math.PI / 8), cos3Pi8 = Math.cos(3 * Math.PI / 8);
         final double Pi8=Math.PI/8;
-        final double Pi4 = Math.PI/4, _3Pi4 = Math.PI*3/4;
-
+        final double Pi4 = Math.PI/4;
+        
         ImageProcessor Grad = ip.duplicate();
         gaus.GradientMagnitudeGaussian(Grad, (float) sigma);
+        //Grad = operationMorph(Grad, Operation.EROSION, Strel.Shape.DISK, 1);
         normalize(Grad, 0, 255);
         ImageProcessor t = Grad.duplicate();
         double theta;
-        float v1, v2;
+        double v1 = 0, v2 = 0;
         
         // Non-maximum supression
         for (int y = 1; y < h - 1; y++)
             for (int x = 1; x < w - 1; x++)
             {
                 theta = Math.atan2(Gy.getf(x, y), Gx.getf(x, y));
-                /* first type of gradient orientation - not so good
-                if (theta < Pi8 && theta > -Pi8 || theta < -7 * Pi8 || theta > 7 * Pi8) //gradient is horizontal
+                // theta = theta > Math.PI / 2 ? theta - Math.PI/2 : theta + Math.PI / 2; // make orthogonal angle from -pi:pi
+                // first type of gradient orientation - not so good
+                if (theta <= Pi8 && theta > -Pi8 || theta <= -7 * Pi8 || theta > 7 * Pi8) //gradient is horizontal
                 {
                     if (t.getf(x, y) < t.getf(x-1, y)) Grad.setf(x, y, 0);
                     if (t.getf(x, y) < t.getf(x+1, y)) Grad.setf(x, y, 0);
                 }
-                else if (theta > 3 * Pi8 && theta < 5 * Pi8 || theta > -5 * Pi8 && theta < -3 * Pi8) //grad is vertical
+                else if (theta > 3 * Pi8 && theta <= 5 * Pi8 || theta > -5 * Pi8 && theta <= -3 * Pi8) //grad is vertical
                 {
                     if (t.getf(x, y) < t.getf(x, y-1)) Grad.setf(x, y, 0);
                     if (t.getf(x, y) < t.getf(x, y+1)) Grad.setf(x, y, 0);
                 }
-                else if (theta > -7 * Pi8 && theta < -5 * Pi8 || theta < 3 * Pi8 && theta > Pi8) //grad is 135
+                else if (theta > -7 * Pi8 && theta <= -5 * Pi8 || theta <= 3 * Pi8 && theta > Pi8) //grad is 135
                 {
                     if (t.getf(x, y) < t.getf(x-1, y-1)) Grad.setf(x, y, 0);
                     if (t.getf(x, y) < t.getf(x+1, y+1)) Grad.setf(x, y, 0);
@@ -112,19 +124,35 @@ public class ImageFunctions {
                     if (t.getf(x, y) < t.getf(x+1, y-1)) Grad.setf(x, y, 0);
                     if (t.getf(x, y) < t.getf(x-1, y+1)) Grad.setf(x, y, 0);
                 }
-                */
+                /*
+                
                if (theta > -Pi4 && theta <= 0 || theta > 3*Pi4 && theta <= Math.PI) { //e-se
-            	   
+            	   if (theta > 0) theta = theta - Math.PI;
+            	   theta = - theta / Pi4; // norm to [0,1], 1 for se/nw
+            	   v1 = (1-theta) * t.getf(x+1,y) + theta * t.getf(x+1,y+1);
+            	   v2 = (1-theta) * t.getf(x-1,y) + theta * t.getf(x-1,y-1);
                }
                else if (theta > 0 && theta <= Pi4 || theta >= - Math.PI && theta <= -3*Pi4) { //e-ne
-            	   
+            	   if (theta < 0) theta = theta + Math.PI;
+            	   theta = theta / Pi4; // [0,1], 1 for ne/sw
+            	   v1 = (1-theta) * t.getf(x+1,y) + theta * t.getf(x+1,y-1);
+            	   v2 = (1-theta) * t.getf(x-1,y) + theta * t.getf(x-1,y+1); 
                }
-               else if (theta > Pi4 && theta <= 2*Pi4 || theta > -3*Pi4 && theta < -2*Pi4) { //n-ne
-            	   
+               else if (theta > Pi4 && theta <= 2*Pi4 || theta > -3*Pi4 && theta <= -2*Pi4) { //n-ne
+            	   if (theta < 0) theta = theta + Math.PI;
+            	   theta = (theta - Pi4) / Pi4; // [0,1], 1 for n/s 
+            	   v1 = (1-theta) * t.getf(x+1,y-1) + theta * t.getf(x,y-1);
+            	   v2 = (1-theta) * t.getf(x-1,y+1) + theta * t.getf(x,y+1);
                }
                else { // n-nw
-            	   
+            	   if (theta < 0) theta = theta + Math.PI;
+            	   theta = (theta - Math.PI/2) / Pi4; // [0,1], 1 for nw/se
+            	   v1 = (1-theta) * t.getf(x,y-1) + theta * t.getf(x-1,y-1);
+            	   v2 = (1-theta) * t.getf(x,y+1) + theta * t.getf(x+1,y+1);
                }
+               System.out.println(theta); 
+        	   if (t.getf(x, y) < v1 || t.getf(x,y) < v2) Grad.setf(x,y, 0); 
+        	   */
             }
         
         if (useOtsuThreshold) {
@@ -137,8 +165,8 @@ public class ImageFunctions {
             for (int x = 1; x < w-1; x++)
             {
                 if (Grad.getf(x, y) < t1) Grad.setf(x, y, 0);
-                //else if (Grad.getf(x, y) >= t1 && Grad.getf(x, y) < t2 && !CheckNearStrongEdge(Grad, x, y, t1, t2))
-                	//Grad.setf(x, y, 0);
+                else if (Grad.getf(x, y) >= t1 && Grad.getf(x, y) < t2 && !CheckNearStrongEdge(Grad, x, y, t1, t2))
+                	Grad.setf(x, y, 0);
                 else ;// Grad[x, y] = 255;  
             }
 
