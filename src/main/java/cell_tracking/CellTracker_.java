@@ -67,6 +67,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	/* for storing thresholded intensity image */
 	private ImageProcessor thresholdedIntensity;
 	
+	/* contains mask for previously segmented cells */
+	private ImageProcessor compMask;
+	
 	/* image for displaing result on stacks */
 	private ImagePlus stackImage;
 	
@@ -74,14 +77,14 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private int selectedSlice;		// currently selected slice
 
 	// sigmas for bandpass algorithm
-	public double sigma1 = 1.40;
+	public double sigma1 = 2.40;
 	public double sigma2 = 5.00;
 	public double sigma3 = 1.70;
 	
-	private double medianSize = 3;
+	private double medianSize = 4;
 	private double minThreshold = 20;
 	private double maxThreshold = 50;
-	private int minArea = 70;
+	private int minArea = 100;
 	private int maxArea = 500;
 	private float minCircularity = 0.5f;
 	private float maxCircularity = 0.95f;
@@ -119,8 +122,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			return DONE;
 		}
 				
-		if (arg.equals("final")) 
-		{
+		if (arg.equals("final")) {
 			// replace the preview image by the original image 
 			resetPreview();
 			imagePlus.updateAndDraw();
@@ -138,6 +140,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		}
 		
 		nSlices = imp.getStackSize();
+		compMask = null;
 		// convert to float if plugin just started
 		if (nSlices == 1) {
 			Converter conv = new Converter();
@@ -191,7 +194,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
         //return flags;
         flags = IJ.setupDialog(imp, flags); // ask whether to process all slices of stack (if a stack)
         
-        return flags;  
+        return flags;
 	}
 	
 	private void fillGenericDialog(GenericDialog gd, PlugInFilterRunner pfr) {
@@ -206,9 +209,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
         gd.addNumericField("Min circularity", minCircularity, 3);
         gd.addNumericField("Max circularity", maxCircularity, 3);
         gd.addCheckbox("Median Filter", true);
-        gd.addCheckbox("Bandpass?", true);
+        gd.addCheckbox("Bandpass", true);
         gd.addCheckbox("Use Auto Otsu threshold", useOtsuThreshold);
-        gd.addCheckbox("Threshold", true);
+        gd.addCheckbox("Show canny edge segmentation", true);
         gd.addCheckbox("Filter components", false);
         gd.addPreviewCheckbox(pfr);
         gd.addDialogListener(this);
@@ -286,8 +289,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			//rankFilters.rank(result, medianSize/2, RankFilters.MEDIAN);
 		backgroundSub.rollingBallBackground(result, 20, false, false, false, false, false);
 		
-		result = maximaWatershedSegmentation(result, sigma3, minThreshold, maxThreshold);
 		//segmentation(result);
+		result = maximaWatershedSegmentation(result, sigma3, minThreshold, maxThreshold);
+		
 		result = result.convertToFloatProcessor();
 		result.resetMinAndMax();
 		//}
@@ -327,6 +331,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			//gaussian.GradientMagnitudeGaussian(result_t, (float)sigma2);
 			//calc.sub(result, result_t);
 		}
+		ImageProcessor intensityImg = result.duplicate();
 		if (doThreshold) {
 			//need to use the result of the algo from the first frame somehow, and/or result of intensity thresholding
 			ImageFunctions.threshold(result, minThreshold, maxThreshold);
@@ -344,9 +349,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 						dist, result, 1, 4, false );
 				
 				ImageComponentsAnalysis compAnalisys;
-				compAnalisys = new ImageComponentsAnalysis(result);
+				compAnalisys = new ImageComponentsAnalysis(result, intensityImg);
 				
-				result = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity);
+				result = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 255);
 
 				/* here, after the main part of the algorithm, do the following to obtain better segmentation:
 				 * - Do closing with disc_5 radius on T-d bandpass image.
@@ -362,14 +367,11 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 				Strel strel = shape.fromRadius(5);
 				result = result.convertToShortProcessor();
 				op.apply(result, strel); //closing with disc_5 R
-				result = result.convertToFloatProcessor();*/
-				
+				result = result.convertToFloatProcessor();*/				
 				
 				rankFilters.rank(thresholdedIntensity, 4, RankFilters.MEDIAN);
 				backgroundSub.rollingBallBackground(thresholdedIntensity, 20, false, false, false, false, false);
-				ImageFunctions.threshold(thresholdedIntensity, -100, 15);
-				
-				
+				ImageFunctions.threshold(thresholdedIntensity, -100, 15);	
 				
 				//ImageFunctions.AND(result, thresholdedIntensity);
 			}
@@ -383,6 +385,8 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private ImageProcessor maximaWatershedSegmentation(ImageProcessor ip, double sigma, double minThreshold, double maxThreshold) {
 		// assume ip is already preprocessed, i.e. filtered, background subtracted
 		ImageProcessor marker = ip.duplicate();
+		ImageProcessor intensityImg = marker.duplicate();
+		
 		//gaussian.GradientMagnitudeGaussian(ip, (float) sigma);
 		if (isBandpass)
 			bandpassFilter(marker);
@@ -392,33 +396,60 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		if (false)
 			gaussian.GradientMagnitudeGaussian(marker, (float) sigma3);
 		else ip = ImageFunctions.Canny(marker, sigma, minThreshold, maxThreshold, 0, 0, useOtsuThreshold);
-		ImageProcessor t1 = ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_HORIZ, 1);
+		
+		/* ImageProcessor t1 = ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_HORIZ, 1);
 		ImageProcessor t2 = ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_VERT, 1);
 		ImageProcessor t3 = ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_DIAG_UP, 1);
 		ImageProcessor t4 = ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_DIAG_DOWN, 1);
 		ImageFunctions.OR(ip, t1);
 		ImageFunctions.OR(ip, t2);
 		ImageFunctions.OR(ip, t3);
-		ImageFunctions.OR(ip, t4);
+		ImageFunctions.OR(ip, t4); */
+			
+		// let's try watersheddign canny image
+		float[] weights = ChamferWeights.BORGEFORS.getFloatWeights();
+		ip = ImageFunctions.getBinary(ip);
+		ip.invert();
+		final ImageProcessor dist = BinaryImages.distanceMap(ip, weights, true);
+		dist.invert();
+		//ImagePlus test = new ImagePlus("dist", dist);
+		//test.show();
+
+		ip = ExtendedMinimaWatershed.extendedMinimaWatershed(
+				dist, result, 1, 4, false);		
+		
 		if (doThreshold)
 			return ip;
+		/*
 		marker.invert();
 		MaximumFinder maxfinder = new MaximumFinder();
-		marker = maxfinder.findMaxima(marker, 5, MaximumFinder.SINGLE_POINTS, true);
+		marker = maxfinder.findMaxima(marker, 10, MaximumFinder.SINGLE_POINTS, true);
 
-		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(ip, marker, null, 4);
+		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(ip, marker, null, 4); */
 		
 		//ImageFunctions.Copy(ip, ExtendedMinimaWatershed.extendedMinimaWatershed(ip, 1, 4));
 
 		//ImagePlus img = new ImagePlus("test watershed", ip);
 		//img.show();
-		ip = watershed.apply(0, 255);
+		//ip = watershed.apply(0, 255);
 		if (filterComponents) {
 			ImageComponentsAnalysis compAnalisys;
-			compAnalisys = new ImageComponentsAnalysis(ip);
-			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity);
-		}
-			
+			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg);
+			compAnalisys.mergeComponents();
+			ImagePlus t = new ImagePlus("avrgint", compAnalisys.getAvrgIntensityImage());
+			//t.show();
+			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 255);
+			// here mb try to merge components that are close to each other and have close average intensity values
+			if ((flags & DOES_STACKS) != 0 ) {
+				//ip = ImageComponentsAnalysis.combineComponentsInMask(ip, compMask); // combine components that are near the cells in previous image
+				//compMask = ImageFunctions.operationMorph(ip, Operation.DILATION, Strel.Shape.DISK, 8);
+				
+				//ip = ImageComponentsAnalysis.combineComponentsInMaskFromInside(ip, compMask); // combine components that are near the cells in previous image
+				//compMask = ImageFunctions.operationMorph(ip, Operation.EROSION, Strel.Shape.DISK, 4);
+				//ImagePlus t = new ImagePlus("tt", compMask);
+				//t.show();
+			}			
+		}			
 		return ip;
 	}
 
@@ -514,16 +545,13 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		}
 	}
 	
-	private void resetPreview()
-	{
+	private void resetPreview()	{
 		ImageProcessor image = this.imagePlus.getProcessor();
-		if (image instanceof FloatProcessor)
-		{
+		if (image instanceof FloatProcessor) {
 			for (int i = 0; i < image.getPixelCount(); i++)
 				image.setf(i, this.baseImage.getf(i));
 		}
-		else
-		{
+		else {
 			for (int i = 0; i < image.getPixelCount(); i++)
 				image.set(i, this.baseImage.get(i));
 		}
@@ -536,8 +564,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	 * of original image.
 	 * "Taken from MorphoLibJ"
 	 */
-	private String createResultImageName(ImagePlus baseImage) 
-	{
+	private String createResultImageName(ImagePlus baseImage) {
 		return baseImage.getShortTitle() + "-" + "result";
 	}
 }

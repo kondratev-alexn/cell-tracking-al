@@ -3,6 +3,7 @@ package cell_tracking;
 /* Class for information about connected components*/
 public class ComponentProperties {
 	public int intensity; //intensity used for the component in the image
+	public float avrgIntensity; // average intensity of the component
 	public float perimeter;
 	public int area;
 	public float circularity;

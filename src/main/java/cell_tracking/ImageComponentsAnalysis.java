@@ -3,22 +3,30 @@ package cell_tracking;
 import java.util.ArrayList;
 import java.util.Vector;
 
+import ij.ImagePlus;
 import ij.process.ImageProcessor;
 import inra.ijpb.binary.BinaryImages;
+import inra.ijpb.morphology.Strel;
+import inra.ijpb.morphology.Morphology.Operation;
 
 public class ImageComponentsAnalysis {
-	private ImageProcessor image;	//image with components
+	private ImageProcessor imageComponents;	//image with components
+	private ImageProcessor imageIntensity; 
 	private int w,h;
 	
 	private int nComponents;	//number of components
 	private ArrayList<ComponentProperties> properties;	//component properties
 	
-	/* initialize class from image with components */
-	public ImageComponentsAnalysis(ImageProcessor ip) {
+	/* initialize class from binary image ip with components and intensity image "intensityImage" */
+	public ImageComponentsAnalysis(ImageProcessor ip, ImageProcessor intensityImage) {
 		w = ip.getWidth();
 		h = ip.getHeight();
-		image = BinaryImages.componentsLabeling(ip, 4, 16);
-		nComponents = (int)image.getMax();
+		imageComponents = BinaryImages.componentsLabeling(ip, 4, 16);
+		//imageComponents = ImageFunctions.operationMorph(imageComponents, Operation.CLOSING, Strel.Shape.DISK, 1);
+		//ImagePlus t = new ImagePlus("after closing", imageComponents);
+		//t.show();
+		imageIntensity = intensityImage;
+		nComponents = (int)imageComponents.getMax();
 		properties = new ArrayList<ComponentProperties>(nComponents);
 		for (int i=0; i<nComponents; i++)
 			properties.add(new ComponentProperties());
@@ -26,19 +34,27 @@ public class ImageComponentsAnalysis {
 		fillCircularity();
 	}
 	
-	public int getComponentArea(int compNumber) {
+	public int getComponentArea(int intensity) {
+		int compNumber = findComponentIndexByIntensity(intensity);
 		return properties.get(compNumber).area;
 	}
 	
-	public float getComponentPerimeter(int compNumber) {
+	public float getComponentPerimeter(int intensity) {
+		int compNumber = findComponentIndexByIntensity(intensity);
 		return properties.get(compNumber).perimeter;
 	}
 	
-	public float getComponentCircularity(int compNumber) {
+	public float getComponentCircularity(int intensity) {
+		int compNumber = findComponentIndexByIntensity(intensity);
 		return properties.get(compNumber).circularity;
 	}
 	
-	/* calculates bounding box corners, perimeter, area for components and fills the "properties" array */
+	public float getComponentAvrgIntensity(int intensity) {
+		int compNumber = findComponentIndexByIntensity(intensity);
+		return properties.get(compNumber).avrgIntensity;
+	}
+	
+	/* calculates bounding box corners, perimeter, area, average intensity for components and fills the "properties" array */
 	public void fillBasicProperties() {
 		// presetting values to find containing rectangle
 		for (int i=0; i < properties.size(); i++) {
@@ -52,15 +68,16 @@ public class ImageComponentsAnalysis {
 		int pix4c, pixDc;
 		for (int y=0; y < h; y++) {
 			for (int x=0; x < w; x++) {
-				v = image.get(x, y);
+				v = imageComponents.get(x, y);
 				if (v > 0) {
 					v = v - 1;
 					properties.get(v).intensity = properties.get(v).intensity == 0 ? v+1 : properties.get(v).intensity;					
 					properties.get(v).area++;
+					properties.get(v).avrgIntensity += imageIntensity.getf(x, y);
 					
-					if (isBorderPixel4C(image, x, y)) { //calculate perimeter
-						pix4c = numberOfNeighbours4C(image, x, y);
-						pixDc = numberOfNeighboursDiagC(image, x, y);
+					if (isBorderPixel4C(imageComponents, x, y)) { //calculate perimeter
+						pix4c = numberOfNeighbours4C(imageComponents, x, y);
+						pixDc = numberOfNeighboursDiagC(imageComponents, x, y);
 						properties.get(v).perimeter += (float) ((pix4c*1.0f + pixDc * Math.sqrt(2)) / (pix4c + pixDc));
 					}
 						//if (hasDiagonalBorderNeighbours(image, x, y)) properties.get(v).perimeter += Math.sqrt(2);
@@ -73,17 +90,22 @@ public class ImageComponentsAnalysis {
 				}
 			}
 		}
+		
+		for (int i=0; i < properties.size(); i++) {	// calculate average intensity
+			properties.get(i).avrgIntensity /= properties.get(i).area;
+		}
 	}
 	
 	/* filter components by area and circularity */
-	private void filterComponents(int minArea, int maxArea, float minCirc, float maxCirc) {
-		ArrayList<Integer> list = new ArrayList<Integer>(10); // what components to filter
+	private void filterComponents(int minArea, int maxArea, float minCirc, float maxCirc, float minAvrgIntensity, float maxAvrgIntensity) {
+		ArrayList<Integer> list = new ArrayList<Integer>(20); // what components to filter
 		int area;
-		float circ;
+		float circ, avrgInt;
 		//fill list 
 		for (int i=0; i<properties.size(); i++) {
 			area = properties.get(i).area;
 			circ = properties.get(i).circularity;
+			avrgInt = properties.get(i).avrgIntensity;
 			if (area < minArea || area > maxArea) {
 				list.add(i);
 				continue;
@@ -92,20 +114,159 @@ public class ImageComponentsAnalysis {
 				list.add(i);
 				continue;
 			}
+			if (avrgInt < minAvrgIntensity || avrgInt > maxAvrgIntensity) {
+				list.add(i);
+				continue;
+			}
 		}
 		
 		// delete components
 		for (int i=list.size() - 1; i>=0 ; i--) {
-			removeComponent(image, properties.get(list.get(i)).intensity);
+			removeComponent(imageComponents, properties.get(list.get(i)).intensity);
 		}
 	}
 	
-	public ImageProcessor getFilteredComponentsIp(int minArea, int maxArea, float minCirc, float maxCirc) {
-		filterComponents(minArea, maxArea, minCirc, maxCirc);
-		return image;
+	public ImageProcessor getFilteredComponentsIp(int minArea, int maxArea, float minCirc, float maxCirc, float minAvrgIntensity, float maxAvrgIntensity) {
+		filterComponents(minArea, maxArea, minCirc, maxCirc, minAvrgIntensity, maxAvrgIntensity);
+		return imageComponents;
 	}
 	
-	/* removes component with given intensity from properties, and deletes it from image */
+	/* combines components in ip that belong to the same component in the compImage. 
+	 * compImage nd ip must be images after the BinaryImages.componentsLabelling operation (i.e. not float, components are labelled from 0) */
+	public static ImageProcessor combineComponentsInMask(ImageProcessor ip, ImageProcessor compImage) {
+		if (compImage == null) //for stack processing the first image
+			return ip;
+		ImageProcessor result = ip.duplicate();
+		int nComp = (int) compImage.getMax();
+		int[] table = new int[(int) ip.getMax() + 1]; //table for component labels
+		for (int i=0; i<table.length; i++) 
+			table[i] = -1;
+		int v1,v2;
+		// first iteration through the image - fill table of pairs (initial component number, new component number)
+		for (int i=0; i<ip.getPixelCount(); i++) {
+			v1 = ip.get(i); 
+			v2 = compImage.get(i);
+			if (table[v1] == -1) table[v1] = v2; //set filling value for not initialized component labels
+			else if (table[v1] != v2) //if component was already filled but with another value, then discard it by setting value to zero
+				table[v1] = 0; 
+		}
+		
+		//the second iteration - change values of components according to the table
+		for (int i=0; i<ip.getPixelCount(); i++) {
+			v1 = ip.get(i);
+			v2 = table[v1];
+			result.set(i, v2);
+		}
+		return result;
+	}
+	
+	/* combines components in ip that belong to the same component in the compImage. Different from previous one in a way, that 
+	 * compImage is erosed image and components are labelled if at least some of them is in the  mask (every pixel).
+	 * compImage nd ip must be images after the BinaryImages.componentsLabelling operation (i.e. not float, components are labelled from 0) */
+	public static ImageProcessor combineComponentsInMaskFromInside(ImageProcessor ip, ImageProcessor compImage) {
+		if (compImage == null) //for stack processing the first image
+			return ip;
+		ImageProcessor result = ip.duplicate();
+		int nComp = (int) compImage.getMax();
+		int[] table = new int[(int) ip.getMax() + 1]; //table for component labels
+		for (int i=0; i<table.length; i++) 
+			table[i] = -1;
+		int v1,v2;
+		// first iteration through the image - fill table of pairs (initial component number, new component number)
+		for (int i=0; i<ip.getPixelCount(); i++) {
+			v1 = ip.get(i);
+			v2 = compImage.get(i);
+			if (v2 != 0) table[v1] = v2; 
+		}
+		
+		//the second iteration - change values of components according to the table
+		for (int i=0; i<ip.getPixelCount(); i++) {
+			v1 = ip.get(i);
+			v2 = table[v1];
+			result.set(i, v2);
+		}
+		return result;
+	}
+	
+	/* merges components if they have similar avrg intensity. Component with label '0' should be the canny edge detection thingy */
+	public void mergeComponents() {
+		int upLabel, downLabel, leftLabel, rightLabel;
+		int l;
+		ImageProcessor originalComponents = imageComponents.duplicate();
+		for (int i=0; i<properties.size(); i++) 
+			System.out.println(properties.get(i).intensity);
+		// pass through the image and look for boundary pixels (label '0'). Then look in 4C-neighbourhood if components should be merged */		
+		for (int y=1; y < h-1; y++) {
+			for (int x=1; x < w-1; x++) {
+				l = imageComponents.get(x,y);
+				if (l == 0) {
+					upLabel = originalComponents.get(x,y-1);
+					downLabel = originalComponents.get(x,y+1);
+					/*System.out.println(upLabel);
+					System.out.println(downLabel);
+					System.out.println(leftLabel);
+					System.out.println(rightLabel);*/
+					// if up and down has close entensity and different labels, change the down label to that of top
+					if (upLabel != 0 && downLabel != 0 && upLabel != downLabel)
+						if (Math.abs(getComponentAvrgIntensity(upLabel) - getComponentAvrgIntensity(downLabel)) < 5) {
+							System.out.println(downLabel);
+							System.out.println(upLabel);
+							changeComponentIntensity(downLabel, upLabel);							
+						}
+					// same for left/right
+					// !!! intensity might have changed in the previous step
+					leftLabel = originalComponents.get(x-1,y);
+					rightLabel = originalComponents.get(x+1,y);
+					if (leftLabel != 0 && rightLabel != 0 && leftLabel != rightLabel)
+						if (Math.abs(getComponentAvrgIntensity(leftLabel) - getComponentAvrgIntensity(rightLabel)) < 5) {
+							System.out.println(leftLabel);
+							System.out.println(rightLabel);
+							changeComponentIntensity(rightLabel, leftLabel);
+						}
+				}
+			}
+		}
+		imageComponents = ImageFunctions.operationMorph(imageComponents, Operation.CLOSING, Strel.Shape.DISK, 1); // to remove '0' label lines
+	}
+	
+	private void changeComponentIntensity(int intensity, int newIntensity) {
+		int x0,x1,y0,y1, nComp,newNComp;
+		nComp = findComponentIndexByIntensity(intensity);
+		newNComp = findComponentIndexByIntensity(newIntensity);
+		x0 = properties.get(nComp).xmin;
+		x1 = properties.get(nComp).xmax;
+		y0 = properties.get(nComp).ymin;
+		y1 = properties.get(nComp).ymax;
+
+		for (int y=y0; y <= y1; y++) 
+			for (int x=x0; x <= x1; x++) 
+				if (imageComponents.get(x, y) == intensity)
+					imageComponents.set(x, y, newIntensity);
+
+		properties.get(nComp).intensity = newIntensity;
+		//here we should recalculate all properties...or not here
+	}
+	
+	@Deprecated
+	/* ip is component labelled image. This function combines adjastent segments if they have close average intensity 
+	 * */
+	public ImageProcessor combineComponentsByIntensity(ImageProcessor ip) {
+		
+		return null;
+	}
+	
+	public ImageProcessor getAvrgIntensityImage() {
+		ImageProcessor result = imageComponents.duplicate().convertToFloatProcessor();
+		int v;
+		for (int i=0; i<result.getPixelCount(); i++) {
+			v = imageComponents.get(i) - 1;
+			if (v != -1)
+				result.setf(i, properties.get(v).avrgIntensity);
+		}
+		return result;
+	}
+	
+	/* removes component with given intensity from properties, and deletes it from image (by setting its intenssity to zero) */
 	private void removeComponent(ImageProcessor image, int intensity) {
 		int x0,x1,y0,y1, nComp;
 		nComp = findComponentIndexByIntensity(intensity);
