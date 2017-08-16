@@ -23,10 +23,10 @@ public class ImageComponentsAnalysis {
 		h = ip.getHeight();
 		imageComponents = BinaryImages.componentsLabeling(ip, 4, 16);
 		//imageComponents = ImageFunctions.operationMorph(imageComponents, Operation.CLOSING, Strel.Shape.DISK, 1);
-		//ImagePlus t = new ImagePlus("after closing", imageComponents);
+		//ImagePlus t = new ImagePlus("after closing", imageComponents.duplicate());
 		//t.show();
 		imageIntensity = intensityImage;
-		nComponents = (int)imageComponents.getMax();
+		nComponents = (int)imageComponents.getMax() - (int)imageComponents.getMin() + 1;
 		properties = new ArrayList<ComponentProperties>(nComponents);
 		for (int i=0; i<nComponents; i++)
 			properties.add(new ComponentProperties());
@@ -62,38 +62,50 @@ public class ImageComponentsAnalysis {
 			properties.get(i).xmax = 0;
 			properties.get(i).ymin = h - 1;
 			properties.get(i).ymax = 0;
+			properties.get(i).intensity = -1;
 		}
 		
-		int v; // component label (intensity - 1)
+		int v; // component intensity in the image
+		int newLabel = 0; //new component label
+		int label; 		//current label
 		int pix4c, pixDc;
 		for (int y=0; y < h; y++) {
 			for (int x=0; x < w; x++) {
 				v = imageComponents.get(x, y);
-				if (v > 0) {
-					v = v - 1;
-					properties.get(v).intensity = properties.get(v).intensity == 0 ? v+1 : properties.get(v).intensity;					
-					properties.get(v).area++;
-					properties.get(v).avrgIntensity += imageIntensity.getf(x, y);
-					
-					if (isBorderPixel4C(imageComponents, x, y)) { //calculate perimeter
-						pix4c = numberOfNeighbours4C(imageComponents, x, y);
-						pixDc = numberOfNeighboursDiagC(imageComponents, x, y);
-						properties.get(v).perimeter += (float) ((pix4c*1.0f + pixDc * Math.sqrt(2)) / (pix4c + pixDc));
-					}
-						//if (hasDiagonalBorderNeighbours(image, x, y)) properties.get(v).perimeter += Math.sqrt(2);
-						//else properties.get(v).perimeter++;
-					
-					if (properties.get(v).xmin > x) properties.get(v).xmin = x;
-					if (properties.get(v).xmax < x) properties.get(v).xmax = x;
-					if (properties.get(v).ymin > y) properties.get(v).ymin = y;
-					if (properties.get(v).ymax < y) properties.get(v).ymax = y;
+				// components can be labeled in whatever range (but no negatives), dont rely on v=0 to be background. And make background a component
+				//if (v > 0) { 
+				label = findComponentIndexByIntensity(v);
+				if (label == -1)
+					label = ++newLabel;
+
+				properties.get(label).intensity = v;	
+				properties.get(label).area++;
+				properties.get(label).avrgIntensity += imageIntensity.getf(x, y);
+
+				if (isBorderPixel4C(imageComponents, x, y)) { //calculate perimeter
+					pix4c = numberOfNeighbours4C(imageComponents, x, y);
+					pixDc = numberOfNeighboursDiagC(imageComponents, x, y);
+					properties.get(label).perimeter += (float) ((pix4c*1.0f + pixDc * Math.sqrt(2)) / (pix4c + pixDc));
 				}
+				//if (hasDiagonalBorderNeighbours(image, x, y)) properties.get(v).perimeter += Math.sqrt(2);
+				//else properties.get(v).perimeter++;
+
+				if (properties.get(label).xmin > x) properties.get(label).xmin = x;
+				if (properties.get(label).xmax < x) properties.get(label).xmax = x;
+				if (properties.get(label).ymin > y) properties.get(label).ymin = y;
+				if (properties.get(label).ymax < y) properties.get(label).ymax = y;
+
+				//}
 			}
 		}
 		
 		for (int i=0; i < properties.size(); i++) {	// calculate average intensity
 			properties.get(i).avrgIntensity /= properties.get(i).area;
 		}
+	}
+	
+	public ImageProcessor getImageComponents() {
+		return imageComponents;
 	}
 	
 	/* filter components by area and circularity */

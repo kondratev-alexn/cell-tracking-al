@@ -81,6 +81,8 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	public double sigma2 = 5.00;
 	public double sigma3 = 1.70;
 	
+	private double heightTolerance = 40;	//for maxima find
+	private int rollingBallRadius = 20;		//for background subtraction
 	private double medianSize = 4;
 	private double minThreshold = 20;
 	private double maxThreshold = 50;
@@ -88,8 +90,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private int maxArea = 500;
 	private float minCircularity = 0.5f;
 	private float maxCircularity = 0.95f;
+	
 	private boolean useMedian = false;
-	private boolean isBandpass = false;
+	private boolean isBandpass = true;
 	private boolean useOtsuThreshold = false;
 	private boolean doThreshold = false;
 	private boolean filterComponents = false;
@@ -198,21 +201,23 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	}
 	
 	private void fillGenericDialog(GenericDialog gd, PlugInFilterRunner pfr) {
+		gd.addNumericField("Rolling ball radius", rollingBallRadius, 0);
 		gd.addNumericField("median filter size", medianSize, 0);
 		gd.addNumericField("Sigma1:", sigma1, 2);
         gd.addNumericField("Sigma2:", sigma2, 2);
         gd.addNumericField("Sigma3 (gradient)", sigma3, 2);
         gd.addNumericField("Min threshold", minThreshold, 3);
         gd.addNumericField("Max threshold", maxThreshold, 3);
+        gd.addNumericField("Height tolerance (max find)", heightTolerance, 2);
         gd.addNumericField("Min area", minArea, 0);
         gd.addNumericField("Max area", maxArea, 0);
         gd.addNumericField("Min circularity", minCircularity, 3);
         gd.addNumericField("Max circularity", maxCircularity, 3);
-        gd.addCheckbox("Median Filter", true);
-        gd.addCheckbox("Bandpass", true);
+        gd.addCheckbox("Median Filter", useMedian);
+        gd.addCheckbox("Bandpass", isBandpass);
         gd.addCheckbox("Use Auto Otsu threshold", useOtsuThreshold);
-        gd.addCheckbox("Show canny edge segmentation", true);
-        gd.addCheckbox("Filter components", false);
+        gd.addCheckbox("Show canny edge segmentation", doThreshold);
+        gd.addCheckbox("Filter components", filterComponents);
         gd.addPreviewCheckbox(pfr);
         gd.addDialogListener(this);
         gd.addSlider("Slice", 1, nSlices, selectedSlice);
@@ -235,12 +240,14 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private void parseDialogParameters(GenericDialog gd) 
 	{
 		// extract chosen parameters
+		rollingBallRadius = (int) gd.getNextNumber();
 		medianSize = gd.getNextNumber();
 		sigma1 = gd.getNextNumber();
 		sigma2 = gd.getNextNumber();
 		sigma3 = gd.getNextNumber();
 		minThreshold = gd.getNextNumber();
 		maxThreshold = gd.getNextNumber();
+		heightTolerance = gd.getNextNumber();
 		minArea = (int)gd.getNextNumber();
 		maxArea = (int)gd.getNextNumber();
 		minCircularity = (float)gd.getNextNumber();
@@ -287,7 +294,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		// preprocess image first
 		if (useMedian)
 			//rankFilters.rank(result, medianSize/2, RankFilters.MEDIAN);
-		backgroundSub.rollingBallBackground(result, 20, false, false, false, false, false);
+		backgroundSub.rollingBallBackground(result, rollingBallRadius, false, false, false, false, false);
 		
 		//segmentation(result);
 		result = maximaWatershedSegmentation(result, sigma3, minThreshold, maxThreshold);
@@ -376,7 +383,6 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 				//ImageFunctions.AND(result, thresholdedIntensity);
 			}
 		}
-
 	}
 	
 	/* Yaginuma version of the algorithm, with finding maxima and marker-controlled watershed, then post-processing 
@@ -384,18 +390,19 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	 */
 	private ImageProcessor maximaWatershedSegmentation(ImageProcessor ip, double sigma, double minThreshold, double maxThreshold) {
 		// assume ip is already preprocessed, i.e. filtered, background subtracted
-		ImageProcessor marker = ip.duplicate();
-		ImageProcessor intensityImg = marker.duplicate();
+		ImageProcessor markerImg = ip.duplicate();
+		ImageProcessor intensityImg = markerImg.duplicate();
 		
 		//gaussian.GradientMagnitudeGaussian(ip, (float) sigma);
 		if (isBandpass)
-			bandpassFilter(marker);
+			bandpassFilter(markerImg);
+		ImageProcessor canny = null;
 		//marker = ImageFunctions.operationMorph(marker, Operation.CLOSING, Strel.Shape.DISK, 2);
 		if (useMedian)
-			rankFilters.rank(marker, medianSize/2, RankFilters.MEDIAN);
+			rankFilters.rank(markerImg, medianSize/2, RankFilters.MEDIAN);
 		if (false)
-			gaussian.GradientMagnitudeGaussian(marker, (float) sigma3);
-		else ip = ImageFunctions.Canny(marker, sigma, minThreshold, maxThreshold, 0, 0, useOtsuThreshold);
+			gaussian.GradientMagnitudeGaussian(markerImg, (float) sigma3);
+		else canny = ImageFunctions.Canny(markerImg, sigma, minThreshold, maxThreshold, 0, 0, useOtsuThreshold);
 		
 		/* ImageProcessor t1 = ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_HORIZ, 1);
 		ImageProcessor t2 = ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_VERT, 1);
@@ -405,8 +412,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		ImageFunctions.OR(ip, t2);
 		ImageFunctions.OR(ip, t3);
 		ImageFunctions.OR(ip, t4); */
-			
-		// let's try watersheddign canny image
+		
+		/*
+		// let's try watersheding canny image
 		float[] weights = ChamferWeights.BORGEFORS.getFloatWeights();
 		ip = ImageFunctions.getBinary(ip);
 		ip.invert();
@@ -414,31 +422,42 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		dist.invert();
 		//ImagePlus test = new ImagePlus("dist", dist);
 		//test.show();
-
+		result.invert();
 		ip = ExtendedMinimaWatershed.extendedMinimaWatershed(
-				dist, result, 1, 4, false);		
-		
+				marker, result, 5, 4, false);		
+		*/
 		if (doThreshold)
 			return ip;
-		/*
-		marker.invert();
+		
+		markerImg.invert();
 		MaximumFinder maxfinder = new MaximumFinder();
-		marker = maxfinder.findMaxima(marker, 10, MaximumFinder.SINGLE_POINTS, true);
-
-		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(ip, marker, null, 4); */
+		ImageFunctions.normalize(markerImg, 0, 255);
+		ImageProcessor marks = maxfinder.findMaxima(markerImg, heightTolerance, MaximumFinder.SINGLE_POINTS, true);
+		canny.invert();
+		markerImg.invert();
+		gaussian.GradientMagnitudeGaussian(markerImg, (float) sigma);
+		ImagePlus t1 = new ImagePlus("grad", markerImg);
+		ImagePlus t2 = new ImagePlus("marks", marks);
+		//t1.show();
+		//t2.show();
+		ImageFunctions.LabelMarker(marks);
+		//ImageFunctions.normalize(markerImg, 0, 255);
+		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(markerImg, marks, null, 4);
 		
 		//ImageFunctions.Copy(ip, ExtendedMinimaWatershed.extendedMinimaWatershed(ip, 1, 4));
 
 		//ImagePlus img = new ImagePlus("test watershed", ip);
 		//img.show();
-		//ip = watershed.apply(0, 255);
+		ip = watershed.applyWithPriorityQueue();
+		//ip = watershed.apply(0,255);
+		//ip = watershed.apply(markerImg.getMin(), markerImg.getMax());
 		if (filterComponents) {
 			ImageComponentsAnalysis compAnalisys;
 			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg);
-			compAnalisys.mergeComponents();
-			ImagePlus t = new ImagePlus("avrgint", compAnalisys.getAvrgIntensityImage());
+			//compAnalisys.mergeComponents();
+			//ImagePlus t = new ImagePlus("avrgint", compAnalisys.getAvrgIntensityImage());
 			//t.show();
-			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 255);
+			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
 			// here mb try to merge components that are close to each other and have close average intensity values
 			if ((flags & DOES_STACKS) != 0 ) {
 				//ip = ImageComponentsAnalysis.combineComponentsInMask(ip, compMask); // combine components that are near the cells in previous image
@@ -448,8 +467,8 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 				//compMask = ImageFunctions.operationMorph(ip, Operation.EROSION, Strel.Shape.DISK, 4);
 				//ImagePlus t = new ImagePlus("tt", compMask);
 				//t.show();
-			}			
-		}			
+			}
+		}
 		return ip;
 	}
 

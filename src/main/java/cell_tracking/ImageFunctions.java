@@ -75,6 +75,14 @@ public class ImageFunctions {
 		}
 	}
 	
+	/* creates labeled markers from binary ones (markers are maxima/minima single points) */
+	public static void LabelMarker(ImageProcessor marker) {
+		int nextLabel = 1;
+		for (int i=0; i<marker.getPixelCount(); i++) {			
+			if (marker.get(i) != 0) marker.set(i, ++nextLabel);
+		}
+	}
+	
 	// Canny edge detection with thresholds t1,t2 and sigma-gaussian blur
     public static ImageProcessor Canny(ImageProcessor ip, double sigma, double t1, double t2, int offx, int offy, boolean useOtsuThreshold)
     {
