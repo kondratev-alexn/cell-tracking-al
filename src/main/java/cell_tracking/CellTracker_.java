@@ -77,13 +77,14 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private int selectedSlice;		// currently selected slice
 
 	// sigmas for bandpass algorithm
-	public double sigma1 = 2.40;
+	public double sigma1 = 1.40;
 	public double sigma2 = 5.00;
-	public double sigma3 = 1.70;
+	public double sigma3 = 0.80;
 	
-	private double heightTolerance = 40;	//for maxima find
+	private double heightTolerance = 34;	//for maxima find // 34 extracts all in the only_movement seq, but some oversegmentation
 	private int rollingBallRadius = 20;		//for background subtraction
-	private double medianSize = 4;
+	private int closingRadius = 2;
+	private double medianRadius = 2;
 	private double minThreshold = 20;
 	private double maxThreshold = 50;
 	private int minArea = 100;
@@ -202,7 +203,8 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	
 	private void fillGenericDialog(GenericDialog gd, PlugInFilterRunner pfr) {
 		gd.addNumericField("Rolling ball radius", rollingBallRadius, 0);
-		gd.addNumericField("median filter size", medianSize, 0);
+		gd.addNumericField("closing radius",closingRadius, 0);
+		gd.addNumericField("median filter size", medianRadius, 2);
 		gd.addNumericField("Sigma1:", sigma1, 2);
         gd.addNumericField("Sigma2:", sigma2, 2);
         gd.addNumericField("Sigma3 (gradient)", sigma3, 2);
@@ -241,7 +243,8 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	{
 		// extract chosen parameters
 		rollingBallRadius = (int) gd.getNextNumber();
-		medianSize = gd.getNextNumber();
+		closingRadius = (int) gd.getNextNumber();
+		medianRadius = gd.getNextNumber();
 		sigma1 = gd.getNextNumber();
 		sigma2 = gd.getNextNumber();
 		sigma3 = gd.getNextNumber();
@@ -292,9 +295,12 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		//if (!(currSlice == selectedSlice && previewing && (flags&DOES_STACKS) !=0)) {
 		
 		// preprocess image first
-		if (useMedian)
-			//rankFilters.rank(result, medianSize/2, RankFilters.MEDIAN);
-		backgroundSub.rollingBallBackground(result, rollingBallRadius, false, false, false, false, false);
+		if (useMedian) {
+			rankFilters.rank(result, medianRadius, RankFilters.MEDIAN);
+			//result.blurGaussian(medianRadius); doesn't help much
+		}
+		backgroundSub.rollingBallBackground(result, rollingBallRadius, false, false, false, true, false);
+		//ImageFunctions.subtractBackgroundMinMedian(result, 0);
 		
 		//segmentation(result);
 		result = maximaWatershedSegmentation(result, sigma3, minThreshold, maxThreshold);
@@ -386,20 +392,35 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	}
 	
 	/* Yaginuma version of the algorithm, with finding maxima and marker-controlled watershed, then post-processing 
-	 * I changed gradient threshold to canny edge detection for flooding
+	 * (0 ver) I changed gradient threshold to canny edge detection for flooding
+	 * 
+	 * (1 ver) Marker controlled watershed on gradient of the badnpass (or intensity), markers are minima of the bandpass (or intensity). 
+	 * (1 ver) Bandpass or intensity is selected by the checkbox
 	 */
 	private ImageProcessor maximaWatershedSegmentation(ImageProcessor ip, double sigma, double minThreshold, double maxThreshold) {
 		// assume ip is already preprocessed, i.e. filtered, background subtracted
 		ImageProcessor markerImg = ip.duplicate();
 		ImageProcessor intensityImg = markerImg.duplicate();
+		ImageProcessor watershedMask;
 		
 		//gaussian.GradientMagnitudeGaussian(ip, (float) sigma);
-		if (isBandpass)
+		if (isBandpass) {
 			bandpassFilter(markerImg);
+			/*float alpha = 0.5f;
+			ImageFunctions.normalize(ip, 0, 255);
+			ImageFunctions.normalize(markerImg, 0, 255);
+			calc.linearCombination(alpha, markerImg, 1-alpha, ip); //try combination of bandpass and intensity*/
+		}
+		// create mask for watershed
+		watershedMask = markerImg.duplicate();
+		ImageFunctions.threshold(watershedMask, minThreshold, maxThreshold);
+		
+		ImagePlus wat = new ImagePlus("mask", watershedMask);
+
+		markerImg = ImageFunctions.operationMorph(markerImg, Operation.CLOSING, Strel.Shape.DISK, closingRadius);
 		ImageProcessor canny = null;
 		//marker = ImageFunctions.operationMorph(marker, Operation.CLOSING, Strel.Shape.DISK, 2);
-		if (useMedian)
-			rankFilters.rank(markerImg, medianSize/2, RankFilters.MEDIAN);
+		//if (useMedian) rankFilters.rank(markerImg, medianSize/2, RankFilters.MEDIAN);
 		if (false)
 			gaussian.GradientMagnitudeGaussian(markerImg, (float) sigma3);
 		else canny = ImageFunctions.Canny(markerImg, sigma, minThreshold, maxThreshold, 0, 0, useOtsuThreshold);
@@ -426,8 +447,10 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		ip = ExtendedMinimaWatershed.extendedMinimaWatershed(
 				marker, result, 5, 4, false);		
 		*/
-		if (doThreshold)
+		if (doThreshold) {
+			//ImageFunctions.normalize(ip, 0, 255);
 			return ip;
+		}
 		
 		markerImg.invert();
 		MaximumFinder maxfinder = new MaximumFinder();
@@ -453,7 +476,8 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		//ip = watershed.apply(markerImg.getMin(), markerImg.getMax());
 		if (filterComponents) {
 			ImageComponentsAnalysis compAnalisys;
-			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg);
+			ImageFunctions.normalize(intensityImg, 0, 255);
+			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg);	//get labelled component image and fill properties
 			//compAnalisys.mergeComponents();
 			//ImagePlus t = new ImagePlus("avrgint", compAnalisys.getAvrgIntensityImage());
 			//t.show();
@@ -469,7 +493,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 				//t.show();
 			}
 		}
-		return ip;
+		return ip;		
 	}
 
 	/**

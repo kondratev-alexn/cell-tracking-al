@@ -21,6 +21,17 @@ public class ImageProcessorCalculator {
 		}
 	}
 	
+	/* Linear combination of two images, ip1 = alpha*ip1 + beta*ip2 */
+	public void linearCombination(float alpha, ImageProcessor ip1, float beta, ImageProcessor ip2) {
+		int w = ip1.getWidth(), h = ip1.getHeight();
+		if (w != ip2.getWidth() || h!= ip2.getHeight())
+			return;
+		for (int i=0; i<ip1.getPixelCount(); i++) {
+			float sum = alpha*ip1.getf(i) + beta*ip2.getf(i);
+			ip1.setf(i, sum);
+		}
+	}
+	
 	/* Subtract two images, ip1 = ip1 - ip2 */
 	public void sub(ImageProcessor ip1, ImageProcessor ip2) {
 		int w = ip1.getWidth(), h = ip1.getHeight();

@@ -83,6 +83,30 @@ public class ImageFunctions {
 		}
 	}
 	
+	/* applies median filter with radius "radius", finds minimum and subtracts it */
+	public static void subtractBackgroundMinMedian(ImageProcessor ip, double radius) {
+		ImageProcessor median = ip.duplicate();
+		if (radius != 0) {
+			RankFilters filter = new RankFilters();
+			filter.rank(median, radius, RankFilters.MEDIAN);
+		}
+
+		//ImagePlus plus = new ImagePlus("median", median);
+		//plus.show();
+		// find minimum
+		float min = 5000;
+		for (int i=0; i<median.getPixelCount(); i++) {
+			if (median.getf(i) < min) min = median.getf(i);
+		}
+		System.out.println(min);
+		// subtract minimum
+		float v;
+		for (int i=0; i<ip.getPixelCount(); i++) {
+			v = ip.getf(i) - min;
+			ip.setf(i, v);
+		}
+	}
+	
 	// Canny edge detection with thresholds t1,t2 and sigma-gaussian blur
     public static ImageProcessor Canny(ImageProcessor ip, double sigma, double t1, double t2, int offx, int offy, boolean useOtsuThreshold)
     {

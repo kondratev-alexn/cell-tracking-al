@@ -66,34 +66,34 @@ public class ImageComponentsAnalysis {
 		}
 		
 		int v; // component intensity in the image
-		int newLabel = 0; //new component label
-		int label; 		//current label
+		int newIndex = 0; //new component index
+		int index; 		//current index
 		int pix4c, pixDc;
 		for (int y=0; y < h; y++) {
 			for (int x=0; x < w; x++) {
 				v = imageComponents.get(x, y);
-				// components can be labeled in whatever range (but no negatives), dont rely on v=0 to be background. And make background a component
+				// components can be indexed in whatever range (but no negatives), dont rely on v=0 to be background. And make background a component
 				//if (v > 0) { 
-				label = findComponentIndexByIntensity(v);
-				if (label == -1)
-					label = ++newLabel;
+				index = findComponentIndexByIntensity(v);
+				if (index == -1)
+					index = ++newIndex;
 
-				properties.get(label).intensity = v;	
-				properties.get(label).area++;
-				properties.get(label).avrgIntensity += imageIntensity.getf(x, y);
+				properties.get(index).intensity = v;	
+				properties.get(index).area++;
+				properties.get(index).avrgIntensity += imageIntensity.getf(x, y);
 
 				if (isBorderPixel4C(imageComponents, x, y)) { //calculate perimeter
 					pix4c = numberOfNeighbours4C(imageComponents, x, y);
 					pixDc = numberOfNeighboursDiagC(imageComponents, x, y);
-					properties.get(label).perimeter += (float) ((pix4c*1.0f + pixDc * Math.sqrt(2)) / (pix4c + pixDc));
+					properties.get(index).perimeter += (float) ((pix4c*1.0f + pixDc * Math.sqrt(2)) / (pix4c + pixDc));
 				}
 				//if (hasDiagonalBorderNeighbours(image, x, y)) properties.get(v).perimeter += Math.sqrt(2);
 				//else properties.get(v).perimeter++;
 
-				if (properties.get(label).xmin > x) properties.get(label).xmin = x;
-				if (properties.get(label).xmax < x) properties.get(label).xmax = x;
-				if (properties.get(label).ymin > y) properties.get(label).ymin = y;
-				if (properties.get(label).ymax < y) properties.get(label).ymax = y;
+				if (properties.get(index).xmin > x) properties.get(index).xmin = x;
+				if (properties.get(index).xmax < x) properties.get(index).xmax = x;
+				if (properties.get(index).ymin > y) properties.get(index).ymin = y;
+				if (properties.get(index).ymax < y) properties.get(index).ymax = y;
 
 				//}
 			}
@@ -113,11 +113,13 @@ public class ImageComponentsAnalysis {
 		ArrayList<Integer> list = new ArrayList<Integer>(20); // what components to filter
 		int area;
 		float circ, avrgInt;
-		//fill list 
+		
+		//fill list with indexes of component to be removed
 		for (int i=0; i<properties.size(); i++) {
 			area = properties.get(i).area;
 			circ = properties.get(i).circularity;
 			avrgInt = properties.get(i).avrgIntensity;
+			//System.out.println(area + " : " + circ + " : " + avrgInt);
 			if (area < minArea || area > maxArea) {
 				list.add(i);
 				continue;
@@ -268,10 +270,11 @@ public class ImageComponentsAnalysis {
 	}
 	
 	public ImageProcessor getAvrgIntensityImage() {
-		ImageProcessor result = imageComponents.duplicate().convertToFloatProcessor();
+		ImageProcessor result = imageComponents.duplicate();
 		int v;
 		for (int i=0; i<result.getPixelCount(); i++) {
-			v = imageComponents.get(i) - 1;
+			v = findComponentIndexByIntensity(result.get(i));
+			//System.out.println(result.get(i));
 			if (v != -1)
 				result.setf(i, properties.get(v).avrgIntensity);
 		}
@@ -328,14 +331,15 @@ public class ImageComponentsAnalysis {
 		return result;
 	}
 	
-	/* returns true if any of the neighbouring pixels (4-connectivity) has value 0 */
+	/* returns true if any of the neighbouring pixels (4-connectivity) has other intensity value (not 0) */
 	private boolean isBorderPixel4C(ImageProcessor ip, int x, int y) {
-		if (x < 0 || x > ip.getWidth() - 1 || y < 0 || y > ip.getHeight() - 1) return false;
-		if (x == 0 || y==0 || x == ip.getWidth()-1 || y == ip.getHeight()-1) return true; //pixels on the image border
-		if (x > 0 && ip.get(x - 1, y) == 0) return true;
-		if (x < ip.getWidth() && ip.get(x+1,y) == 0) return true;
-		if (y > 0 && ip.get(x, y-1) == 0) return true;
-		if (y < ip.getHeight() && ip.get(x, y+1) == 0) return true;
+		if (x < 0 || x > ip.getWidth() - 1 || y < 0 || y > ip.getHeight() - 1) return false;	// pixels out of the image
+		if (x == 0 || y==0 || x == ip.getWidth()-1 || y == ip.getHeight()-1) return true; 		// pixels on the image border
+		int v_xy = ip.get(x,y);
+		if (x > 0 && ip.get(x - 1, y) != v_xy) return true;
+		if (x < ip.getWidth() && ip.get(x+1,y) != v_xy) return true;
+		if (y > 0 && ip.get(x, y-1) != v_xy) return true;
+		if (y < ip.getHeight() && ip.get(x, y+1) != v_xy) return true;
 		return false;
 	}
 	
