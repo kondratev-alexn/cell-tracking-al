@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Vector;
 
 import ij.ImagePlus;
+import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import inra.ijpb.binary.BinaryImages;
 import inra.ijpb.morphology.Strel;
@@ -34,24 +35,34 @@ public class ImageComponentsAnalysis {
 		fillCircularity();
 	}
 	
-	public int getComponentArea(int intensity) {
-		int compNumber = findComponentIndexByIntensity(intensity);
-		return properties.get(compNumber).area;
+	public int getComponentArea(int index) {
+		return properties.get(index).area;
 	}
 	
-	public float getComponentPerimeter(int intensity) {
-		int compNumber = findComponentIndexByIntensity(intensity);
-		return properties.get(compNumber).perimeter;
+	public float getComponentPerimeter(int index) {
+		return properties.get(index).perimeter;
 	}
 	
-	public float getComponentCircularity(int intensity) {
-		int compNumber = findComponentIndexByIntensity(intensity);
-		return properties.get(compNumber).circularity;
+	public float getComponentCircularity(int index) {
+		return properties.get(index).circularity;
 	}
 	
-	public float getComponentAvrgIntensity(int intensity) {
-		int compNumber = findComponentIndexByIntensity(intensity);
-		return properties.get(compNumber).avrgIntensity;
+	public float getComponentAvrgIntensityByIntensity(int intensity) {
+		int index = findComponentIndexByIntensity(intensity);
+		return properties.get(index).avrgIntensity;
+	}
+	
+	public int getComponentsCount() {
+		return nComponents;
+	}
+	
+	// getters by index
+	public int getComponentX0(int index) {
+		return properties.get(index).xmin;
+	}
+	
+	public int getComponentY0(int index) {
+		return properties.get(index).ymin;
 	}
 	
 	/* calculates bounding box corners, perimeter, area, average intensity for components and fills the "properties" array */
@@ -145,6 +156,45 @@ public class ImageComponentsAnalysis {
 		return imageComponents;
 	}
 	
+	/* return box-image containing the component[nComp], dilated by disk with radius "d" */
+	public ImageProcessor getDilatedComponentImage(int nComp, int d) {
+		int x0 = properties.get(nComp).xmin;
+		int x1 = properties.get(nComp).xmax;
+		int y0 = properties.get(nComp).ymin;
+		int y1 = properties.get(nComp).ymax;
+		ImageProcessor result = new FloatProcessor(x1-x0+1 + 2*d, y1-y0+1 + 2*d);
+		
+		// copy component into the new image
+		float v;
+		final int compInt = properties.get(nComp).intensity;
+		for (int x=d; x < result.getWidth() - d; x++) 
+			for (int y=d; y< result.getHeight() - d; y++) {
+				v = imageComponents.getf(x0+x-d, y0+y-d);
+				if (v == compInt)
+					result.setf(x, y, 1);
+			}
+		result = ImageFunctions.operationMorph(result, Operation.DILATION, Strel.Shape.DISK, d);
+		return result;
+	}
+	
+	/* change markers image, so that all markers inside one mask are merged (into the geometrical center), for one component
+	 * (x0,y0) is the top-left point of the box, where mask should be in markers image */
+	public static void mergeMarkersByComponentMask(ImageProcessor markers, ImageProcessor mask, int x0, int y0) {
+		int wb = mask.getWidth(), hb = mask.getHeight();
+		int count = 0;
+		float newx = 0, newy = 0;		
+		for (int y=y0; y<y0+hb; y++)
+			for (int x=x0; x<x0+wb; x++) {
+				if (x>0 && x<markers.getWidth() && y>0 && y<markers.getHeight() &&  markers.get(x, y) != 0 && mask.get(x-x0, y-y0) > 0) {
+					newx+=x;
+					newy+=y;
+					count++;
+					markers.setf(x,y,0);
+				}
+			}
+		markers.setf((int)(newx/count), (int)(newy/count), 255);
+	}
+	
 	/* combines components in ip that belong to the same component in the compImage. 
 	 * compImage nd ip must be images after the BinaryImages.componentsLabelling operation (i.e. not float, components are labelled from 0) */
 	public static ImageProcessor combineComponentsInMask(ImageProcessor ip, ImageProcessor compImage) {
@@ -222,7 +272,7 @@ public class ImageComponentsAnalysis {
 					System.out.println(rightLabel);*/
 					// if up and down has close entensity and different labels, change the down label to that of top
 					if (upLabel != 0 && downLabel != 0 && upLabel != downLabel)
-						if (Math.abs(getComponentAvrgIntensity(upLabel) - getComponentAvrgIntensity(downLabel)) < 5) {
+						if (Math.abs(getComponentAvrgIntensityByIntensity(upLabel) - getComponentAvrgIntensityByIntensity(downLabel)) < 5) {
 							System.out.println(downLabel);
 							System.out.println(upLabel);
 							changeComponentIntensity(downLabel, upLabel);							
@@ -232,7 +282,7 @@ public class ImageComponentsAnalysis {
 					leftLabel = originalComponents.get(x-1,y);
 					rightLabel = originalComponents.get(x+1,y);
 					if (leftLabel != 0 && rightLabel != 0 && leftLabel != rightLabel)
-						if (Math.abs(getComponentAvrgIntensity(leftLabel) - getComponentAvrgIntensity(rightLabel)) < 5) {
+						if (Math.abs(getComponentAvrgIntensityByIntensity(leftLabel) - getComponentAvrgIntensityByIntensity(rightLabel)) < 5) {
 							System.out.println(leftLabel);
 							System.out.println(rightLabel);
 							changeComponentIntensity(rightLabel, leftLabel);
@@ -296,6 +346,7 @@ public class ImageComponentsAnalysis {
 					image.set(x, y, 0);
 
 		properties.remove(nComp); //remove from the list
+		nComponents--;	//decrease number
 	}
 	
 	/* return index of component with given intensity. Returns -1 if not found */

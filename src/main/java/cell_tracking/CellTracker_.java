@@ -88,9 +88,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private double minThreshold = 20;
 	private double maxThreshold = 50;
 	private int minArea = 100;
-	private int maxArea = 500;
-	private float minCircularity = 0.5f;
-	private float maxCircularity = 0.95f;
+	private int maxArea = 800;
+	private float minCircularity = 0.575f;
+	private float maxCircularity = 1.0f;
 	
 	private boolean useMedian = false;
 	private boolean isBandpass = true;
@@ -100,6 +100,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private boolean previewing = false;
 	
 	private Vector sliders;
+	private ImageComponentsAnalysis prevComponentsAnalysis = null;	//for getting masks of segmented cells in next slices
 
 	private final float sigmaMax = 50;	// max value of sigmas
 	
@@ -456,6 +457,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		MaximumFinder maxfinder = new MaximumFinder();
 		ImageFunctions.normalize(markerImg, 0, 255);
 		ImageProcessor marks = maxfinder.findMaxima(markerImg, heightTolerance, MaximumFinder.SINGLE_POINTS, true);
+		ImageFunctions.mergeComponents(marks, prevComponentsAnalysis, 2);
 		canny.invert();
 		markerImg.invert();
 		gaussian.GradientMagnitudeGaussian(markerImg, (float) sigma);
@@ -478,10 +480,13 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			ImageComponentsAnalysis compAnalisys;
 			ImageFunctions.normalize(intensityImg, 0, 255);
 			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg);	//get labelled component image and fill properties
+			//ImagePlus tt = new ImagePlus("comp image", compAnalisys.getDilatedComponentImage(3, 5)); seems to be working ok
+			//tt.show();
 			//compAnalisys.mergeComponents();
 			//ImagePlus t = new ImagePlus("avrgint", compAnalisys.getAvrgIntensityImage());
 			//t.show();
 			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
+			prevComponentsAnalysis = compAnalisys;
 			// here mb try to merge components that are close to each other and have close average intensity values
 			if ((flags & DOES_STACKS) != 0 ) {
 				//ip = ImageComponentsAnalysis.combineComponentsInMask(ip, compMask); // combine components that are near the cells in previous image

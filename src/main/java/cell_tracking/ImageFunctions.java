@@ -105,6 +105,19 @@ public class ImageFunctions {
 			v = ip.getf(i) - min;
 			ip.setf(i, v);
 		}
+	}	
+
+	/* merge markers that appear in the same components in comps. Component masks are generated through dilation with disk radius "d" */
+	public static void mergeComponents(ImageProcessor markers, ImageComponentsAnalysis comps, int d) {
+		if (comps == null) 
+			return;
+		ImageProcessor mask;
+		for (int i=0; i<comps.getComponentsCount(); i++) {
+			if (comps.getComponentArea(i) < 2000) {	//dont do this for big background regions
+				mask = comps.getDilatedComponentImage(i, d);
+				ImageComponentsAnalysis.mergeMarkersByComponentMask(markers, mask, comps.getComponentX0(i) - d, comps.getComponentY0(i) - d);
+			}
+		}
 	}
 	
 	// Canny edge detection with thresholds t1,t2 and sigma-gaussian blur
