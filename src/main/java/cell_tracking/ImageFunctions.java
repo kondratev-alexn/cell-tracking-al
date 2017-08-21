@@ -79,7 +79,7 @@ public class ImageFunctions {
 	public static void LabelMarker(ImageProcessor marker) {
 		int nextLabel = 1;
 		for (int i=0; i<marker.getPixelCount(); i++) {			
-			if (marker.get(i) != 0) marker.set(i, ++nextLabel);
+			if (marker.get(i) != 0) marker.set(i, nextLabel++);
 		}
 	}
 	
@@ -98,7 +98,7 @@ public class ImageFunctions {
 		for (int i=0; i<median.getPixelCount(); i++) {
 			if (median.getf(i) < min) min = median.getf(i);
 		}
-		System.out.println(min);
+		//System.out.println(min);
 		// subtract minimum
 		float v;
 		for (int i=0; i<ip.getPixelCount(); i++) {

@@ -22,6 +22,7 @@ public class ImageComponentsAnalysis {
 	public ImageComponentsAnalysis(ImageProcessor ip, ImageProcessor intensityImage) {
 		w = ip.getWidth();
 		h = ip.getHeight();
+		//imageComponents = ip.duplicate();
 		imageComponents = BinaryImages.componentsLabeling(ip, 4, 16);
 		//imageComponents = ImageFunctions.operationMorph(imageComponents, Operation.CLOSING, Strel.Shape.DISK, 1);
 		//ImagePlus t = new ImagePlus("after closing", imageComponents.duplicate());
@@ -65,6 +66,10 @@ public class ImageComponentsAnalysis {
 		return properties.get(index).ymin;
 	}
 	
+	public void testFunc(ImageComponentsAnalysis cl) {
+		
+	}
+	
 	/* calculates bounding box corners, perimeter, area, average intensity for components and fills the "properties" array */
 	public void fillBasicProperties() {
 		// presetting values to find containing rectangle
@@ -74,6 +79,10 @@ public class ImageComponentsAnalysis {
 			properties.get(i).ymin = h - 1;
 			properties.get(i).ymax = 0;
 			properties.get(i).intensity = -1;
+			properties.get(i).area = 0;
+			properties.get(i).avrgIntensity = 0;
+			properties.get(i).circularity = 0;
+			properties.get(i).perimeter = 0;
 		}
 		
 		int v; // component intensity in the image
@@ -117,6 +126,61 @@ public class ImageComponentsAnalysis {
 	
 	public ImageProcessor getImageComponents() {
 		return imageComponents;
+	}
+	
+	/* Combine components (properties considered), whose markers appear in the dilated (radius d) mask of previously detected component.
+	 * "components" is the image after water segmentation on markers */
+	public void mergeComponentsByMarkers(ImageProcessor markers, ImageComponentsAnalysis prevComponents, int d) {
+		if (prevComponents == null) 
+			return;
+		ImageProcessor mask;
+		int index, intens;
+		ArrayList<Integer> list = new ArrayList<Integer>(3);
+		for (int i=0; i<prevComponents.getComponentsCount(); i++) {
+			if (prevComponents.getComponentArea(i) < 2000) {	//dont do this for big background regions
+				System.out.println("component " +i +", area " + prevComponents.getComponentArea(i));
+				mask = prevComponents.getDilatedComponentImage(i, d);
+				list = getComponentListByMask(markers, mask, imageComponents, prevComponents.getComponentX0(i), prevComponents.getComponentY0(i));
+				// first, remove big components from the list
+				for (int k=0; k<list.size(); k++) {
+					index = list.get(k);
+					System.out.print(index + " ");
+					if (this.properties.get(index).area > 1000) 
+						list.remove(k);			 
+				}
+				
+				// !!! problem !!! The same marker can be found in several masks. Remove it if it is the only marker in some component (~)
+				
+				//here change all components intensity to that of the first marker. Properties list should also change
+				if (list.size() > 0) {
+					intens = properties.get(list.get(0)).intensity;
+					for (int k=1; k<list.size(); k++) {
+						changeComponentIntensityByIndex(list.get(k), intens);
+						fillBasicProperties();
+						fillCircularity();
+					}
+				}
+
+			}
+		}
+		System.out.println("___");
+	}
+	
+	// return list of component indexes, which markers appear in the mask located from x0,y0
+	private ArrayList<Integer> getComponentListByMask(ImageProcessor markers, ImageProcessor mask, ImageProcessor components, int x0, int y0) {
+		ArrayList<Integer> result = new ArrayList<Integer>(3);
+		int wb = mask.getWidth(), hb = mask.getHeight();
+		int v;
+		float newx = 0, newy = 0;		
+		//mb later add something that prevents getting the same markerinto the list for different masks...not here tho
+		for (int y=y0; y<y0+hb; y++)
+			for (int x=x0; x<x0+wb; x++) {
+				if (x>0 && x<markers.getWidth() && y>0 && y<markers.getHeight() &&  markers.get(x, y) != 0 && mask.get(x-x0, y-y0) > 0) {
+					v = findComponentIndexByIntensity(components.get(x, y));
+					result.add(v);
+				}
+			}
+		return result;
 	}
 	
 	/* filter components by area and circularity */
@@ -258,7 +322,7 @@ public class ImageComponentsAnalysis {
 		int l;
 		ImageProcessor originalComponents = imageComponents.duplicate();
 		for (int i=0; i<properties.size(); i++) 
-			System.out.println(properties.get(i).intensity);
+			//System.out.println(properties.get(i).intensity);
 		// pass through the image and look for boundary pixels (label '0'). Then look in 4C-neighbourhood if components should be merged */		
 		for (int y=1; y < h-1; y++) {
 			for (int x=1; x < w-1; x++) {
@@ -291,6 +355,23 @@ public class ImageComponentsAnalysis {
 			}
 		}
 		imageComponents = ImageFunctions.operationMorph(imageComponents, Operation.CLOSING, Strel.Shape.DISK, 1); // to remove '0' label lines
+	}
+	
+	/* for merging components; also deletes old intensity component from the list */
+	private void changeComponentIntensityByIndex(int compIndex, int newIntensity) {
+		int x0,x1,y0,y1;
+		x0 = properties.get(compIndex).xmin;
+		x1 = properties.get(compIndex).xmax;
+		y0 = properties.get(compIndex).ymin;
+		y1 = properties.get(compIndex).ymax;
+		int intensity = properties.get(compIndex).intensity;
+		for (int y=y0; y <= y1; y++) 
+			for (int x=x0; x <= x1; x++) 
+				if (imageComponents.get(x, y) == intensity)
+					imageComponents.set(x, y, newIntensity);
+
+		properties.remove(compIndex);
+		nComponents--;
 	}
 	
 	private void changeComponentIntensity(int intensity, int newIntensity) {

@@ -401,9 +401,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private ImageProcessor maximaWatershedSegmentation(ImageProcessor ip, double sigma, double minThreshold, double maxThreshold) {
 		// assume ip is already preprocessed, i.e. filtered, background subtracted
 		ImageProcessor markerImg = ip.duplicate();
-		ImageProcessor intensityImg = markerImg.duplicate();
+		ImageProcessor intensityImg;
 		ImageProcessor watershedMask;
-		
+		intensityImg = markerImg.duplicate();
 		//gaussian.GradientMagnitudeGaussian(ip, (float) sigma);
 		if (isBandpass) {
 			bandpassFilter(markerImg);
@@ -419,6 +419,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		ImagePlus wat = new ImagePlus("mask", watershedMask);
 
 		markerImg = ImageFunctions.operationMorph(markerImg, Operation.CLOSING, Strel.Shape.DISK, closingRadius);
+		
 		ImageProcessor canny = null;
 		//marker = ImageFunctions.operationMorph(marker, Operation.CLOSING, Strel.Shape.DISK, 2);
 		//if (useMedian) rankFilters.rank(markerImg, medianSize/2, RankFilters.MEDIAN);
@@ -457,7 +458,8 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		MaximumFinder maxfinder = new MaximumFinder();
 		ImageFunctions.normalize(markerImg, 0, 255);
 		ImageProcessor marks = maxfinder.findMaxima(markerImg, heightTolerance, MaximumFinder.SINGLE_POINTS, true);
-		ImageFunctions.mergeComponents(marks, prevComponentsAnalysis, 2);
+		//ImageFunctions.mergeComponents(marks, prevComponentsAnalysis, 2);
+	
 		canny.invert();
 		markerImg.invert();
 		gaussian.GradientMagnitudeGaussian(markerImg, (float) sigma);
@@ -479,7 +481,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		if (filterComponents) {
 			ImageComponentsAnalysis compAnalisys;
 			ImageFunctions.normalize(intensityImg, 0, 255);
+			ImageFunctions.subtractBackgroundMinMedian(intensityImg, 8);
 			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg);	//get labelled component image and fill properties
+			compAnalisys.mergeComponentsByMarkers(marks, prevComponentsAnalysis, 2);
 			//ImagePlus tt = new ImagePlus("comp image", compAnalisys.getDilatedComponentImage(3, 5)); seems to be working ok
 			//tt.show();
 			//compAnalisys.mergeComponents();
