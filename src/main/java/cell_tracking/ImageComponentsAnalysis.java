@@ -4,6 +4,10 @@ import java.util.ArrayList;
 import java.util.Vector;
 
 import ij.ImagePlus;
+import ij.gui.PolygonRoi;
+import ij.gui.Roi;
+import ij.gui.Wand;
+import ij.plugin.frame.RoiManager;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import inra.ijpb.binary.BinaryImages;
@@ -46,6 +50,10 @@ public class ImageComponentsAnalysis {
 	
 	public float getComponentCircularity(int index) {
 		return properties.get(index).circularity;
+	}
+	
+	public int getComponentIntensity(int index) {
+		return properties.get(index).intensity;
 	}
 	
 	public float getComponentAvrgIntensityByIntensity(int intensity) {
@@ -146,27 +154,28 @@ public class ImageComponentsAnalysis {
 					index = list.get(k);
 					System.out.print(index + " ");
 					if (this.properties.get(index).area > 1000) 
-						list.remove(k);			 
+						list.remove(k);
 				}
 				
 				// !!! problem !!! The same marker can be found in several masks. Remove it if it is the only marker in some component (~)
+				// It's better to assign intensity labels to markers in one component and just assign it
 				
 				//here change all components intensity to that of the first marker. Properties list should also change
 				if (list.size() > 0) {
-					intens = properties.get(list.get(0)).intensity;
+					//intens = properties.get(list.get(0)).intensity;
+					intens = prevComponents.getComponentIntensity(i);
 					for (int k=1; k<list.size(); k++) {
 						changeComponentIntensityByIndex(list.get(k), intens);
 						fillBasicProperties();
 						fillCircularity();
 					}
 				}
-
 			}
 		}
 		System.out.println("___");
 	}
 	
-	// return list of component indexes, which markers appear in the mask located from x0,y0
+	/* return list of component indexes, which markers appear in the mask located from x0,y0 */
 	private ArrayList<Integer> getComponentListByMask(ImageProcessor markers, ImageProcessor mask, ImageProcessor components, int x0, int y0) {
 		ArrayList<Integer> result = new ArrayList<Integer>(3);
 		int wb = mask.getWidth(), hb = mask.getHeight();
@@ -359,6 +368,8 @@ public class ImageComponentsAnalysis {
 	
 	/* for merging components; also deletes old intensity component from the list */
 	private void changeComponentIntensityByIndex(int compIndex, int newIntensity) {
+		if (getComponentIntensity(compIndex) == newIntensity) //dont do anything if it's the same component
+			return;
 		int x0,x1,y0,y1;
 		x0 = properties.get(compIndex).xmin;
 		x1 = properties.get(compIndex).xmax;
@@ -390,6 +401,25 @@ public class ImageComponentsAnalysis {
 
 		properties.get(nComp).intensity = newIntensity;
 		//here we should recalculate all properties...or not here
+	}
+	
+	/* creates and returns a RoiManager, with each roi corresponding to one component in this.imageComponents */
+	public RoiManager getRoiManager() {
+		RoiManager res = new RoiManager();
+		Roi roi;
+		Wand w = new Wand(imageComponents);
+		int intens;
+		for (int i=0; i<properties.size(); i++) { //get roi of each component
+			intens = properties.get(i).intensity;
+			w.autoOutline(properties.get(i).xmin, properties.get(i).ymin, intens, intens);
+			if (w.npoints>0) { // we have a roi from the wand... 
+				roi = new PolygonRoi(w.xpoints, w.ypoints, w.npoints, Roi.TRACED_ROI);
+				//img.setRoi(roi);
+				res.addRoi(roi);
+				res.add(imp, roi, n);
+			} 
+		}
+		return res;
 	}
 	
 	@Deprecated

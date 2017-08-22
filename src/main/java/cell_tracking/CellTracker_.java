@@ -12,6 +12,7 @@ import ij.Macro;
 import ij.gui.DialogListener;
 import ij.gui.GenericDialog;
 import ij.gui.ImageLayout;
+import ij.gui.ShapeRoi;
 import ij.plugin.filter.PlugInFilter;
 import ij.plugin.filter.PlugInFilterRunner;
 import ij.process.Blitter;
@@ -31,6 +32,7 @@ import ij.plugin.ContrastEnhancer;
 import ij.plugin.Converter;
 import ij.plugin.filter.BackgroundSubtracter;
 import ij.plugin.filter.RankFilters;
+import ij.plugin.frame.RoiManager;
 import inra.ijpb.binary.BinaryImages;
 import inra.ijpb.binary.ChamferWeights;
 import inra.ijpb.morphology.AttributeFiltering;
@@ -73,6 +75,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	/* image for displaing result on stacks */
 	private ImagePlus stackImage;
 	
+	/* roi manager for each slice */
+	private RoiManager[] rois;
+	
 	private int currSlice = 1;		// slice number for stack processing
 	private int selectedSlice;		// currently selected slice
 
@@ -87,9 +92,9 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 	private double medianRadius = 2;
 	private double minThreshold = 20;
 	private double maxThreshold = 50;
-	private int minArea = 100;
+	private int minArea = 130;
 	private int maxArea = 800;
-	private float minCircularity = 0.575f;
+	private float minCircularity = 0.6f;
 	private float maxCircularity = 1.0f;
 	
 	private boolean useMedian = false;
@@ -146,6 +151,10 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		
 		nSlices = imp.getStackSize();
 		compMask = null;
+		rois = new RoiManager[nSlices];
+		//for (int i=0; i<rois.length; i++) {
+			//rois[i] = new RoiManager(); }
+		
 		// convert to float if plugin just started
 		if (nSlices == 1) {
 			Converter conv = new Converter();
@@ -234,7 +243,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
             return false;
     	
     	// if preview checkbox was unchecked, replace the preview image by the original image
-    	if (wasPreview && !this.previewing)     	{
+    	if (wasPreview && !this.previewing) {
     		resetPreview();
     	}
     	return true;
@@ -289,7 +298,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			result = ip.duplicate();
 		}
 		else 
-			result = baseImage.duplicate();		
+			result = baseImage.duplicate();
 		thresholdedIntensity = result.duplicate();
 		
 		//if we already processed image for previewing the current slide, then don't process it again
@@ -458,7 +467,7 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 		MaximumFinder maxfinder = new MaximumFinder();
 		ImageFunctions.normalize(markerImg, 0, 255);
 		ImageProcessor marks = maxfinder.findMaxima(markerImg, heightTolerance, MaximumFinder.SINGLE_POINTS, true);
-		//ImageFunctions.mergeComponents(marks, prevComponentsAnalysis, 2);
+		ImageFunctions.mergeComponents(marks, prevComponentsAnalysis, 2);
 	
 		canny.invert();
 		markerImg.invert();
@@ -483,13 +492,17 @@ public class CellTracker_ implements ExtendedPlugInFilter, DialogListener {
 			ImageFunctions.normalize(intensityImg, 0, 255);
 			ImageFunctions.subtractBackgroundMinMedian(intensityImg, 8);
 			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg);	//get labelled component image and fill properties
-			compAnalisys.mergeComponentsByMarkers(marks, prevComponentsAnalysis, 2);
+			//compAnalisys.mergeComponentsByMarkers(marks, prevComponentsAnalysis, 2);
 			//ImagePlus tt = new ImagePlus("comp image", compAnalisys.getDilatedComponentImage(3, 5)); seems to be working ok
 			//tt.show();
 			//compAnalisys.mergeComponents();
 			//ImagePlus t = new ImagePlus("avrgint", compAnalisys.getAvrgIntensityImage());
 			//t.show();
 			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
+			rois[currSlice] = compAnalisys.getRoiManager();
+			ImagePlus r = new ImagePlus("test roi", ip);
+			r.show();
+			rois[currSlice].selectAndMakeVisible(r, 0);
 			prevComponentsAnalysis = compAnalisys;
 			// here mb try to merge components that are close to each other and have close average intensity values
 			if ((flags & DOES_STACKS) != 0 ) {
