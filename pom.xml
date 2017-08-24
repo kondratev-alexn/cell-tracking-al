@@ -70,7 +70,7 @@
 
 	<properties>
 		<package-name>cellTracking</package-name>
-		<main-class>CellTracking.CellTracker</main-class>
+		<main-class>cellTracking.Cell_Tracker</main-class>
 		<license.licenseName>bsd_2</license.licenseName>
 		<license.copyrightOwners>Romashka, Inc.</license.copyrightOwners>
 	</properties>

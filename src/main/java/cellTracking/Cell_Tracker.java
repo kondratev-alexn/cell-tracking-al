@@ -65,7 +65,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	
 	/** Keep instance of result image */
 	private ImageProcessor result;	
-	
+	//
 	/* for storing thresholded intensity image */
 	private ImageProcessor thresholdedIntensity;
 	
