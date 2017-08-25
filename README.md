@@ -32,14 +32,14 @@ ________________________________________________________________________________
 
 ## Algorithm
 
-Preprocessing:
+####Preprocessing:
 
 	1. Median filtration of the original image (optional)
 	2. Background subtraction
 	3. Bandpass Filtering (optional)
 	4. Morphological Closing
 	
-Segmentation:
+####Segmentation:
 
 	5. Find markers in bandpassed (or original) image
 	6. Merge markers, using components, detected in the previous slice. Namely, it first creates dilated (with radius) masks of each component. 
@@ -59,51 +59,51 @@ ________________________________________________________________________________
 ## Pseudo-code of the algorithm
 ```
 if (useMedian)
-	  medianFiltration(image, medRadius);
+	medianFiltration(image, medRadius);
 subtractBackground(image, rbRadius);
 if (isBandpass)
-	  bandpassFilter(image, sigma1, sigma2);
+	bandpassFilter(image, sigma1, sigma2);
 morpholibj.Closing(image, DISK, clRadius);
 marker = findMaxima(image, heightTolerance, SINGLE_POINTS, excludeOnEdges = true);
 mergeMarkers(marker, previousComponents, dilationRadius);
 gradient = GaussianGradient(image, sigma3);
 components = markerControlledWatershedTransform(gradient, marker, Mask = null, Connectivity = 4);
 if (filter) {
-	  filterComponents(components, areaRange, circularityRange);
-	  addRoisToManager(components, roiManager, currentSlice);
-   }
+	filterComponents(components, areaRange, circularityRange);
+	addRoisToManager(components, roiManager, currentSlice);
+}
 ```
    
 ________________________________________________________________________________________________
 
 ## Parameters 
-Median filter radius (medRadius)
+Median filter radius (medRadius)  
 	-radius of median filter
 	
-Rolling ball radius (rbRadius)
+Rolling ball radius (rbRadius)  
 	-radius, used in rolling ball background subtraction algorithm
 	
-Closing radius	(clRadius)
+Closing radius	(clRadius)  
 	-radius of morphological closing before
 	
-sigma1 (bandpass)
-sigma2 (bandpass)
+sigma1 (bandpass)  
+sigma2 (bandpass)  
 	-sigmas for bandpass filtering. ( bandpassedImage = GaussianFilter(image, sigma1) - GaussianFilter(image, sigma2) )
 	
-sigma3 (gradient)
+sigma3 (gradient)  
 	-sigma used to smooth the image before computing the gradient
 	
-Height tolerance (max find)
+Height tolerance (max find)  
 	-parameter used in maximaFind algorithm
 	
-Min area
-Max area
+Min area  
+Max area  
 	-Used for filtering the components by area. Only components with area in [minArea; maxArea] are left
 	
-Min circularity
-Max circularity
-	-Used for filtering the components by circularity. Only components with circularity in [minCircularity; maxCircularity] are left.
-	Note: circularity = 4*Pi* (Area) / (Perimeter^2)
+Min circularity  
+Max circularity  
+	-Used for filtering the components by circularity. Only components with circularity in [minCircularity; maxCircularity] are left.  
+Note: circularity = 4*Pi* (Area) / (Perimeter^2)
 	
 Dilation Radius (postprocessing)
 	-Used to make masks of components, detected in the previous slices.
