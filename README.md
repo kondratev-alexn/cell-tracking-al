@@ -1,6 +1,6 @@
 This is a project implementing cell segmentation. You can find detailed information about the algorithm, its parameters and usage below.
 
-*** Usage ***
+## Usage 
 1. As with all plugins, place .jar file into the plugins ImageJ folder
 
 2. Start ImageJ. Start the plugin by Plugins->Cell Tracking (or it might be in Plugins->cellTracking->Cell Tracker, bit unlikely)
@@ -24,18 +24,23 @@ I didn't test other interations with the roi manager during the processing time,
 9. To show rois for only the selected slice, go to "More" >> "Options..." and check [Associate "Show All" ROIs with Slices"] box
 
 Note 1: The tracking is yet to be implemented, along with many improvements. Now it's more like a showcase of what can be done.
+
 Note 2: There are still a lot of bugs/inconviniences in usage, so I'm not sure what might happen if one does not follow these instructions step-by-step.
 In this case, one can expect errors, empty results or corruption of the original image (not the file, just the one loaded into ImageJ).
 ________________________________________________________________________________________________
 
 
-*** Algorithm ***
+## Algorithm
+
 Preprocessing:
+
 	1. Median filtration of the original image (optional)
 	2. Background subtraction
 	3. Bandpass Filtering (optional)
 	4. Morphological Closing
+	
 Segmentation:
+
 	5. Find markers in bandpassed (or original) image
 	6. Merge markers, using components, detected in the previous slice. Namely, it first creates dilated (with radius) masks of each component. 
 	   Then, it finds markers, that belong to the same mask (in the previous slice), but correspond to small components in current slice (that way, markers found on the background, won't be used) and merges them into a single mark (actually, geometrical centre of found markers).
@@ -51,44 +56,54 @@ I use the single roi manager for the whole stack, since rois are assigned to the
 
 ________________________________________________________________________________________________
 
-*** Pseudo-code of the algorithm ***
-1. if (useMedian)
+## Pseudo-code of the algorithm
+```
+if (useMedian)
 	  medianFiltration(image, medRadius);
-2. subtractBackground(image, rbRadius);
-3. if (isBandpass)
+subtractBackground(image, rbRadius);
+if (isBandpass)
 	  bandpassFilter(image, sigma1, sigma2);
-4. morpholibj.Closing(image, DISK, clRadius);
-5. marker = findMaxima(image, heightTolerance, SINGLE_POINTS, excludeOnEdges = true);
-6. mergeMarkers(marker, previousComponents, dilationRadius);
-7. gradient = GaussianGradient(image, sigma3);
-8. components = markerControlledWatershedTransform(gradient, marker, Mask = null, Connectivity = 4);
-9. if (filter) {
+morpholibj.Closing(image, DISK, clRadius);
+marker = findMaxima(image, heightTolerance, SINGLE_POINTS, excludeOnEdges = true);
+mergeMarkers(marker, previousComponents, dilationRadius);
+gradient = GaussianGradient(image, sigma3);
+components = markerControlledWatershedTransform(gradient, marker, Mask = null, Connectivity = 4);
+if (filter) {
 	  filterComponents(components, areaRange, circularityRange);
 	  addRoisToManager(components, roiManager, currentSlice);
    }
+```
    
 ________________________________________________________________________________________________
 
-*** Parameters ***
+## Parameters 
 Median filter radius (medRadius)
 	-radius of median filter
+	
 Rolling ball radius (rbRadius)
 	-radius, used in rolling ball background subtraction algorithm
+	
 Closing radius	(clRadius)
 	-radius of morphological closing before
+	
 sigma1 (bandpass)
 sigma2 (bandpass)
 	-sigmas for bandpass filtering. ( bandpassedImage = GaussianFilter(image, sigma1) - GaussianFilter(image, sigma2) )
+	
 sigma3 (gradient)
 	-sigma used to smooth the image before computing the gradient
+	
 Height tolerance (max find)
 	-parameter used in maximaFind algorithm
+	
 Min area
 Max area
 	-Used for filtering the components by area. Only components with area in [minArea; maxArea] are left
+	
 Min circularity
 Max circularity
 	-Used for filtering the components by circularity. Only components with circularity in [minCircularity; maxCircularity] are left.
 	Note: circularity = 4*Pi* (Area) / (Perimeter^2)
+	
 Dilation Radius (postprocessing)
 	-Used to make masks of components, detected in the previous slices.

@@ -56,7 +56,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private int pass;                 // Current pass
 	
 	private int nSlices;
-		
+
 	/** need to keep the instance of ImagePlus */ 
 	private ImagePlus imagePlus;
 	
@@ -64,7 +64,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private ImageProcessor baseImage;
 	
 	/** Keep instance of result image */
-	private ImageProcessor result;	
+	private ImageProcessor result;
 	//
 	/* for storing thresholded intensity image */
 	private ImageProcessor thresholdedIntensity;
