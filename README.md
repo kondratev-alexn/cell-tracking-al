@@ -32,14 +32,14 @@ ________________________________________________________________________________
 
 ## Algorithm
 
-####Preprocessing:
+#### Preprocessing:
 
 	1. Median filtration of the original image (optional)
 	2. Background subtraction
 	3. Bandpass Filtering (optional)
 	4. Morphological Closing
 	
-####Segmentation:
+#### Segmentation:
 
 	5. Find markers in bandpassed (or original) image
 	6. Merge markers, using components, detected in the previous slice. Namely, it first creates dilated (with radius) masks of each component. 
@@ -105,5 +105,5 @@ Max circularity
 	-Used for filtering the components by circularity. Only components with circularity in [minCircularity; maxCircularity] are left.  
 Note: circularity = 4*Pi* (Area) / (Perimeter^2)
 	
-Dilation Radius (postprocessing)
+Dilation Radius (postprocessing)  
 	-Used to make masks of components, detected in the previous slices.

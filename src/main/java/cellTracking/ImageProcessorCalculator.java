@@ -58,6 +58,19 @@ public class ImageProcessorCalculator {
 		}
 	}
 	
+	/* divide: ip1 = ip1/ip2 (unexpected result for binary or short images) */
+	public void divide(ImageProcessor ip1, ImageProcessor ip2) {
+		int w = ip1.getWidth(), h = ip1.getHeight();
+		if (w != ip2.getWidth() || h!= ip2.getHeight())
+			return;
+		for (int y=0; y < h; y++) {
+			for (int x=0; x < w; x++) {
+				float sum = ip1.getf(x,y)/ip2.getf(x,y);
+				ip1.setf(x, y, sum);
+			}
+		}
+	}
+	
 	/* calculates square root for each pixel */
 	public void sqrt(ImageProcessor ip) {
 		int w = ip.getWidth(), h = ip.getHeight();

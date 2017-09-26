@@ -83,11 +83,12 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private int currSlice = 1;		// slice number for stack processing
 	private int selectedSlice;		// currently selected slice
 
-	// sigmas for bandpass algorithm
+	// sigmas for bandpass algorithm, also in UI
 	public double sigma1 = 1.40;
 	public double sigma2 = 5.00;
 	public double sigma3 = 0.80;
 	
+	/* numerical parameters for UI */
 	private double heightTolerance = 34;	//for maxima find // 34 extracts all in the only_movement seq, but some oversegmentation
 	private int rollingBallRadius = 20;		//for background subtraction
 	private int closingRadius = 2;
@@ -100,6 +101,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private float maxCircularity = 1.0f;
 	private int dilationRadius = 2;
 	
+	/* booleans for CheckBoxes */
+	private boolean isTestMode = false;
 	private boolean useMedian = false;
 	private boolean isBandpass = true;
 	private boolean useOtsuThreshold = false;
@@ -253,10 +256,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
         gd.addNumericField("Min circularity", minCircularity, 3);
         gd.addNumericField("Max circularity", maxCircularity, 3);
         gd.addNumericField("Dilation Radius (postprocessing)", dilationRadius, 0);
+        gd.addCheckbox("test mode", isTestMode);
         gd.addCheckbox("Median Filter", useMedian);
         gd.addCheckbox("Bandpass", isBandpass);
         //gd.addCheckbox("Use Auto Otsu threshold", useOtsuThreshold);
-        //gd.addCheckbox("Show canny edge segmentation", doThreshold);
+        gd.addCheckbox("Show Image before Watershedding", showImageForWatershedding);
         gd.addCheckbox("Filter components", filterComponents);
         gd.addPreviewCheckbox(pfr);
         gd.addDialogListener(this);
@@ -305,10 +309,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		minCircularity = (float)gd.getNextNumber();
 		maxCircularity = (float)gd.getNextNumber();
 		dilationRadius = (int)gd.getNextNumber();
+		isTestMode = gd.getNextBoolean();
 		useMedian = gd.getNextBoolean();
 		isBandpass = gd.getNextBoolean();
 		//useOtsuThreshold = gd.getNextBoolean();
-		//doThreshold = gd.getNextBoolean();
+		showImageForWatershedding = gd.getNextBoolean();
 		filterComponents = gd.getNextBoolean();
 		previewing = gd.getPreviewCheckbox().getState();
 		
@@ -339,6 +344,23 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		}
 		else 
 			result = baseImage.duplicate();
+		
+		if (isTestMode) {
+			// do some testing and return
+			Hessian hess = new Hessian(ip);
+			hess.calculateHessian((float) sigma1);
+			result = hess.getLambda2();
+			if (previewing && (flags&DOES_STACKS) == 0)
+	    	{
+				// System.out.println("in prev");
+	    		// Fill up the values of original image with values of the result
+	    		for (int i = 0; i < ip.getPixelCount(); i++) {
+	    			ip.setf(i, result.getf(i));
+	    		}
+	    		ip.resetMinAndMax();
+	        }
+			return;
+		}
 		thresholdedIntensity = result.duplicate();
 		
 		//if we already processed image for previewing the current slide, then don't process it again
@@ -430,8 +452,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 				Strel strel = shape.fromRadius(5);
 				result = result.convertToShortProcessor();
 				op.apply(result, strel); //closing with disc_5 R
-				result = result.convertToFloatProcessor();*/				
-				
+				result = result.convertToFloatProcessor();*/
 				rankFilters.rank(thresholdedIntensity, 4, RankFilters.MEDIAN);
 				backgroundSub.rollingBallBackground(thresholdedIntensity, 20, false, false, false, false, false);
 				ImageFunctions.threshold(thresholdedIntensity, -100, 15);	
@@ -501,8 +522,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 				marker, result, 5, 4, false);		
 		*/
 		if (showImageForWatershedding) {
-			//ImageFunctions.normalize(ip, 0, 255);
-			return ip;
+			ImageFunctions.normalize(markerImg, 0, 255);
+			return markerImg;
 		}
 		
 		markerImg.invert();
