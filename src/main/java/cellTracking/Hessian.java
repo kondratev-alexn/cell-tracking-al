@@ -26,7 +26,6 @@ public class Hessian {
 	
 	/* calculate Hessian of the Image for later usage */
 	public void calculateHessian(float sigma) {
-		ImageProcessor result = ip.duplicate();
 		Gaussian gaus = new Gaussian();
 		Ixx=ip.duplicate(); Ixy=ip.duplicate(); Iyy=ip.duplicate();
 		gaus.GaussianDerivativeX(Ixx, (float)Math.sqrt(sigma));
@@ -57,10 +56,30 @@ public class Hessian {
 		return lambda2;
 	}
 	
-	public ImageProcessor getLambdasRatio() {
-		ImageProcessorCalculator calc = new ImageProcessorCalculator();
+	/* test function to find better lambdas function.
+	 * Some comments: lambda2 is negative, with large absolute value along the edges, zero on the edges.
+	 * lambda 1 has large values in the center of the blobs if sigma is right. 
+	 * So mb l
+	 */
+	public ImageProcessor testValue() {
+		ImageProcessor res = getLambda2();
+		//res = getLambda1();
+		return res;
+	}
+	
+	/* get correct lambdas ration; if one f the values is less than threshold, then the result is zero*/
+	public ImageProcessor getLambdasRatio(float threshold, boolean absLambda1, boolean absLambda2) {
 		ImageProcessor res = lambda1.duplicate();
-		calc.divide(res, lambda2);
+		float v1,v2;
+		for (int i=0; i<lambda1.getPixelCount(); i++) {
+			v1 = lambda1.getf(i); 
+			v2 = lambda2.getf(i);
+			if (absLambda1 && v1<0) v1 = -v1;
+			if (absLambda2 && v2<0) v2 = -v2;			
+			if (Math.abs(v1) < threshold || Math.abs(v2) < threshold)
+				 res.setf(i, 0);
+			else res.setf(i, v1/lambda2.getf(i));
+		}
 		return res;
 	}
 }
