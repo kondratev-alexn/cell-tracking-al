@@ -1,5 +1,6 @@
 package cellTracking;
 
+import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 
 /* Blob detection using Hessian */
@@ -25,22 +26,25 @@ public class BlobDetector {
 	 * return image with dots corresponding to blob centers and their intensities -
 	 * to sigmas
 	 */
-	public ImageProcessor findBlobsBy3x3LocalMaxima(float thresholdLambda) {
+	public ByteProcessor findBlobsBy3x3LocalMaxima(float thresholdLambda, boolean binary) {
 		ImageProcessor stack[] = new ImageProcessor[hessians.length];
 		for (int z = 0; z < hessians.length; z++) {
 			stack[z] = hessians[z].getLambda2();
 			// ImageProcessorCalculator.linearCombination(0.5f, stack[z], 0.5f,
 			// hessians[z].getLambda2());
 		}
-		ImageProcessor result = ip.createProcessor(ip.getWidth(), ip.getHeight());
+		ByteProcessor result = new ByteProcessor(ip.getWidth(), ip.getHeight());
 		for (int y = 1; y < ip.getHeight() - 1; y++)
 			for (int x = 1; x < ip.getWidth() - 1; x++) {
 				result.setf(x, y, 0);
-				for (int z = 0; z < hessians.length; z++) {
+				for (int z = 1; z < hessians.length - 1; z++) {
 					if (isLocalMaximumThresholded3D(stack, x, y, z, thresholdLambda))
 						// normalizeValue0_255(scaleSigmas[z], scaleSigmas[0],
 						// scaleSigmas[scaleSigmas.length - 1]));
-						result.setf(x, y, scaleSigmas[z]);
+						if (binary)
+							result.set(x, y, 255);
+						else
+							result.setf(x, y, scaleSigmas[z]);
 				}
 			}
 		return result;

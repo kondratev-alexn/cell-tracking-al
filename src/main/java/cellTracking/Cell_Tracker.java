@@ -75,8 +75,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	/* image for displaing result on stacks */
 	private ImagePlus stackImage;
 
-	/* roi manager for each slice */
-	private RoiManager[] rois; // it appears, roi manager can handle rois in stack images by itself
 	/* roi manager for current slice */
 	private RoiManager roiManager;
 
@@ -89,8 +87,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	public double sigma3 = 0.80;
 
 	/* numerical parameters for UI */
-	private double heightTolerance = 34; // for maxima find // 34 extracts all in the only_movement seq, but some
-											// oversegmentation
+	private double heightTolerance = 0.03; // now its threshold for lambda2 in blob detection
 	private int rollingBallRadius = 20; // for background subtraction
 	private int closingRadius = 2;
 	private double medianRadius = 2;
@@ -112,23 +109,16 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private boolean previewing = false;
 
 	private boolean roiBrowserActive = false; // becomes true after the processing
+	private boolean startedProcessing = false;	// comes true after user has selected whether to process stacks or not
 
-	private Vector sliders;
 	private ImageComponentsAnalysis prevComponentsAnalysis = null; // for getting masks of segmented cells in next
 																	// slices
 
 	private final float sigmaMax = 50; // max value of sigmas
 
 	// plugins
-	private GaussianBlur gBlur;
-	private Duplicator dupl;
-	private ImageCalculator imgCalc;
-	private MexicanHatFilter mHat;
-	private ContrastEnhancer enchancer;
 	private Gaussian gaussian;
-	private ImageProcessorCalculator calc;
 	private BackgroundSubtracter backgroundSub;
-	private MorphologicalFilterPlugin morph;
 	private RankFilters rankFilters;
 
 	@Override
@@ -174,13 +164,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 		nSlices = imp.getStackSize();
 		compMask = null;
-		rois = new RoiManager[nSlices];
-		roiManager = RoiManager.getInstance();
-		if (roiManager == null)
-			roiManager = new RoiManager();
-
-		// for (int i=0; i<rois.length; i++) {
-		// rois[i] = new RoiManager(); }
 
 		// convert to float if plugin just started
 		if (nSlices == 1) {
@@ -191,7 +174,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			stackConv.convertToGray32();
 		}
 		instancePlugins();
-
+		// here maybe add flags like flags |= DOES_NOTHING
 		return flags;
 	}
 
@@ -199,15 +182,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	 * creates instances of used plugins
 	 */
 	private void instancePlugins() {
-		gBlur = new GaussianBlur();
-		dupl = new Duplicator();
-		imgCalc = new ImageCalculator();
-		mHat = new MexicanHatFilter();
-		enchancer = new ContrastEnhancer();
 		gaussian = new Gaussian();
-		calc = new ImageProcessorCalculator();
 		backgroundSub = new BackgroundSubtracter();
-		morph = new MorphologicalFilterPlugin();
 		rankFilters = new RankFilters();
 	}
 
@@ -218,7 +194,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		this.baseImage = imp.getProcessor().duplicate();
 		stackImage = imp.duplicate();
 		nChannels = imp.getProcessor().getNChannels();
-		currSlice = 1;
+		currSlice = 1;	//for when algorith starts processing stack
 		selectedSlice = imp.getCurrentSlice();
 
 		GenericDialog gd = new GenericDialog(command);
@@ -234,7 +210,15 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		IJ.register(this.getClass()); // protect static class variables (parameters) from garbage collection
 		// return flags;
 		flags = IJ.setupDialog(imp, flags); // ask whether to process all slices of stack (if a stack)
-
+		 
+		//after the answer, the processing is started. So show roiManager and set flag
+		startedProcessing = true;
+		currSlice = doesStacks()?1:selectedSlice;
+		roiManager = RoiManager.getInstance();
+		if (roiManager == null)
+			roiManager = new RoiManager();
+		roiManager.reset();
+		
 		return flags;
 	}
 
@@ -267,13 +251,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	@Override
 	public boolean dialogItemChanged(GenericDialog gd, AWTEvent e) {
 		if (roiBrowserActive) { // for listening to roi browser dialog
-			sliders = gd.getSliders();
+			Vector sliders = gd.getSliders();
 			selectedSlice = ((Scrollbar) sliders.get(0)).getValue();
 			// resetPreview();
 			imagePlus.setSlice(selectedSlice);
-			// change roi manager
-			rois[currSlice].selectAndMakeVisible(imagePlus, 0);
-			// rois[]
 
 			return true;
 		}
@@ -315,7 +296,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		previewing = gd.getPreviewCheckbox().getState();
 
 		// change image if current slice changed
-		sliders = gd.getSliders();
+		Vector sliders = gd.getSliders();
 		selectedSlice = ((Scrollbar) sliders.get(0)).getValue();
 		resetPreview();
 		imagePlus.setSlice(selectedSlice);
@@ -337,43 +318,43 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		pass = 0;
 	}
 
+	private boolean doesStacks() {
+		return (flags & DOES_STACKS) != 0;
+	}
+
 	@Override
 	public void run(ImageProcessor ip) {
-		if ((flags & DOES_STACKS) != 0) {// stack processing
+		if (startedProcessing) {// stack processing
 			result = ip.duplicate();
 		} else
-			result = baseImage.duplicate();
+			result = baseImage.duplicate();		
 
-		// if we already processed image for previewing the current slide, then don't
-		// process it again
-		// if (!(currSlice == selectedSlice && previewing && (flags&DOES_STACKS) !=0)) {
-
-		//ImageFunctions.normalize(result, 0f, 1f);
 		// preprocess image first
+		// ImageFunctions.normalize(result, 0f, 1f);
 		if (useMedian) {
 			rankFilters.rank(result, medianRadius, RankFilters.MEDIAN);
-			// result.blurGaussian(medianRadius); doesn't help much
 		}
+		
 		backgroundSub.rollingBallBackground(result, rollingBallRadius, false, false, false, true, false);
 		if (isTestMode) {
-
-			ImageFunctions.normalize(result, 0f, 1f);
 			// do some testing and return
+			ImageFunctions.normalize(result, 0f, 1f);
 			Hessian hess = new Hessian(result);
 			hess.calculateHessian((float) sigma1);
-			result = hess.testValue();
-			float[] sigmas = { 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20 };			
-			//BlobDetector blobs = new BlobDetector(result, sigmas);
-			//ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance);
-			//result = blobs.findBlobsByMaxSigmasImage();
-			//ImageFunctions.drawCirclesBySigmaMarkerks(result, blobDots);
+			// result = hess.getLambda2();
+			float[] sigmas = { 1, 20, 30, 50 };
+			BlobDetector blobs = new BlobDetector(result, sigmas);
+			// result = hess.getLambda2();
+			ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, false);
+			// result = blobs.findBlobsByMaxSigmasImage();
+			ImageFunctions.drawCirclesBySigmaMarkerks(result, blobDots, true);
+			// ImageFunctions.drawGaussian(result, 200, 200, (float) sigma1);
 
-			if (previewing && (flags & DOES_STACKS) == 0) {
-				// System.out.println("in prev");
-				// Fill up the values of original image with values of the result
+			if (previewing && !doesStacks()) {
 				for (int i = 0; i < ip.getPixelCount(); i++) {
 					ip.setf(i, result.getf(i));
 				}
+
 				ip.resetMinAndMax();
 			}
 			return;
@@ -390,22 +371,202 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			stackImage.setProcessor(result);
 		else
 			stackImage.getImageStack().setProcessor(result, currSlice);
-		// IJ.selectWindow(stackImage.getID());
-		// System.out.println("aftershow");
 
-		if ((flags & DOES_STACKS) != 0) { // process stacks
+		if (startedProcessing) { // process stacks
 			currSlice++;
 			// System.out.println("in curr_slice++");
 		}
 
-		if (previewing && (flags & DOES_STACKS) == 0) {
-			// System.out.println("in prev");
+		if (previewing && !startedProcessing) {
 			// Fill up the values of original image with values of the result
 			for (int i = 0; i < ip.getPixelCount(); i++) {
 				ip.setf(i, result.getf(i));
 			}
+			//roiManager.selectAndMakeVisible(imagePlus, 0);
+			//roiManager.setEditMode(imagePlus, true);
 			ip.resetMinAndMax();
 		}
+	}
+
+	/*
+	 * Yaginuma version of the algorithm, with finding maxima and marker-controlled
+	 * watershed, then post-processing (0 ver) I changed gradient threshold to canny
+	 * edge detection for flooding
+	 * 
+	 * (1 ver) Marker controlled watershed on gradient of the badnpass (or
+	 * intensity), markers are minima of the bandpass (or intensity). (1 ver)
+	 * Bandpass or intensity is selected by the checkbox
+	 */
+	private ImageProcessor maximaWatershedSegmentation(ImageProcessor ip, double sigma, double minThreshold,
+			double maxThreshold) {
+		// assume ip is already preprocessed, i.e. filtered, background subtracted
+		ImageProcessor markerImg = ip.duplicate();
+		ImageProcessor intensityImg;
+		ImageProcessor watershedMask;
+		intensityImg = markerImg.duplicate();
+
+		if (isBandpass) {
+			bandpassFilter(markerImg);
+		}
+		// create mask for watershed
+		watershedMask = markerImg.duplicate();
+		ImageFunctions.threshold(watershedMask, minThreshold, maxThreshold);
+
+		ImagePlus wat = new ImagePlus("mask", watershedMask);
+
+		markerImg = ImageFunctions.operationMorph(markerImg, Operation.CLOSING, Strel.Shape.DISK, closingRadius);
+
+		if (showImageForWatershedding) {
+			ImageFunctions.normalize(markerImg, 0, 255);
+			return markerImg;
+		}
+
+		markerImg.invert();
+		MaximumFinder maxfinder = new MaximumFinder();
+		ImageFunctions.normalize(markerImg, 0, 255);
+		float[] sigmas = { 1, 20, 30, 50 };
+		ImageFunctions.normalize(ip, 0f, 1f);
+		BlobDetector blobs = new BlobDetector(ip, sigmas);
+
+		// ImageProcessor findMaximaImage = blobs.findBlobsByMaxSigmasImage();
+		ImageProcessor marks;
+		// marks = maxfinder.findMaxima(findMaximaImage, heightTolerance,
+		// MaximumFinder.SINGLE_POINTS, true);
+		marks = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, true);
+		ImageFunctions.mergeMarkers(marks, prevComponentsAnalysis, dilationRadius);
+
+		markerImg.invert();
+		gaussian.GradientMagnitudeGaussian(markerImg, (float) sigma);
+
+		// tried adding lambda2 to gradient - bad
+		Hessian hess = new Hessian(ip);
+		hess.calculateHessian(1f);
+		ImageProcessor l2 = hess.getLambda2();
+		// ImageFunctions.divideByNegativeValues(markerImg, l2);
+		// ImageProcessorCalculator.linearCombination(0.8f, markerImg, 0.0f, l2);
+
+		ImageFunctions.LabelMarker(marks);
+
+		// ImageFunctions.normalize(markerImg, 0, 255);
+		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(markerImg, marks,
+				null, 4);
+		ip = watershed.applyWithPriorityQueue();
+
+		if (filterComponents) {
+			ImageComponentsAnalysis compAnalisys;
+			ImageFunctions.normalize(intensityImg, 0, 255);
+			ImageFunctions.subtractBackgroundMinMedian(intensityImg, 8);
+			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg); // get labelled component image and fill
+																			// properties
+
+			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
+			if (startedProcessing) // add roi only if we are processing Stacks
+				compAnalisys.addRoisToManager(roiManager, imagePlus, currSlice);
+
+			if (startedProcessing || doesStacks())
+				prevComponentsAnalysis = compAnalisys;			
+		}
+		return ip;
+	}
+
+	/**
+	 * Process an image.
+	 * <p>
+	 * Please provide this method even if {@link ij.plugin.filter.PlugInFilter} does
+	 * require it; the method
+	 * {@link ij.plugin.filter.PlugInFilter#run(ij.process.ImageProcessor)} can only
+	 * handle 2-dimensional data.
+	 * </p>
+	 * <p>
+	 * If your plugin does not change the pixels in-place, make this method return
+	 * the results and change the {@link #setup(java.lang.String, ij.ImagePlus)}
+	 * method to return also the <i>DOES_NOTHING</i> flag.
+	 * </p>
+	 *
+	 * @param image
+	 *            the image (possible multi-dimensional)
+	 */
+	public void process(ImagePlus image) {
+		// slice numbers start with 1 for historical reasons
+		for (int i = 1; i <= image.getStackSize(); i++)
+			process(image.getStack().getProcessor(i));
+	}
+
+	public void process(ImageProcessor ip) {
+		bandpassFilter(ip);
+	}
+
+	private void bandpassFilter(ImageProcessor ip) {
+		ImageProcessor ip1 = ip.duplicate();
+		ImageProcessor ip2 = ip.duplicate();
+		ip2.blurGaussian(sigma2);
+		ip1.blurGaussian(sigma1);
+		ImageProcessorCalculator.sub(ip1, ip2);
+		FloatProcessor fp = null;
+		fp = ip1.toFloat(0, fp);
+		ip.setPixels(0, fp);
+	}
+	
+	private void showRoisForSlice(int sliceNumber) {
+		int[] indexes = {0,1};
+		roiManager.setSelectedIndexes(indexes);
+	}
+
+	private void resetPreview() {
+		ImageProcessor image = this.imagePlus.getProcessor();
+		if (image instanceof FloatProcessor) {
+			for (int i = 0; i < image.getPixelCount(); i++)
+				image.setf(i, this.baseImage.getf(i));
+		} else {
+			for (int i = 0; i < image.getPixelCount(); i++)
+				image.set(i, this.baseImage.get(i));
+		}
+		imagePlus.resetDisplayRange();
+		imagePlus.updateAndDraw();
+	}
+
+	public void showAbout() {
+		IJ.showMessage("ProcessPixels", "a template for processing each pixel of an image");
+	}
+
+	public static void main(String[] args) {
+		boolean testImageJ = true;
+		if (!testImageJ) {
+			System.out.println("HELLO THERE");
+		} else {
+			// set the plugins.dir property to make the plugin appear in the Plugins menu
+			Class<?> clazz = Cell_Tracker.class;
+			String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
+			String pluginsDir = url.substring("file:".length(),
+					url.length() - clazz.getName().length() - ".class".length());
+			System.setProperty("plugins.dir", pluginsDir);
+
+			// start ImageJ
+			new ImageJ();
+
+			// open one image of sequence. T0104 is for segmentation, T0050 is with mitosis
+			ImagePlus image = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0001.tif");
+			ImagePlus image_stack20 = IJ.openImage("C:\\Tokyo\\C002_Movement.tif");
+			ImagePlus image105 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0105.tif");
+			ImagePlus image_c10 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010910\\T0001.tif");
+
+			image = image_stack20;
+			// image = image_c10;
+			ImageConverter converter = new ImageConverter(image);
+			converter.convertToGray32();
+			image.show();
+
+			// run the plugin
+			IJ.runPlugIn(clazz.getName(), "");
+		}
+	}
+
+	/**
+	 * Creates the name for result image, by adding a suffix to the base name of
+	 * original image. "Taken from MorphoLibJ"
+	 */
+	private String createResultImageName(ImagePlus baseImage) {
+		return baseImage.getShortTitle() + "-" + "result";
 	}
 
 	/*
@@ -464,258 +625,5 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 				// ImageFunctions.AND(result, thresholdedIntensity);
 			}
 		}
-	}
-
-	/*
-	 * Yaginuma version of the algorithm, with finding maxima and marker-controlled
-	 * watershed, then post-processing (0 ver) I changed gradient threshold to canny
-	 * edge detection for flooding
-	 * 
-	 * (1 ver) Marker controlled watershed on gradient of the badnpass (or
-	 * intensity), markers are minima of the bandpass (or intensity). (1 ver)
-	 * Bandpass or intensity is selected by the checkbox
-	 */
-	private ImageProcessor maximaWatershedSegmentation(ImageProcessor ip, double sigma, double minThreshold,
-			double maxThreshold) {
-		// assume ip is already preprocessed, i.e. filtered, background subtracted
-		ImageProcessor markerImg = ip.duplicate();
-		ImageProcessor intensityImg;
-		ImageProcessor watershedMask;
-		intensityImg = markerImg.duplicate();
-		// gaussian.GradientMagnitudeGaussian(ip, (float) sigma);
-		if (isBandpass) {
-			bandpassFilter(markerImg);
-			/*
-			 * float alpha = 0.5f; ImageFunctions.normalize(ip, 0, 255);
-			 * ImageFunctions.normalize(markerImg, 0, 255); calc.linearCombination(alpha,
-			 * markerImg, 1-alpha, ip); //try combination of bandpass and intensity
-			 */
-		}
-		// create mask for watershed
-		watershedMask = markerImg.duplicate();
-		ImageFunctions.threshold(watershedMask, minThreshold, maxThreshold);
-
-		ImagePlus wat = new ImagePlus("mask", watershedMask);
-
-		markerImg = ImageFunctions.operationMorph(markerImg, Operation.CLOSING, Strel.Shape.DISK, closingRadius);
-
-		ImageProcessor canny = null;
-		// marker = ImageFunctions.operationMorph(marker, Operation.CLOSING,
-		// Strel.Shape.DISK, 2);
-		// if (useMedian) rankFilters.rank(markerImg, medianSize/2, RankFilters.MEDIAN);
-		/*
-		 * if (false) gaussian.GradientMagnitudeGaussian(markerImg, (float) sigma3);
-		 * else canny = ImageFunctions.Canny(markerImg, sigma, minThreshold,
-		 * maxThreshold, 0, 0, useOtsuThreshold);
-		 */
-
-		/*
-		 * ImageProcessor t1 = ImageFunctions.operationMorph(ip, Operation.CLOSING,
-		 * Strel.Shape.LINE_HORIZ, 1); ImageProcessor t2 =
-		 * ImageFunctions.operationMorph(ip, Operation.CLOSING, Strel.Shape.LINE_VERT,
-		 * 1); ImageProcessor t3 = ImageFunctions.operationMorph(ip, Operation.CLOSING,
-		 * Strel.Shape.LINE_DIAG_UP, 1); ImageProcessor t4 =
-		 * ImageFunctions.operationMorph(ip, Operation.CLOSING,
-		 * Strel.Shape.LINE_DIAG_DOWN, 1); ImageFunctions.OR(ip, t1);
-		 * ImageFunctions.OR(ip, t2); ImageFunctions.OR(ip, t3); ImageFunctions.OR(ip,
-		 * t4);
-		 */
-
-		/*
-		 * // let's try watersheding canny image float[] weights =
-		 * ChamferWeights.BORGEFORS.getFloatWeights(); ip =
-		 * ImageFunctions.getBinary(ip); ip.invert(); final ImageProcessor dist =
-		 * BinaryImages.distanceMap(ip, weights, true); dist.invert(); //ImagePlus test
-		 * = new ImagePlus("dist", dist); //test.show(); result.invert(); ip =
-		 * ExtendedMinimaWatershed.extendedMinimaWatershed( marker, result, 5, 4,
-		 * false);
-		 */
-		if (showImageForWatershedding) {
-			ImageFunctions.normalize(markerImg, 0, 255);
-			return markerImg;
-		}
-
-		markerImg.invert();
-		MaximumFinder maxfinder = new MaximumFinder();
-		ImageFunctions.normalize(markerImg, 0, 255);
-		float[] sigmas = { 7, 9, 11, 13, 15, 17, 19, 21};
-		BlobDetector blobs = new BlobDetector(ip, sigmas);
-		ImageProcessor findMaximaImage = blobs.findBlobsByMaxSigmasImage();
-		ImageFunctions.normalize(findMaximaImage, 0f, 1f);
-		ImageProcessor marks = maxfinder.findMaxima(findMaximaImage, heightTolerance, MaximumFinder.SINGLE_POINTS, true);
-		ImageFunctions.mergeMarkers(marks, prevComponentsAnalysis, dilationRadius);
-
-		// canny.invert();
-		markerImg.invert();
-		gaussian.GradientMagnitudeGaussian(markerImg, (float) sigma);
-		Hessian hess = new Hessian(ip);
-		hess.calculateHessian(7);
-		ImageProcessor l2 = hess.getLambda2();
-		
-		//ImageProcessorCalculator.linearCombination(0.8f, markerImg, 0.0f, l2);
-		//ImagePlus t1 = new ImagePlus("grad", markerImg);
-		//ImagePlus t2 = new ImagePlus("marks", marks);
-		// t1.show();
-		// t2.show();
-		ImageFunctions.LabelMarker(marks);
-		// ImageFunctions.normalize(markerImg, 0, 255);
-		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(markerImg, marks,
-				null, 4);
-
-		// ImageFunctions.Copy(ip, ExtendedMinimaWatershed.extendedMinimaWatershed(ip,
-		// 1, 4));
-
-		// ImagePlus img = new ImagePlus("test watershed", ip);
-		// img.show();
-		ip = watershed.applyWithPriorityQueue();
-		// ip = watershed.apply(0,255);
-		// ip = watershed.apply(markerImg.getMin(), markerImg.getMax());
-		if (filterComponents) {
-			ImageComponentsAnalysis compAnalisys;
-			ImageFunctions.normalize(intensityImg, 0, 255);
-			ImageFunctions.subtractBackgroundMinMedian(intensityImg, 8);
-			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg); // get labelled component image and fill
-																			// properties
-			// compAnalisys.mergeComponentsByMarkers(marks, prevComponentsAnalysis, 2);
-			// ImagePlus tt = new ImagePlus("comp image",
-			// compAnalisys.getDilatedComponentImage(3, 5)); seems to be working ok
-			// tt.show();
-			// compAnalisys.mergeComponents();
-			// ImagePlus t = new ImagePlus("avrgint", compAnalisys.getAvrgIntensityImage());
-			// t.show();
-			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
-			// rois[currSlice] = compAnalisys.getRoiManager();
-			if ((flags & DOES_STACKS) != 0) // add roi only if we are processing Stacks
-				compAnalisys.addRoisToManager(roiManager, imagePlus, currSlice);
-			// rois[currSlice].selectAndMakeVisible(imagePlus, 0);
-
-			prevComponentsAnalysis = compAnalisys;
-			// here mb try to merge components that are close to each other and have close
-			// average intensity values
-			if ((flags & DOES_STACKS) != 0) {
-				// ip = ImageComponentsAnalysis.combineComponentsInMask(ip, compMask); //
-				// combine components that are near the cells in previous image
-				// compMask = ImageFunctions.operationMorph(ip, Operation.DILATION,
-				// Strel.Shape.DISK, 8);
-
-				// ip = ImageComponentsAnalysis.combineComponentsInMaskFromInside(ip, compMask);
-				// // combine components that are near the cells in previous image
-				// compMask = ImageFunctions.operationMorph(ip, Operation.EROSION,
-				// Strel.Shape.DISK, 4);
-				// ImagePlus t = new ImagePlus("tt", compMask);
-				// t.show();
-			}
-		}
-		return ip;
-	}
-
-	/**
-	 * Process an image.
-	 * <p>
-	 * Please provide this method even if {@link ij.plugin.filter.PlugInFilter} does
-	 * require it; the method
-	 * {@link ij.plugin.filter.PlugInFilter#run(ij.process.ImageProcessor)} can only
-	 * handle 2-dimensional data.
-	 * </p>
-	 * <p>
-	 * If your plugin does not change the pixels in-place, make this method return
-	 * the results and change the {@link #setup(java.lang.String, ij.ImagePlus)}
-	 * method to return also the <i>DOES_NOTHING</i> flag.
-	 * </p>
-	 *
-	 * @param image
-	 *            the image (possible multi-dimensional)
-	 */
-	public void process(ImagePlus image) {
-		// slice numbers start with 1 for historical reasons
-		for (int i = 1; i <= image.getStackSize(); i++)
-			process(image.getStack().getProcessor(i));
-	}
-
-	public void process(ImageProcessor ip) {
-		/*
-		 * int type = image.getType(); if (type == ImagePlus.GRAY16)
-		 * bandwidthFilter((short[]) ip.getPixels()); else { throw new
-		 * RuntimeException("not supported"); }
-		 */
-		bandpassFilter(ip);
-	}
-
-	private void bandpassFilter(ImageProcessor ip) {
-		ImageProcessor ip1 = ip.duplicate();
-		ImageProcessor ip2 = ip.duplicate();
-		ip2.blurGaussian(sigma2);
-		ip1.blurGaussian(sigma1);
-		calc.sub(ip1, ip2);
-		FloatProcessor fp = null;
-		fp = ip1.toFloat(0, fp);
-		ip.setPixels(0, fp);
-		/*
-		 * ImagePlus img1 = dupl.run(image); ImagePlus img2 = dupl.run(image);
-		 * 
-		 * img1.getProcessor().blurGaussian(sigma1);
-		 * img2.getProcessor().blurGaussian(sigma2); img1 =
-		 * imgCalc.run("sub create float", img1, img2); FloatProcessor fp = null; fp =
-		 * img1.getProcessor().toFloat(0, fp); ip.setPixels(0, fp);
-		 */
-		// ip = img1.getProcessor();
-	}
-
-	public void showAbout() {
-		IJ.showMessage("ProcessPixels", "a template for processing each pixel of an image");
-	}
-
-	public static void main(String[] args) {
-		boolean testImageJ = true;
-		if (!testImageJ) {
-			System.out.println("HELLO THERE");
-			Gaussian gaus = new Gaussian();
-		} else {
-			// set the plugins.dir property to make the plugin appear in the Plugins menu
-			Class<?> clazz = Cell_Tracker.class;
-			String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
-			String pluginsDir = url.substring("file:".length(),
-					url.length() - clazz.getName().length() - ".class".length());
-			System.setProperty("plugins.dir", pluginsDir);
-
-			// start ImageJ
-			new ImageJ();
-
-			// open one image of sequence. T0104 is for segmentation, T0050 is with mitosis
-			ImagePlus image = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0001.tif");
-			ImagePlus image_stack20 = IJ.openImage("C:\\Tokyo\\C002_Movement.tif");
-			ImagePlus image105 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0105.tif");
-			ImagePlus image_c10 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010910\\T0001.tif");
-
-			image = image_stack20;
-			// image = image_c10;
-			ImageConverter converter = new ImageConverter(image);
-			converter.convertToGray32();
-			image.show();
-
-			// run the plugin
-			IJ.runPlugIn(clazz.getName(), "");
-		}
-	}
-
-	private void resetPreview() {
-		ImageProcessor image = this.imagePlus.getProcessor();
-		if (image instanceof FloatProcessor) {
-			for (int i = 0; i < image.getPixelCount(); i++)
-				image.setf(i, this.baseImage.getf(i));
-		} else {
-			for (int i = 0; i < image.getPixelCount(); i++)
-				image.set(i, this.baseImage.get(i));
-		}
-		imagePlus.resetDisplayRange();
-		imagePlus.updateAndDraw();
-	}
-
-	/**
-	 * Creates the name for result image, by adding a suffix to the base name of
-	 * original image. "Taken from MorphoLibJ"
-	 */
-	private String createResultImageName(ImagePlus baseImage) {
-		return baseImage.getShortTitle() + "-" + "result";
 	}
 }

@@ -91,7 +91,7 @@ public class ImageFunctions {
 	public static void LabelMarker(ImageProcessor marker) {
 		int nextLabel = 1;
 		for (int i = 0; i < marker.getPixelCount(); i++) {
-			if (marker.get(i) != 0)
+			if (marker.getf(i) > 0)
 				marker.set(i, nextLabel++);
 		}
 	}
@@ -309,7 +309,7 @@ public class ImageFunctions {
 	}
 
 	/* draws circle of radius r around point (x,y) in ip */
-	public static void drawCircle(ImageProcessor ip, float r, int x, int y) {
+	public static void drawCircle(ImageProcessor ip, float r, int x, int y, boolean drawCentre) {
 		float maxv = Float.MIN_VALUE;
 		for (int i = 0; i < ip.getPixelCount(); i++)
 			if (ip.getf(i) > maxv)
@@ -320,16 +320,42 @@ public class ImageFunctions {
 				if (Math.abs((i - x) * (i - x) + (j - y) * (j - y) - r * r) < eps && i >= 0 && j >= 0
 						&& i < ip.getWidth() && j < ip.getHeight())
 					ip.setf(i, j, maxv);
+		if (drawCentre)
+			ip.setf(x, y, maxv);
 	}
 
-	public static void drawCirclesBySigmaMarkerks(ImageProcessor ip, ImageProcessor blobMarkers) {
+	public static void drawCirclesBySigmaMarkerks(ImageProcessor ip, ImageProcessor blobMarkers, boolean drawCentre) {
 		float sigma;
 		for (int y = 0; y < ip.getHeight(); y++)
 			for (int x = 0; x < ip.getWidth(); x++) {
 				sigma = blobMarkers.getf(x, y);
 				if (sigma > 0)
-					drawCircle(ip, sigma*1.41f, x, y);
+					drawCircle(ip, sigma * 1.41f, x, y, drawCentre);
 			}
+	}
+
+	/* draws gaussian on ip in (x,y) with dev sigma */
+	public static void drawGaussian(ImageProcessor ip, int x, int y, float sigma) {
+		final int r = (int) (3 * sigma + 1);
+		float v;
+		for (int j = y - r; j < y + r + 1; j++)
+			for (int i = x - r; i < x + r + 1; i++) {
+				if (j >= 0 && i >= 0 && i < ip.getWidth() && j < ip.getHeight()) {
+					v = (float) Math.exp(-((i - x) * (i - x) + (j - y) * (j - y)) / sigma / sigma);
+					ip.setf(i, j, v);
+				}
+			}
+	}
+
+	/* divides ip on lambda's absolute values if their sign is negative */
+	public static void divideByNegativeValues(ImageProcessor ip, ImageProcessor lambda) {
+		float v;
+		final float eps = -0.01f;
+		for (int i = 0; i < ip.getPixelCount(); i++) {
+			v = lambda.getf(i);
+			if (v < eps)
+				ip.setf(i, ip.getf(i) / v);
+		}
 	}
 
 	/*
