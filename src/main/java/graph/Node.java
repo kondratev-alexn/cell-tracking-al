@@ -1,5 +1,7 @@
 package graph;
 
+import java.util.ArrayList;
+
 public class Node {
 	/*
 	 * the node should be determined by these two values: time slice number and
@@ -7,8 +9,8 @@ public class Node {
 	 */
 	private int t; // time slice of the node
 	private int i; // index for detection in time slice
-
-	Node(int time, int index) {
+	
+	public Node(int time, int index) {
 		t = time;
 		i = index;
 	}

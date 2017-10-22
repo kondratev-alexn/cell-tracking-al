@@ -6,7 +6,10 @@ import java.util.ArrayList;
 public class Graph {
 	private ArrayList<Node> nodes; // vertices of the graph
 	private ArrayList<Arc> arcs; // edges of the graph
-
+	
+//TODO when adding arcs add the information about it in nodes or in adj matrix to use the graph easily
+	ArrayList<ArrayList<Integer>> adjLists;
+	
 	/* plain add node intor set of nodes */
 	public void addNode(Node v) {
 		nodes.add(v);
