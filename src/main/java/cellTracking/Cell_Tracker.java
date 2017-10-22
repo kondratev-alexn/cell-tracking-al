@@ -109,7 +109,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private boolean previewing = false;
 
 	private boolean roiBrowserActive = false; // becomes true after the processing
-	private boolean startedProcessing = false;	// comes true after user has selected whether to process stacks or not
+	private boolean startedProcessing = false; // comes true after user has selected whether to process stacks or not
 
 	private ImageComponentsAnalysis prevComponentsAnalysis = null; // for getting masks of segmented cells in next
 																	// slices
@@ -194,7 +194,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		this.baseImage = imp.getProcessor().duplicate();
 		stackImage = imp.duplicate();
 		nChannels = imp.getProcessor().getNChannels();
-		currSlice = 1;	//for when algorith starts processing stack
+		currSlice = 1; // for when algorith starts processing stack
 		selectedSlice = imp.getCurrentSlice();
 
 		GenericDialog gd = new GenericDialog(command);
@@ -210,15 +210,15 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		IJ.register(this.getClass()); // protect static class variables (parameters) from garbage collection
 		// return flags;
 		flags = IJ.setupDialog(imp, flags); // ask whether to process all slices of stack (if a stack)
-		 
-		//after the answer, the processing is started. So show roiManager and set flag
+
+		// after the answer, the processing is started. So show roiManager and set flag
 		startedProcessing = true;
-		currSlice = doesStacks()?1:selectedSlice;
+		currSlice = doesStacks() ? 1 : selectedSlice;
 		roiManager = RoiManager.getInstance();
 		if (roiManager == null)
 			roiManager = new RoiManager();
 		roiManager.reset();
-		
+
 		return flags;
 	}
 
@@ -327,27 +327,31 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		if (startedProcessing) {// stack processing
 			result = ip.duplicate();
 		} else
-			result = baseImage.duplicate();		
+			result = baseImage.duplicate();
 
 		// preprocess image first
 		// ImageFunctions.normalize(result, 0f, 1f);
 		if (useMedian) {
 			rankFilters.rank(result, medianRadius, RankFilters.MEDIAN);
 		}
-		
+
 		backgroundSub.rollingBallBackground(result, rollingBallRadius, false, false, false, true, false);
 		if (isTestMode) {
 			// do some testing and return
 			ImageFunctions.normalize(result, 0f, 1f);
 			Hessian hess = new Hessian(result);
 			hess.calculateHessian((float) sigma1);
-			// result = hess.getLambda2();
+			if (filterComponents)
+				result = hess.getLambda2();
+			else
+				result = hess.getLambda1();
 			float[] sigmas = { 1, 20, 30, 50 };
-			BlobDetector blobs = new BlobDetector(result, sigmas);
+			// BlobDetector blobs = new BlobDetector(result, sigmas);
 			// result = hess.getLambda2();
-			ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, false);
+			// ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaxima((float)
+			// heightTolerance, false);
 			// result = blobs.findBlobsByMaxSigmasImage();
-			ImageFunctions.drawCirclesBySigmaMarkerks(result, blobDots, true);
+			// ImageFunctions.drawCirclesBySigmaMarkerks(result, blobDots, true);
 			// ImageFunctions.drawGaussian(result, 200, 200, (float) sigma1);
 
 			if (previewing && !doesStacks()) {
@@ -382,8 +386,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			for (int i = 0; i < ip.getPixelCount(); i++) {
 				ip.setf(i, result.getf(i));
 			}
-			//roiManager.selectAndMakeVisible(imagePlus, 0);
-			//roiManager.setEditMode(imagePlus, true);
+			// roiManager.selectAndMakeVisible(imagePlus, 0);
+			// roiManager.setEditMode(imagePlus, true);
 			ip.resetMinAndMax();
 		}
 	}
@@ -460,11 +464,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 																			// properties
 
 			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
-			if (startedProcessing) // add roi only if we are processing Stacks
+			if (startedProcessing) // add roi only if we started processing
 				compAnalisys.addRoisToManager(roiManager, imagePlus, currSlice);
 
 			if (startedProcessing || doesStacks())
-				prevComponentsAnalysis = compAnalisys;			
+				prevComponentsAnalysis = compAnalisys;
 		}
 		return ip;
 	}
@@ -506,9 +510,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		fp = ip1.toFloat(0, fp);
 		ip.setPixels(0, fp);
 	}
-	
+
 	private void showRoisForSlice(int sliceNumber) {
-		int[] indexes = {0,1};
+		int[] indexes = { 0, 1 };
 		roiManager.setSelectedIndexes(indexes);
 	}
 

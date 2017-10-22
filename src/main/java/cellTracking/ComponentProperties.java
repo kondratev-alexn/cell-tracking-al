@@ -1,6 +1,6 @@
 package cellTracking;
 
-/* Class for information about connected components*/
+/* Class for information about connected components */
 public class ComponentProperties {
 	public int intensity; //intensity used for the component in the image
 	public float avrgIntensity; // average intensity of the component
@@ -8,6 +8,8 @@ public class ComponentProperties {
 	public int area;
 	public float circularity;
 	public int xmin, xmax, ymin, ymax;	//corner coordinates for containing rectangle
+	public float massCenterX;	//center of mass of the component (coord x)
+	public float massCenterY;	//center of mass of the component (coord y)
 	
 	public void calcCircularity() {
 		circularity = (perimeter==0) ? 0 : (float) (4*Math.PI*area/perimeter/perimeter);

@@ -16,7 +16,7 @@ import inra.ijpb.morphology.Morphology.Operation;
 
 public class ImageComponentsAnalysis {
 	private ImageProcessor imageComponents;	//image with components
-	private ImageProcessor imageIntensity; 
+	private ImageProcessor imageIntensity; //image for calculating average intensity
 	private int w,h;
 	
 	private int nComponents;	//number of components
@@ -32,7 +32,7 @@ public class ImageComponentsAnalysis {
 		//ImagePlus t = new ImagePlus("after closing", imageComponents.duplicate());
 		//t.show();
 		imageIntensity = intensityImage;
-		nComponents = (int)imageComponents.getMax() - (int)imageComponents.getMin() + 1;
+		nComponents = (int)imageComponents.getMax() - (int)imageComponents.getMin() + 1; // components are labelled from 0 to the number of components
 		properties = new ArrayList<ComponentProperties>(nComponents);
 		for (int i=0; i<nComponents; i++)
 			properties.add(new ComponentProperties());
@@ -40,6 +40,7 @@ public class ImageComponentsAnalysis {
 		fillCircularity();
 	}
 	
+	// getters by index
 	public int getComponentArea(int index) {
 		return properties.get(index).area;
 	}
@@ -56,6 +57,22 @@ public class ImageComponentsAnalysis {
 		return properties.get(index).intensity;
 	}
 	
+	public int getComponentX0(int index) {
+		return properties.get(index).xmin;
+	}
+	
+	public int getComponentY0(int index) {
+		return properties.get(index).ymin;
+	}
+	
+	public float getComponentMassCenterX(int index) {
+		return properties.get(index).massCenterX;
+	}
+	
+	public float getComponentMassCenterY(int index) {
+		return properties.get(index).massCenterY;
+	}
+	
 	public float getComponentAvrgIntensityByIntensity(int intensity) {
 		int index = findComponentIndexByIntensity(intensity);
 		return properties.get(index).avrgIntensity;
@@ -65,20 +82,11 @@ public class ImageComponentsAnalysis {
 		return nComponents;
 	}
 	
-	// getters by index
-	public int getComponentX0(int index) {
-		return properties.get(index).xmin;
-	}
-	
-	public int getComponentY0(int index) {
-		return properties.get(index).ymin;
-	}
-	
 	public void testFunc(ImageComponentsAnalysis cl) {
 		
 	}
 	
-	/* calculates bounding box corners, perimeter, area, average intensity for components and fills the "properties" array */
+	/* calculates bounding box corners, perimeter, area, average intensity, mass center for components and fills the "properties" array */
 	public void fillBasicProperties() {
 		// presetting values to find containing rectangle
 		for (int i=0; i < properties.size(); i++) {
@@ -91,6 +99,8 @@ public class ImageComponentsAnalysis {
 			properties.get(i).avrgIntensity = 0;
 			properties.get(i).circularity = 0;
 			properties.get(i).perimeter = 0;
+			properties.get(i).massCenterX = 0; 
+			properties.get(i).massCenterY = 0; 
 		}
 		
 		int v; // component intensity in the image
@@ -109,6 +119,8 @@ public class ImageComponentsAnalysis {
 				properties.get(index).intensity = v;	
 				properties.get(index).area++;
 				properties.get(index).avrgIntensity += imageIntensity.getf(x, y);
+				properties.get(index).massCenterX += x;
+				properties.get(index).massCenterY += y;
 
 				if (isBorderPixel4C(imageComponents, x, y)) { //calculate perimeter
 					pix4c = numberOfNeighbours4C(imageComponents, x, y);
@@ -127,8 +139,10 @@ public class ImageComponentsAnalysis {
 			}
 		}
 		
-		for (int i=0; i < properties.size(); i++) {	// calculate average intensity
+		for (int i=0; i < properties.size(); i++) {	// calculate average intensity, mass center (area is number of pixels)
 			properties.get(i).avrgIntensity /= properties.get(i).area;
+			properties.get(i).massCenterX /= properties.get(i).area;
+			properties.get(i).massCenterY /= properties.get(i).area;
 		}
 	}
 	
@@ -179,8 +193,7 @@ public class ImageComponentsAnalysis {
 	private ArrayList<Integer> getComponentListByMask(ImageProcessor markers, ImageProcessor mask, ImageProcessor components, int x0, int y0) {
 		ArrayList<Integer> result = new ArrayList<Integer>(3);
 		int wb = mask.getWidth(), hb = mask.getHeight();
-		int v;
-		float newx = 0, newy = 0;		
+		int v;	
 		//mb later add something that prevents getting the same markerinto the list for different masks...not here tho
 		for (int y=y0; y<y0+hb; y++)
 			for (int x=x0; x<x0+wb; x++) {
@@ -274,7 +287,6 @@ public class ImageComponentsAnalysis {
 		if (compImage == null) //for stack processing the first image
 			return ip;
 		ImageProcessor result = ip.duplicate();
-		int nComp = (int) compImage.getMax();
 		int[] table = new int[(int) ip.getMax() + 1]; //table for component labels
 		for (int i=0; i<table.length; i++) 
 			table[i] = -1;
@@ -304,7 +316,6 @@ public class ImageComponentsAnalysis {
 		if (compImage == null) //for stack processing the first image
 			return ip;
 		ImageProcessor result = ip.duplicate();
-		int nComp = (int) compImage.getMax();
 		int[] table = new int[(int) ip.getMax() + 1]; //table for component labels
 		for (int i=0; i<table.length; i++) 
 			table[i] = -1;
@@ -386,9 +397,8 @@ public class ImageComponentsAnalysis {
 	}
 	
 	private void changeComponentIntensity(int intensity, int newIntensity) {
-		int x0,x1,y0,y1, nComp,newNComp;
+		int x0,x1,y0,y1, nComp;
 		nComp = findComponentIndexByIntensity(intensity);
-		newNComp = findComponentIndexByIntensity(newIntensity);
 		x0 = properties.get(nComp).xmin;
 		x1 = properties.get(nComp).xmax;
 		y0 = properties.get(nComp).ymin;
@@ -410,10 +420,8 @@ public class ImageComponentsAnalysis {
 		Wand w = new Wand(imageComponents);
 		int currIntens = 1;
 		int count = 0, index;
-		int currentSlice;
 		String roiName;
 
-		currentSlice = img.getCurrentSlice();
 		// the first slice is 1 (not 0)
 		img.setSliceWithoutUpdate(slice);
 		
@@ -440,14 +448,6 @@ public class ImageComponentsAnalysis {
 			count++; //component added
 		}
 		img.setSliceWithoutUpdate(slice);
-	}
-	
-	@Deprecated
-	/* ip is component labelled image. This function combines adjastent segments if they have close average intensity 
-	 * */
-	public ImageProcessor combineComponentsByIntensity(ImageProcessor ip) {
-		
-		return null;
 	}
 	
 	public ImageProcessor getAvrgIntensityImage() {
