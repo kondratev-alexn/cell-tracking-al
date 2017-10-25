@@ -17,8 +17,21 @@ public class Arc {
 		this.from = from;
 		this.to = to;
 	}
-	
+
 	public void setScore(double score) {
 		this.score = score;
+	}
+	
+	public Node getFromNode() {
+		return from;
+	}
+	
+	public Node getToNode() {
+		return to;
+	}
+	
+	@Override
+	public String toString() {
+		return "Arc [from=" + from + ", to=" + to + "]";
 	}
 }

@@ -6,6 +6,7 @@ import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import inra.ijpb.morphology.Strel;
+import point.Point;
 import inra.ijpb.morphology.Morphology.Operation;
 
 /* Class for different image processing functions, like maybe filtering for certain processors, or normalizing the image */
@@ -136,6 +137,66 @@ public class ImageFunctions {
 						comps.getComponentY0(i) - d);
 			}
 		}
+	}
+
+	/* draws '+' in point (x,y) inplace ip */
+	public static void drawX(ImageProcessor ip, int x, int y) {
+		ip.setf(x, y, (float) ip.getMax());
+		if (x <= 0 || x >= ip.getWidth() - 1 || y <= 0 || y >= ip.getHeight() - 1)
+			return;
+		ip.setf(x + 1, y, (float) ip.getMax());
+		ip.setf(x, y + 1, (float) ip.getMax());
+		ip.setf(x - 1, y, (float) ip.getMax());
+		ip.setf(x, y - 1, (float) ip.getMax());
+	}
+
+	public static void drawLine(ImageProcessor ip, int x0, int y0, int x1, int y1) {
+		drawLine(ip, new Point(x0, y0), new Point(x1, y1));
+	}
+
+	/* draw line in-place */
+	public static void drawLine(ImageProcessor ip, Point p0, Point p1) {
+		double dx = (p1.getX() - p0.getX()) / p0.dist() / 1;
+		double dy = (p1.getY() - p0.getY()) / p1.dist() / 1;
+		double x0 = p0.getX();
+		double y0 = p0.getY();
+		double x1 = p1.getX();
+		double y1 = p1.getY();
+
+		float v = (float) ip.getMax();
+
+		if (dx == 0 && dy == 0)
+			return;
+		// Abs(v[i]-v[i-1])<k*dx => v[
+		if (dx > 0)
+			for (int k = 0; (x0 + k * dx < x1); k++) {
+				ip.setf((int) (x0 + k * dx), (int) (y0 + k * dy), v);
+			}
+		else if (dx < 0)
+			for (int k = 0; (x0 + k * dx >= x1); k++) {
+				ip.setf((int) (x0 + k * dx), (int) (y0 + k * dy), v);
+			}
+		else // dx==0
+		{
+			if (dy > 0)
+				for (int k = 0; (y0 + k * dy < y1); k++) {
+					ip.setf((int) (x0 + k * dx), (int) (y0 + k * dy), v);
+				}
+			else // dy<=0
+				for (int k = 0; (y0 + k * dy >= y1); k++) {
+					ip.setf((int) (x0 + k * dx), (int) (y0 + k * dy), v);
+				}
+		}
+
+		/*
+		 * int t; float dx = x1 - x0; float dy = y1 - y0; int ddx = dx > 0 ? 1 : -1; int
+		 * ddy = dy > 0 ? 1 : -1; if (dx != 0) { float derr = Math.abs(dy / dx); // note
+		 * that this division needs to be done in a way that preserves the // fractional
+		 * part float err = 0; int y = y0; for (int x = x0; x <= x1; x+=ddx) {
+		 * ip.setf(x, y, (float) ip.getMax()); err += derr; if (err >= 0.5) { y+=ddy;
+		 * err -= 1; } } } else { // dx == 0, then x1=x0, draw for (int y = y0; y <= y1;
+		 * y++) { ip.setf(x0, y, (float) ip.getMax()); } }
+		 */
 	}
 
 	// Canny edge detection with thresholds t1,t2 and sigma-gaussian blur

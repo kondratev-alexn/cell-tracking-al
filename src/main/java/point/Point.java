@@ -22,6 +22,14 @@ public class Point {
 		x = _x;
 		y = _y;
 	}
+	
+	public double getX() {
+		return x;
+	}
+	
+	public double getY() {
+		return y;
+	}
 
 	public double dist() {
 		return Math.sqrt(x * x + y * y);

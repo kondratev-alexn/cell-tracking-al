@@ -14,6 +14,14 @@ public class Node {
 		t = time;
 		i = index;
 	}
+	
+	public int get_i() {
+		return i;
+	}
+	
+	public int get_t() {
+		return t;
+	}
 
 	// checks if this node equals to the other one
 	@Override
@@ -28,5 +36,10 @@ public class Node {
 		boolean res;
 		res = (otherMyClass.i == i && otherMyClass.t == t);
 		return res;
+	}
+
+	@Override
+	public String toString() {
+		return "Node [t=" + t + ", i=" + i + "]";
 	}
 }

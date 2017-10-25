@@ -10,9 +10,16 @@ public class Graph {
 //TODO when adding arcs add the information about it in nodes or in adj matrix to use the graph easily
 	ArrayList<ArrayList<Integer>> adjLists;
 	
-	/* plain add node intor set of nodes */
+	public Graph() {
+		nodes = new ArrayList<Node>(5);
+		arcs = new ArrayList<Arc>(5);
+		adjLists = new ArrayList<ArrayList<Integer>>();
+	}
+	
+	/* plain add node into set of nodes */
 	public void addNode(Node v) {
 		nodes.add(v);
+		adjLists.add(new ArrayList<Integer>());
 	}
 	
 	public void addNodeByTimeAndIndex(int time, int index) {
@@ -22,18 +29,21 @@ public class Graph {
 
 	public void addArc(Arc arc) {
 		arcs.add(arc);
+		int i = nodes.indexOf(arc.getFromNode());
+		int j = nodes.indexOf(arc.getToNode());
+		adjLists.get(i).add(j);
 	}
 
 	/* adds the arc only if both nodes are in the graph */
 	public void addArcFromTo(Node from, Node to) {
 		if (isNodeInGraph(from) && isNodeInGraph(to)) {
 			Arc arc = new Arc(from, to);
-			arcs.add(arc);
+			addArc(arc);
 		}
 	}
 	
 	public void addNodeToNode(Node nodeInGraph, Node newNode) {
-		nodes.add(newNode);
+		nodes.add(newNode); 
 		addArcFromTo(nodeInGraph, newNode);
 	}
 
@@ -44,12 +54,21 @@ public class Graph {
 		if (!isNodeInGraph(to))
 			addNode(to);
 		Arc arc = new Arc(from, to);
-		arcs.add(arc);
+		addArc(arc);
 	}
 
 	private boolean isNodeInGraph(Node v) {
 		if (nodes.contains(v))
 			return true;
 		return false;
+	}
+	
+	public ArrayList<Arc> getArcs() {
+		return arcs;
+	}
+
+	@Override
+	public String toString() {
+		return "Graph [nodes=" + nodes + ", arcs=" + arcs + ", adjLists=" + adjLists + "]";
 	}
 }

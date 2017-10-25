@@ -11,6 +11,8 @@ public class ComponentProperties {
 	public float circularity;
 	public int xmin, xmax, ymin, ymax;	//corner coordinates for containing rectangle
 	
+	public boolean trackedDown; //true if component was tracked during tracking
+	
 	public Point massCenter;	//point - center of mass of the component
 	
 	public void calcCircularity() {

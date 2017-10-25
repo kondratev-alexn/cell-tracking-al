@@ -76,6 +76,14 @@ public class ImageComponentsAnalysis {
 	public Point getComponentMassCenter(int index) {
 		return properties.get(index).massCenter;
 	}
+	
+	public boolean getComponentTrackedDown(int index) {
+		return properties.get(index).trackedDown;
+	}
+	
+	public void setComponentTrackedDown(int index) {
+		properties.get(index).trackedDown = true;
+	}
 
 	public float getComponentAvrgIntensityByIntensity(int intensity) {
 		int index = findComponentIndexByIntensity(intensity);
@@ -106,7 +114,7 @@ public class ImageComponentsAnalysis {
 			properties.get(i).avrgIntensity = 0;
 			properties.get(i).circularity = 0;
 			properties.get(i).perimeter = 0;
-			properties.get(i).massCenter.set_xy(0, 0);
+			properties.get(i).massCenter = new Point(0,0);
 		}
 
 		int v; // component intensity in the image
@@ -496,7 +504,7 @@ public class ImageComponentsAnalysis {
 			if (w.npoints > 0) { // we have a roi from the wand...
 				roi = new PolygonRoi(w.xpoints, w.ypoints, w.npoints, Roi.TRACED_ROI);
 				roiName = String.format("%04d", slice);
-				roiName += "-" + currIntens;
+				roiName += "-" + index;
 				roi.setName(roiName);
 
 				// manager.add(img, roi, slice);

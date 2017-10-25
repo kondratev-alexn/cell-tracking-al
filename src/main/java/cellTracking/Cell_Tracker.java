@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Vector;
 
 import cellTracking.MexicanHatFilter;
+import graph.Graph;
 import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
@@ -113,7 +114,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	private ImageComponentsAnalysis prevComponentsAnalysis = null; // for getting masks of segmented cells in next
 																	// slices
-
+	private NearestNeighbourTracking tracking = null;
+	
 	private final float sigmaMax = 50; // max value of sigmas
 
 	// plugins
@@ -153,6 +155,14 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			 * if (gd.wasCanceled()) { resetPreview(); return DONE; }
 			 */
 			roiManager.selectAndMakeVisible(imagePlus, -1);
+			tracking.trackComponents(20);
+			ImageProcessor ip = imp.getProcessor();
+			tracking.drawTracks(ip);
+			imp.show();
+			
+			Graph cellGraph = tracking.getGraph();
+			//System.out.println(cellGraph);
+			
 			// Create a new ImagePlus with the filter result
 			/*
 			 * String newName = createResultImageName(imagePlus); ImagePlus resPlus = new
@@ -163,6 +173,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		}
 
 		nSlices = imp.getStackSize();
+		tracking = new NearestNeighbourTracking(nSlices);
 		compMask = null;
 
 		// convert to float if plugin just started
@@ -346,6 +357,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			else
 				result = hess.getLambda1();
 			float[] sigmas = { 1, 20, 30, 50 };
+			ImageFunctions.drawLine(result, 100, 100, 150,50);
 			// BlobDetector blobs = new BlobDetector(result, sigmas);
 			// result = hess.getLambda2();
 			// ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaxima((float)
@@ -462,13 +474,13 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImageFunctions.subtractBackgroundMinMedian(intensityImg, 8);
 			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg); // get labelled component image and fill
 																			// properties
-
 			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
 			if (startedProcessing) // add roi only if we started processing
 				compAnalisys.addRoisToManager(roiManager, imagePlus, currSlice);
 
 			if (startedProcessing || doesStacks())
 				prevComponentsAnalysis = compAnalisys;
+				tracking.addComponentsAnalysis(compAnalisys);
 		}
 		return ip;
 	}
@@ -553,6 +565,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_stack20 = IJ.openImage("C:\\Tokyo\\C002_Movement.tif");
 			ImagePlus image105 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0105.tif");
 			ImagePlus image_c10 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010910\\T0001.tif");
+			ImagePlus image_stack3 = IJ.openImage("C:\\\\Tokyo\\\\movement_3images.tif");
 
 			image = image_stack20;
 			// image = image_c10;
