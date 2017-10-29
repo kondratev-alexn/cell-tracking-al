@@ -26,10 +26,13 @@ public class BlobDetector {
 	 * return image with dots corresponding to blob centers and their intensities -
 	 * to sigmas
 	 */
-	public ByteProcessor findBlobsBy3x3LocalMaxima(float thresholdLambda, boolean binary) {
+	public ByteProcessor findBlobsBy3x3LocalMaxima(float thresholdLambda, boolean binary, boolean useLambda2) {
 		ImageProcessor stack[] = new ImageProcessor[hessians.length];
 		for (int z = 0; z < hessians.length; z++) {
-			stack[z] = hessians[z].getLambda2();
+			if (useLambda2)
+				stack[z] = hessians[z].getLambda2();
+			else
+				stack[z] = hessians[z].getLambda1();
 			// ImageProcessorCalculator.linearCombination(0.5f, stack[z], 0.5f,
 			// hessians[z].getLambda2());
 		}
@@ -78,12 +81,14 @@ public class BlobDetector {
 	 */
 	private boolean isLocalMaximumThresholded3D(ImageProcessor[] stack, int x, int y, int z, float threshold) {
 		float p = stack[z].getf(x, y);
+		if (Math.abs(p) < threshold)
+			return false;
 		for (int dx = -1; dx < 2; dx++)
 			for (int dy = -1; dy < 2; dy++)
 				for (int dz = -1; dz < 2; dz++) {
 					if (z + dz < 0 || z + dz > stack.length - 1)
 						continue;
-					if (p < threshold || p < stack[z + dz].getf(x + dx, y + dy))
+					if (p < stack[z + dz].getf(x + dx, y + dy))
 						return false;
 				}
 		return true;

@@ -28,12 +28,12 @@ public class Hessian {
 	public void calculateHessian(float sigma) {
 		Gaussian gaus = new Gaussian();
 		Ixx=ip.duplicate(); Ixy=ip.duplicate(); Iyy=ip.duplicate();
-		gaus.GaussianDerivativeX(Ixx, (float)Math.sqrt(sigma));
+		gaus.GaussianDerivativeX(Ixx, sigma);
 		Ixy = Ixx.duplicate();
-		gaus.GaussianDerivativeX(Ixx, (float)Math.sqrt(sigma));
-		gaus.GaussianDerivativeY(Ixy, (float)Math.sqrt(sigma));
-		gaus.GaussianDerivativeY(Iyy, (float)Math.sqrt(sigma));
-		gaus.GaussianDerivativeY(Iyy, (float)Math.sqrt(sigma));
+		gaus.GaussianDerivativeX(Ixx, sigma);
+		gaus.GaussianDerivativeY(Ixy, sigma);
+		gaus.GaussianDerivativeY(Iyy, sigma);
+		gaus.GaussianDerivativeY(Iyy, sigma);
 		
 		float det, Pxx, Pxy, Pyy;
 		lambda1 = ip.duplicate();

@@ -41,11 +41,10 @@ public class Gaussian {
 		FloatProcessor fpy = ip.duplicate().convertToFloatProcessor();
 		GaussianDerivativeX(ip, sigma);
 		GaussianDerivativeY(fpy, sigma);
-		ImageProcessorCalculator calc = new ImageProcessorCalculator();
-		calc.multiply(ip, ip);
-		calc.multiply(fpy, fpy);
-		calc.add(ip, fpy);
-		calc.sqrt(ip);
+		ImageProcessorCalculator.multiply(ip, ip);
+		ImageProcessorCalculator.multiply(fpy, fpy);
+		ImageProcessorCalculator.add(ip, fpy);
+		ImageProcessorCalculator.sqrt(ip);
 	}
 	
 	/* get 1d gaussian kernel, normalized */
