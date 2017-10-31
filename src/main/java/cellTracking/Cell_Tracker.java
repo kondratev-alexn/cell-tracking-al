@@ -115,7 +115,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private ImageComponentsAnalysis prevComponentsAnalysis = null; // for getting masks of segmented cells in next
 																	// slices
 	private NearestNeighbourTracking tracking = null;
-	
+
 	private final float sigmaMax = 50; // max value of sigmas
 
 	// plugins
@@ -159,10 +159,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImageProcessor ip = imp.getProcessor();
 			tracking.drawTracks(ip);
 			imp.show();
-			
+
 			Graph cellGraph = tracking.getGraph();
-			//System.out.println(cellGraph);
-			
+			// System.out.println(cellGraph);
+
 			// Create a new ImagePlus with the filter result
 			/*
 			 * String newName = createResultImageName(imagePlus); ImagePlus resPlus = new
@@ -350,17 +350,18 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		if (isTestMode) {
 			// do some testing and return
 			ImageFunctions.normalize(result, 0f, 1f);
-			result = ip;
-			ImageProcessorCalculator.sub(result, imagePlus.getStack().getProcessor(selectedSlice - 1));
+			//result = ip;
+			//ImageProcessorCalculator.sub(result, imagePlus.getStack().getProcessor(selectedSlice - 1));
 			if (isBandpass) 
 				ImageProcessorCalculator.constMultiply(result, -1);
 			Hessian hess = new Hessian(result);
-			hess.calculateHessian((float) sigma1);
-			/*if (filterComponents)
+			/*hess.calculateHessian((float) sigma1);
+			if (filterComponents)
 				result = hess.getLambda2();
 			else
 				result = hess.getLambda1();*/
-			float[] sigmas = { 1, 8, 16, 32};
+			//float[] sigmas = { 1, 20, 30, 50};
+			float[] sigmas = {1,7,8,9,10,16,32};
 			//ImageFunctions.drawLine(result, 100, 100, 150,50);
 			BlobDetector blobs = new BlobDetector(result, sigmas);
 			//result = hess.getLambda2();
@@ -444,7 +445,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		markerImg.invert();
 		MaximumFinder maxfinder = new MaximumFinder();
 		ImageFunctions.normalize(markerImg, 0, 255);
-		float[] sigmas = { 1, 20, 30, 50 };
+		float[] sigmas = {1,7,8,9,10,16,32};
 		ImageFunctions.normalize(ip, 0f, 1f);
 		BlobDetector blobs = new BlobDetector(ip, sigmas);
 
@@ -484,7 +485,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			if (startedProcessing || doesStacks())
 				prevComponentsAnalysis = compAnalisys;
-				tracking.addComponentsAnalysis(compAnalisys);
+			tracking.addComponentsAnalysis(compAnalisys);
 		}
 		return ip;
 	}
@@ -573,6 +574,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_bright_blobs = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
 
 			image = image_bright_blobs;
+			image = image_stack20;
 			// image = image_c10;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();

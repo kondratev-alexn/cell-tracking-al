@@ -28,13 +28,24 @@ public class Hessian {
 	public void calculateHessian(float sigma) {
 		Gaussian gaus = new Gaussian();
 		Ixx=ip.duplicate(); Ixy=ip.duplicate(); Iyy=ip.duplicate();
+		/*sigma = (float) Math.sqrt(sigma);
 		gaus.GaussianDerivativeX(Ixx, sigma);
 		Ixy = Ixx.duplicate();
 		gaus.GaussianDerivativeX(Ixx, sigma);
 		gaus.GaussianDerivativeY(Ixy, sigma);
 		gaus.GaussianDerivativeY(Iyy, sigma);
-		gaus.GaussianDerivativeY(Iyy, sigma);
+		gaus.GaussianDerivativeY(Iyy, sigma);*/
 		
+		gaus.GaussianDerivativeXX(Ixx, sigma);
+		ImagePlus imp = new ImagePlus("ixx", Ixx);
+		gaus.GaussianDerivativeXY(Ixy, sigma);
+		gaus.GaussianDerivativeYY(Iyy, sigma);
+
+		ImagePlus imp2 = new ImagePlus("ixy", Ixy);
+		ImagePlus imp3 = new ImagePlus("iyy", Iyy);
+		//imp.show();
+		//imp2.show();
+		//imp3.show();
 		float det, Pxx, Pxy, Pyy;
 		lambda1 = ip.duplicate();
 		lambda2 = ip.duplicate();
