@@ -33,6 +33,7 @@ public class BlobDetector {
 				stack[z] = hessians[z].getLambda2();
 			else
 				stack[z] = hessians[z].getLambda1();
+			ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); //laplacian
 			// ImageProcessorCalculator.linearCombination(0.5f, stack[z], 0.5f,
 			// hessians[z].getLambda2());
 		}
@@ -40,7 +41,7 @@ public class BlobDetector {
 		for (int y = 1; y < ip.getHeight() - 1; y++)
 			for (int x = 1; x < ip.getWidth() - 1; x++) {
 				result.setf(x, y, 0);
-				for (int z = 1; z < hessians.length - 1; z++) {
+				for (int z = 0; z < hessians.length; z++) {
 					if (isLocalMaximumThresholded3D(stack, x, y, z, thresholdLambda))
 						// normalizeValue0_255(scaleSigmas[z], scaleSigmas[0],
 						// scaleSigmas[scaleSigmas.length - 1]));

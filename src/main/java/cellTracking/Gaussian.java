@@ -45,7 +45,6 @@ public class Gaussian {
 		Convolver con = new Convolver();
 		con.convolveFloat1D(temp, kern_der2, kern_der2.length, 1);
 		
-		ImageProcessorCalculator.constMultiply(temp, sigma*sigma);
 		ip.setPixels(0, temp);
 	}
 
@@ -57,7 +56,6 @@ public class Gaussian {
 		Convolver con = new Convolver();
 		con.convolveFloat1D(temp, kern_der2, 1, kern_der2.length);
 		
-		ImageProcessorCalculator.constMultiply(temp, sigma*sigma);
 		ip.setPixels(0, temp);
 	}
 
@@ -70,7 +68,6 @@ public class Gaussian {
 		con.convolveFloat1D(temp, kern_der2, 1, kern_der2.length);
 		con.convolveFloat1D(temp, kern_der2, kern_der2.length, 1);
 
-		ImageProcessorCalculator.constMultiply(temp, sigma*sigma);
 		ip.setPixels(0, temp);
 	}
 
