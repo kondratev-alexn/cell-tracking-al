@@ -61,8 +61,8 @@ public class ImageComponentsAnalysis {
 		return properties.get(index).circularity;
 	}
 
-	public int getComponentIntensity(int index) {
-		return properties.get(index).intensity;
+	public int getComponentDisplayIntensity(int index) {
+		return properties.get(index).displayIntensity;
 	}
 
 	public int getComponentX0(int index) {
@@ -86,7 +86,7 @@ public class ImageComponentsAnalysis {
 	}
 
 	public float getComponentAvrgIntensityByIntensity(int intensity) {
-		int index = findComponentIndexByIntensity(intensity);
+		int index = findComponentIndexByDisplayIntensity(intensity);
 		return properties.get(index).avrgIntensity;
 	}
 
@@ -105,16 +105,7 @@ public class ImageComponentsAnalysis {
 	public void fillBasicProperties() {
 		// presetting values to find containing rectangle
 		for (int i = 0; i < properties.size(); i++) {
-			properties.get(i).xmin = w - 1;
-			properties.get(i).xmax = 0;
-			properties.get(i).ymin = h - 1;
-			properties.get(i).ymax = 0;
-			properties.get(i).intensity = -1;
-			properties.get(i).area = 0;
-			properties.get(i).avrgIntensity = 0;
-			properties.get(i).circularity = 0;
-			properties.get(i).perimeter = 0;
-			properties.get(i).massCenter = new Point(0,0);
+			properties.get(i).setDefaultValues(w, h);
 		}
 
 		int v; // component intensity in the image
@@ -127,11 +118,11 @@ public class ImageComponentsAnalysis {
 				// components can be indexed in whatever range (but no negatives), dont rely on
 				// v=0 to be background. And make background a component
 				// if (v > 0) {
-				index = findComponentIndexByIntensity(v);
+				index = findComponentIndexByDisplayIntensity(v);
 				if (index == -1)
 					index = ++newIndex;
 
-				properties.get(index).intensity = v;
+				properties.get(index).displayIntensity = v;
 				properties.get(index).area++;
 				properties.get(index).avrgIntensity += imageIntensity.getf(x, y);
 				properties.get(index).massCenter.addIn(new Point(x, y));
@@ -204,9 +195,9 @@ public class ImageComponentsAnalysis {
 				// list should also change
 				if (list.size() > 0) {
 					// intens = properties.get(list.get(0)).intensity;
-					intens = prevComponents.getComponentIntensity(i);
+					intens = prevComponents.getComponentDisplayIntensity(i);
 					for (int k = 1; k < list.size(); k++) {
-						changeComponentIntensityByIndex(list.get(k), intens);
+						changeComponentDisplayIntensityByIndex(list.get(k), intens);
 						fillBasicProperties();
 						fillCircularity();
 					}
@@ -231,7 +222,7 @@ public class ImageComponentsAnalysis {
 			for (int x = x0; x < x0 + wb; x++) {
 				if (x > 0 && x < markers.getWidth() && y > 0 && y < markers.getHeight() && markers.get(x, y) != 0
 						&& mask.get(x - x0, y - y0) > 0) {
-					v = findComponentIndexByIntensity(components.get(x, y));
+					v = findComponentIndexByDisplayIntensity(components.get(x, y));
 					result.add(v);
 				}
 			}
@@ -267,7 +258,7 @@ public class ImageComponentsAnalysis {
 
 		// delete components
 		for (int i = list.size() - 1; i >= 0; i--) {
-			removeComponent(imageComponents, properties.get(list.get(i)).intensity);
+			removeComponent(imageComponents, properties.get(list.get(i)).displayIntensity);
 		}
 	}
 
@@ -290,7 +281,7 @@ public class ImageComponentsAnalysis {
 
 		// copy component into the new image
 		float v;
-		final int compInt = properties.get(nComp).intensity;
+		final int compInt = properties.get(nComp).displayIntensity;
 		for (int x = d; x < result.getWidth() - d; x++)
 			for (int y = d; y < result.getHeight() - d; y++) {
 				v = imageComponents.getf(x0 + x - d, y0 + y - d);
@@ -444,15 +435,15 @@ public class ImageComponentsAnalysis {
 	}
 
 	/* for merging components; also deletes old intensity component from the list */
-	private void changeComponentIntensityByIndex(int compIndex, int newIntensity) {
-		if (getComponentIntensity(compIndex) == newIntensity) // dont do anything if it's the same component
+	private void changeComponentDisplayIntensityByIndex(int compIndex, int newIntensity) {
+		if (getComponentDisplayIntensity(compIndex) == newIntensity) // dont do anything if it's the same component
 			return;
 		int x0, x1, y0, y1;
 		x0 = properties.get(compIndex).xmin;
 		x1 = properties.get(compIndex).xmax;
 		y0 = properties.get(compIndex).ymin;
 		y1 = properties.get(compIndex).ymax;
-		int intensity = properties.get(compIndex).intensity;
+		int intensity = properties.get(compIndex).displayIntensity;
 		for (int y = y0; y <= y1; y++)
 			for (int x = x0; x <= x1; x++)
 				if (imageComponents.get(x, y) == intensity)
@@ -464,7 +455,7 @@ public class ImageComponentsAnalysis {
 
 	private void changeComponentIntensity(int intensity, int newIntensity) {
 		int x0, x1, y0, y1, nComp;
-		nComp = findComponentIndexByIntensity(intensity);
+		nComp = findComponentIndexByDisplayIntensity(intensity);
 		x0 = properties.get(nComp).xmin;
 		x1 = properties.get(nComp).xmax;
 		y0 = properties.get(nComp).ymin;
@@ -475,7 +466,7 @@ public class ImageComponentsAnalysis {
 				if (imageComponents.get(x, y) == intensity)
 					imageComponents.set(x, y, newIntensity);
 
-		properties.get(nComp).intensity = newIntensity;
+		properties.get(nComp).displayIntensity = newIntensity;
 		// here we should recalculate all properties...or not here
 	}
 
@@ -495,7 +486,7 @@ public class ImageComponentsAnalysis {
 		img.setSliceWithoutUpdate(slice);
 
 		while (count < properties.size()) {
-			index = findComponentIndexByIntensity(currIntens);
+			index = findComponentIndexByDisplayIntensity(currIntens);
 			if (index == -1) { // component with such intensity not found, increase intensity
 				currIntens++;
 				continue;
@@ -523,7 +514,7 @@ public class ImageComponentsAnalysis {
 		ImageProcessor result = imageComponents.duplicate();
 		int v;
 		for (int i = 0; i < result.getPixelCount(); i++) {
-			v = findComponentIndexByIntensity(result.get(i));
+			v = findComponentIndexByDisplayIntensity(result.get(i));
 			// System.out.println(result.get(i));
 			if (v != -1)
 				result.setf(i, properties.get(v).avrgIntensity);
@@ -537,7 +528,7 @@ public class ImageComponentsAnalysis {
 	 */
 	private void removeComponent(ImageProcessor image, int intensity) {
 		int x0, x1, y0, y1, nComp;
-		nComp = findComponentIndexByIntensity(intensity);
+		nComp = findComponentIndexByDisplayIntensity(intensity);
 		x0 = properties.get(nComp).xmin;
 		x1 = properties.get(nComp).xmax;
 		y0 = properties.get(nComp).ymin;
@@ -553,9 +544,9 @@ public class ImageComponentsAnalysis {
 	}
 
 	/* return index of component with given intensity. Returns -1 if not found */
-	private int findComponentIndexByIntensity(int intensity) {
+	private int findComponentIndexByDisplayIntensity(int displayIntensity) {
 		for (int i = 0; i < properties.size(); i++)
-			if (properties.get(i).intensity == intensity)
+			if (properties.get(i).displayIntensity == displayIntensity)
 				return i;
 		return -1;
 	}
