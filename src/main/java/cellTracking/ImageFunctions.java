@@ -162,6 +162,8 @@ public class ImageFunctions {
 		double y0 = p0.getY();
 		double x1 = p1.getX();
 		double y1 = p1.getY();
+		
+		 
 
 		float v = (float) ip.getMax();
 

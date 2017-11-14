@@ -84,17 +84,17 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	// sigmas for bandpass algorithm, also in UI
 	public double sigma1 = 1.40;
-	public double sigma2 = 5.00;
+	public double sigma2 = 8.00;
 	public double sigma3 = 0.80;
 
 	/* numerical parameters for UI */
-	private double heightTolerance = 0.1; // now its threshold for lambda2 in blob detection
-	private int rollingBallRadius = 20; // for background subtraction
+	private double heightTolerance = 0.01; // now its threshold for lambda2 in blob detection
+	private int rollingBallRadius = 60; // for background subtraction
 	private int closingRadius = 2;
 	private double medianRadius = 2;
 	private double minThreshold = 20;
 	private double maxThreshold = 50;
-	private int minArea = 130;
+	private int minArea = 100;
 	private int maxArea = 1200;
 	private float minCircularity = 0.55f;
 	private float maxCircularity = 1.0f;
@@ -452,9 +452,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageFunctions.normalize(ip, 0f, 1f);
 
 		BlobDetector blobs = new BlobDetector(ip, sigmas);
+		float[] sigmas_bright = {7, 10, 15, 20};
+		//BlobDetector brightBlobs = new BlobDetector(image, sigmas_bright);
 
 		// ImageProcessor findMaximaImage = blobs.findBlobsByMaxSigmasImage();
-		ImageProcessor marks;
+		ImageProcessor marks, marksBright;
 		// marks = maxfinder.findMaxima(findMaximaImage, heightTolerance,
 		// MaximumFinder.SINGLE_POINTS, true);
 		marks = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, true, true);
@@ -578,7 +580,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_bright_blobs = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
 
 			image = image_bright_blobs;
-			// image = image_stack20;
+			image = image_stack20;
 			// image = image_c10;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
@@ -627,8 +629,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 				result = ExtendedMinimaWatershed.extendedMinimaWatershed(dist, result, 1, 4, false);
 
-				ImageComponentsAnalysis compAnalisys;
+				ImageComponentsAnalysis compAnalisys, brightBlobsAnalisys;
 				compAnalisys = new ImageComponentsAnalysis(result, intensityImg);
+				brightBlobsAnalisys = new ImageComponentsAnalysis(result, intensityImg);
 
 				result = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 255);
 
