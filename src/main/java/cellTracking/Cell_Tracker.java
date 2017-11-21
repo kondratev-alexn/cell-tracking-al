@@ -84,11 +84,12 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	// sigmas for bandpass algorithm, also in UI
 	public double sigma1 = 1.40;
-	public double sigma2 = 8.00;
+	public double sigma2 = 6.00;
 	public double sigma3 = 0.80;
 
 	/* numerical parameters for UI */
-	private double heightTolerance = 0.01; // now its threshold for lambda2 in blob detection
+	private double heightTolerance = 0.01; // now its threshold for lambda2+lambda1 in blob detection
+	private double heightToleranceBright = 0.02;
 	private int rollingBallRadius = 60; // for background subtraction
 	private int closingRadius = 2;
 	private double medianRadius = 2;
@@ -160,8 +161,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			roiManager.selectAndMakeVisible(imagePlus, -1);
 			tracking.trackComponents(20);
 			ImageProcessor ip = imp.getProcessor();
-			tracking.drawTracks(ip);
+			//tracking.drawTracksIp(ip);
+			ImagePlus trResult = tracking.drawTracksImagePlus(imp);
+			trResult.setTitle("Tracking results");
 			imp.show();
+			trResult.show();
 
 			Graph cellGraph = tracking.getGraph();
 			// System.out.println(cellGraph);
@@ -245,7 +249,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		gd.addNumericField("Sigma3 (gradient)", sigma3, 2);
 		// gd.addNumericField("Min threshold", minThreshold, 3);
 		// gd.addNumericField("Max threshold", maxThreshold, 3);
-		gd.addNumericField("Height tolerance (max find)", heightTolerance, 2);
+		gd.addNumericField("Laplacian tolerance (dark blobs)", heightTolerance, 2);
+		gd.addNumericField("Laplacian tolerance (bright blobs)", heightToleranceBright, 2);
 		gd.addNumericField("Min area", minArea, 0);
 		gd.addNumericField("Max area", maxArea, 0);
 		gd.addNumericField("Min circularity", minCircularity, 3);
@@ -296,6 +301,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		// minThreshold = gd.getNextNumber();
 		// maxThreshold = gd.getNextNumber();
 		heightTolerance = gd.getNextNumber();
+		heightToleranceBright = gd.getNextNumber();
 		minArea = (int) gd.getNextNumber();
 		maxArea = (int) gd.getNextNumber();
 		minCircularity = (float) gd.getNextNumber();
@@ -351,10 +357,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		}
 
 		backgroundSub.rollingBallBackground(result, rollingBallRadius, false, false, false, true, false);
+		ImageFunctions.normalize(result, 0, 1);
 
 		if (isTestMode) {
 			// do some testing and return
-			ImageFunctions.normalize(result, 0f, 1f);
+			//ImageFunctions.normalize(result, 0f, 1f);
 			// result = ip;
 			// ImageProcessorCalculator.sub(result,
 			// imagePlus.getStack().getProcessor(selectedSlice - 1));
@@ -446,23 +453,27 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			return markerImg;
 		}
 
-		markerImg.invert();
 		MaximumFinder maxfinder = new MaximumFinder();
 		ImageFunctions.normalize(markerImg, 0, 255);
 		ImageFunctions.normalize(ip, 0f, 1f);
 
 		BlobDetector blobs = new BlobDetector(ip, sigmas);
 		float[] sigmas_bright = {7, 10, 15, 20};
-		//BlobDetector brightBlobs = new BlobDetector(image, sigmas_bright);
+		
+		// detect bright blobs
+		ImageProcessor ip_brightBlobs = intensityImg.duplicate();
+		ImageProcessorCalculator.constMultiply(ip_brightBlobs, -1);
+		BlobDetector brightBlobs = new BlobDetector(ip_brightBlobs, sigmas_bright);
 
 		// ImageProcessor findMaximaImage = blobs.findBlobsByMaxSigmasImage();
 		ImageProcessor marks, marksBright;
 		// marks = maxfinder.findMaxima(findMaximaImage, heightTolerance,
 		// MaximumFinder.SINGLE_POINTS, true);
 		marks = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, true, true);
+		marksBright = brightBlobs.findBlobsBy3x3LocalMaxima((float) heightToleranceBright, true, true);
+		
 		ImageFunctions.mergeMarkers(marks, prevComponentsAnalysis, dilationRadius);
 
-		markerImg.invert();
 		gaussian.GradientMagnitudeGaussian(markerImg, (float) sigma);
 
 		// tried adding lambda2 to gradient - bad
@@ -471,7 +482,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageProcessor l2 = hess.getLambda2();
 		// ImageFunctions.divideByNegativeValues(markerImg, l2);
 		// ImageProcessorCalculator.linearCombination(0.8f, markerImg, 0.0f, l2);
-
+		
+		// combine markerks from bright and dark blobs 
+		ImageFunctions.addMarkers(marks, marksBright);
 		ImageFunctions.LabelMarker(marks);
 
 		// ImageFunctions.normalize(markerImg, 0, 255);
@@ -580,8 +593,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_bright_blobs = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
 
 			image = image_bright_blobs;
-			image = image_stack20;
-			// image = image_c10;
+			//image = image_stack20;
+			image = image_stack3;
+			//image = image_c10;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

@@ -29,11 +29,12 @@ public class BlobDetector {
 	public ByteProcessor findBlobsBy3x3LocalMaxima(float thresholdLambda, boolean binary, boolean useLambda2) {
 		ImageProcessor stack[] = new ImageProcessor[hessians.length];
 		for (int z = 0; z < hessians.length; z++) {
-			if (useLambda2)
+			if (useLambda2) {
 				stack[z] = hessians[z].getLambda2();
+				ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); //laplacian
+			}
 			else
 				stack[z] = hessians[z].getLambda1();
-			ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); //laplacian
 			// ImageProcessorCalculator.linearCombination(0.5f, stack[z], 0.5f,
 			// hessians[z].getLambda2());
 		}

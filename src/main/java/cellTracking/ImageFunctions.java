@@ -97,6 +97,14 @@ public class ImageFunctions {
 		}
 	}
 
+	/* Add markers from marker2 to marker1 */
+	public static void addMarkers(ImageProcessor marker1, ImageProcessor marker2) {
+		for (int i = 0; i < marker1.getPixelCount(); i++) {
+			if (marker2.getf(i) > 0)
+				marker1.set(i, 255);
+		}
+	}
+
 	/* applies median filter with radius "radius", finds minimum and subtracts it */
 	public static void subtractBackgroundMinMedian(ImageProcessor ip, double radius) {
 		ImageProcessor median = ip.duplicate();
@@ -162,8 +170,6 @@ public class ImageFunctions {
 		double y0 = p0.getY();
 		double x1 = p1.getX();
 		double y1 = p1.getY();
-		
-		 
 
 		float v = (float) ip.getMax();
 

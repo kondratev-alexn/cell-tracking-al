@@ -63,6 +63,17 @@ public class Graph {
 		return false;
 	}
 	
+	/* return list of arcs which nodes' time is <= t */
+	public ArrayList<Arc> getArcsBeforeTimeSlice(int t) {
+		ArrayList<Arc> result = new ArrayList<Arc>(arcs.size()/10);
+		for (int i=0; i<arcs.size(); i++) {
+			Arc a = arcs.get(i);
+			if (a.getToNode().get_t() <= t && a.getFromNode().get_t() <= t)
+				result.add(a);
+		}
+		return result;
+	}
+	
 	public ArrayList<Arc> getArcs() {
 		return arcs;
 	}
