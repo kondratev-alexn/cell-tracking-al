@@ -9,13 +9,15 @@ import java.util.ArrayList;
 public class BlobDetector {
 
 	private ImageProcessor ip;
+	private ImageProcessor mask;
 	/* array of sigmas used for different scales */
 	private float[] scaleSigmas;
 	/* stack of hessians with different sigmas */
 	private Hessian[] hessians;
 
-	BlobDetector(ImageProcessor image, float[] sigmas) {
+	BlobDetector(ImageProcessor image, ImageProcessor blobs_mask, float[] sigmas) {
 		ip = image;
+		mask = blobs_mask;
 		scaleSigmas = sigmas;
 		hessians = new Hessian[sigmas.length];
 		for (int i = 0; i < hessians.length; i++) {
@@ -26,10 +28,11 @@ public class BlobDetector {
 
 	/*
 	 * return image with dots corresponding to blob centers and their intensities -
-	 * to sigmas
+	 * to sigmas. 'leaveNMax' parameter corresponds to how many maxima point choose.
+	 * Set to -1 if you want all points above threshold
 	 */
 	public ByteProcessor findBlobsBy3x3LocalMaxima(float thresholdLambda, boolean binary, boolean useLambda2,
-			boolean leaveNMax) {
+			int leaveNMax) {
 		ImageProcessor stack[] = new ImageProcessor[hessians.length];
 		for (int z = 0; z < hessians.length; z++) {
 			if (useLambda2) {
@@ -49,11 +52,13 @@ public class BlobDetector {
 		for (int y = 1; y < ip.getHeight() - 1; y++)
 			for (int x = 1; x < ip.getWidth() - 1; x++) {
 				result.setf(x, y, 0);
+				if (mask != null && mask.get(x, y) < 1)
+					continue;
 				for (int z = 0; z < hessians.length; z++) {
 					if (isLocalMaximumThresholded3D(stack, x, y, z, thresholdLambda))
 						// normalizeValue0_255(scaleSigmas[z], scaleSigmas[0],
 						// scaleSigmas[scaleSigmas.length - 1]));
-						if (leaveNMax) {
+						if (leaveNMax != -1) {
 							maxima_x.add(x);
 							maxima_y.add(y);
 							maxima_z.add(z);
@@ -66,12 +71,12 @@ public class BlobDetector {
 						}
 				}
 			}
-		if (leaveNMax) {
+		if (leaveNMax != -1) {
 			// sort max list
 			int max_j = -1;
 			float max = -1;
 			float t;
-			int tx, ty,tz;
+			int tx, ty, tz;
 			for (int i = 0; i < maxima_v.size(); i++) {
 				max = -1;
 				for (int j = i; j < maxima_v.size(); j++) {
@@ -100,12 +105,11 @@ public class BlobDetector {
 
 			for (int i = 0; i < maxima_v.size(); i++) {
 				System.out.printf("%.5f \n", maxima_v.get(i));
-				
 			}
+			System.out.println();
 
-			int max_n = 20;
 			int x, y;
-			for (int i = 0; i < Math.min(max_n, maxima_v.size()); i++) {
+			for (int i = 0; i < Math.min(leaveNMax, maxima_v.size()); i++) {
 				x = maxima_x.get(i);
 				y = maxima_y.get(i);
 				if (binary)

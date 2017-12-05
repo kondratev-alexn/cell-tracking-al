@@ -1,5 +1,6 @@
 package cellTracking;
 
+import fiji.threshold.Auto_Threshold;
 import ij.ImagePlus;
 import ij.plugin.filter.RankFilters;
 import ij.process.ByteProcessor;
@@ -50,6 +51,17 @@ public class ImageFunctions {
 					ip.setf(x, y, 255);
 			}
 		}
+	}
+
+	public static ImageProcessor getWhiteObjectsMask(ImageProcessor ip, int openingRadius, int closingRadius) {
+		ImageProcessor cellMask = ip.convertToByte(true);
+		ImagePlus imp_mask = new ImagePlus("mask", cellMask);
+		Auto_Threshold threshold = new Auto_Threshold();
+		threshold.exec(imp_mask, "Otsu", false, false, true, false, false, false);
+		cellMask = imp_mask.getProcessor();
+		cellMask = ImageFunctions.operationMorph(cellMask, Operation.OPENING, Strel.Shape.SQUARE, openingRadius);
+		cellMask = ImageFunctions.operationMorph(cellMask, Operation.CLOSING, Strel.Shape.DISK, closingRadius);
+		return cellMask;
 	}
 
 	/* computes AND of two float-binary images and saves result into ip1 */

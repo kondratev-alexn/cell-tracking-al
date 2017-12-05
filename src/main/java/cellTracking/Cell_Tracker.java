@@ -49,6 +49,8 @@ import inra.ijpb.watershed.MarkerControlledWatershedTransform2D;
 import inra.ijpb.watershed.Watershed;
 import ij.plugin.filter.MaximumFinder;
 
+import fiji.threshold.Auto_Threshold;
+
 public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	private int flags = DOES_ALL | KEEP_PREVIEW | FINAL_PROCESSING | NO_CHANGES;
@@ -72,7 +74,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private ImageProcessor thresholdedIntensity;
 
 	/* contains mask for previously segmented cells */
-	private ImageProcessor compMask;
+	private ImageProcessor cellMask;
 
 	/* image for displaing result on stacks */
 	private ImagePlus stackImage;
@@ -90,7 +92,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	/* numerical parameters for UI */
 	private double heightTolerance = 0.01; // now its threshold for lambda2+lambda1 in blob detection
-	private double heightToleranceBright = 0.02;
+	private double heightToleranceBright = 0.20;
 	private int rollingBallRadius = 20; // for background subtraction
 	private int closingRadius = 2;
 	private double medianRadius = 2;
@@ -162,7 +164,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			roiManager.selectAndMakeVisible(imagePlus, -1);
 			tracking.trackComponents(20);
 			ImageProcessor ip = imp.getProcessor();
-			//tracking.drawTracksIp(ip);
+			// tracking.drawTracksIp(ip);
 			ImagePlus trResult = tracking.drawTracksImagePlus(imp);
 			trResult.setTitle("Tracking results");
 			imp.show();
@@ -182,7 +184,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 		nSlices = imp.getStackSize();
 		tracking = new NearestNeighbourTracking(nSlices);
-		compMask = null;
+		cellMask = null;
 
 		// convert to float if plugin just started
 		if (nSlices == 1) {
@@ -345,7 +347,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	@Override
 	public void run(ImageProcessor ip) {
-		if (startedProcessing) {// stack processing
+		if (startedProcessing) { // stack processing
 			result = ip.duplicate();
 		} else
 			result = baseImage.duplicate();
@@ -356,16 +358,18 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// rankFilters.rank(result, medianRadius, RankFilters.MEDIAN);
 			gaussian.GaussianBlur(result, (float) medianRadius);
 		}
-
+		cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
+		
 		backgroundSub.rollingBallBackground(result, rollingBallRadius, false, false, false, true, false);
 		ImageFunctions.normalize(result, 0, 1);
 
 		if (isTestMode) {
 			// do some testing and return
-			//ImageFunctions.normalize(result, 0f, 1f);
+			// ImageFunctions.normalize(result, 0f, 1f);
 			// result = ip;
 			// ImageProcessorCalculator.sub(result,
 			// imagePlus.getStack().getProcessor(selectedSlice - 1));
+			cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
 			if (isBandpass)
 				ImageProcessorCalculator.constMultiply(result, -1);
 			/*
@@ -375,10 +379,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			 */
 			// float[] sigmas = { 1, 20, 30, 50};
 			// ImageFunctions.drawLine(result, 100, 100, 150,50);
-			float[] sigmas_bright = {7, 10, 15, 20};
-			BlobDetector blobs = new BlobDetector(result, sigmas_bright);
+			float[] sigmas_bright = { 7, 10, 15, 20 };
+			BlobDetector blobs = new BlobDetector(result, cellMask, sigmas_bright);
 
-			ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, false, filterComponents, true);
+			ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, false, filterComponents,
+					20);
 			// result = blobs.findBlobsByMaxSigmasImage();
 			ImageFunctions.drawCirclesBySigmaMarkerks(result, blobDots, true);
 			// ImageFunctions.drawGaussian(result, 200, 200, (float) sigma1);
@@ -436,7 +441,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageProcessor markerImg = ip.duplicate();
 		ImageProcessor intensityImg;
 		ImageProcessor watershedMask;
-		ImageProcessor threshold;
 		intensityImg = markerImg.duplicate();
 
 		if (isBandpass) {
@@ -444,11 +448,15 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		}
 		// create mask for watershed
 		watershedMask = markerImg.duplicate();
-		//threshold = markerImg.duplicate(); //this should be otsu thresholded image with convex hulling aftewards
+		// threshold = markerImg.duplicate(); //this should be otsu thresholded image
+		// with convex hulling aftewards
 		ImageFunctions.threshold(watershedMask, minThreshold, maxThreshold);
-
-		threshold = ip.convertToShort(true);	
-		ImagePlus wat = new ImagePlus("mask", watershedMask);
+		
+		//cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
+		//imp_mask = new ImagePlus("mask", test_mask);
+		//imp_mask.show();
+		// ip = imp_mask.getProcessor();
+		//ImagePlus wat = new ImagePlus("mask", watershedMask);
 
 		markerImg = ImageFunctions.operationMorph(markerImg, Operation.CLOSING, Strel.Shape.DISK, closingRadius);
 
@@ -461,20 +469,23 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageFunctions.normalize(markerImg, 0, 255);
 		ImageFunctions.normalize(ip, 0f, 1f);
 
-		BlobDetector blobs = new BlobDetector(ip, sigmas);
-		float[] sigmas_bright = {7, 10, 15, 20};
-		
+		BlobDetector blobs = new BlobDetector(ip, cellMask, sigmas);
+		float[] sigmas_bright = { 7, 10, 15, 20 };
+
 		// detect bright blobs
 		ImageProcessor ip_brightBlobs = ip.duplicate();
 		ImageProcessorCalculator.constMultiply(ip_brightBlobs, -1);
-		BlobDetector brightBlobs = new BlobDetector(ip_brightBlobs, sigmas_bright);
+		BlobDetector brightBlobs = new BlobDetector(ip_brightBlobs, cellMask, sigmas_bright);
 
 		// ImageProcessor findMaximaImage = blobs.findBlobsByMaxSigmasImage();
 		ImageProcessor marks, marksBright;
 		// marks = maxfinder.findMaxima(findMaximaImage, heightTolerance,
 		// MaximumFinder.SINGLE_POINTS, true);
-		marks = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, true, true, true);
-		marksBright = brightBlobs.findBlobsBy3x3LocalMaxima((float) heightToleranceBright, true, true, true);
+		marks = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, true, true, 20);
+		marksBright = brightBlobs.findBlobsBy3x3LocalMaxima((float) heightToleranceBright, true, true, 4);
+
+		//ImagePlus imp = new ImagePlus("marks", marks);
+		//imp.show();
 		
 		ImageFunctions.mergeMarkers(marks, prevComponentsAnalysis, dilationRadius);
 
@@ -486,16 +497,17 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageProcessor l2 = hess.getLambda2();
 		// ImageFunctions.divideByNegativeValues(markerImg, l2);
 		// ImageProcessorCalculator.linearCombination(0.8f, markerImg, 0.0f, l2);
-		
-		// combine markerks from bright and dark blobs 
+
+		// combine markerks from bright and dark blobs
 		ImageFunctions.addMarkers(marks, marksBright);
 		ImageFunctions.LabelMarker(marks);
 
 		// ImageFunctions.normalize(markerImg, 0, 255);
 		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(markerImg, marks,
-				null, 4);
+				cellMask, 4);
 		ip = watershed.applyWithPriorityQueue();
-
+		ImagePlus water = new ImagePlus("water", ip);
+		water.show();
 		if (filterComponents) {
 			ImageComponentsAnalysis compAnalisys;
 			ImageFunctions.normalize(intensityImg, 0, 255);
@@ -597,9 +609,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_bright_blobs = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
 
 			image = image_bright_blobs;
-			//image = image_stack20;
-			//image = image_stack3;
-			//image = image_c10;
+			image = image_stack20;
+			// image = image_stack3;
+			// image = image_c10;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();
