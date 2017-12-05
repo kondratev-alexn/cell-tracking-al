@@ -1,7 +1,9 @@
 package cellTracking;
 
 import ij.process.ByteProcessor;
+import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import java.util.ArrayList;
 
 /* Blob detection using Hessian */
 public class BlobDetector {
@@ -26,19 +28,24 @@ public class BlobDetector {
 	 * return image with dots corresponding to blob centers and their intensities -
 	 * to sigmas
 	 */
-	public ByteProcessor findBlobsBy3x3LocalMaxima(float thresholdLambda, boolean binary, boolean useLambda2) {
+	public ByteProcessor findBlobsBy3x3LocalMaxima(float thresholdLambda, boolean binary, boolean useLambda2,
+			boolean leaveNMax) {
 		ImageProcessor stack[] = new ImageProcessor[hessians.length];
 		for (int z = 0; z < hessians.length; z++) {
 			if (useLambda2) {
 				stack[z] = hessians[z].getLambda2();
-				ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); //laplacian
-			}
-			else
+				ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); // laplacian
+			} else
 				stack[z] = hessians[z].getLambda1();
 			// ImageProcessorCalculator.linearCombination(0.5f, stack[z], 0.5f,
 			// hessians[z].getLambda2());
 		}
 		ByteProcessor result = new ByteProcessor(ip.getWidth(), ip.getHeight());
+		ArrayList<Float> maxima_v = new ArrayList<Float>(20);
+		ArrayList<Integer> maxima_x = new ArrayList<Integer>(20);
+		ArrayList<Integer> maxima_y = new ArrayList<Integer>(20);
+		ArrayList<Integer> maxima_z = new ArrayList<Integer>(20);
+
 		for (int y = 1; y < ip.getHeight() - 1; y++)
 			for (int x = 1; x < ip.getWidth() - 1; x++) {
 				result.setf(x, y, 0);
@@ -46,12 +53,67 @@ public class BlobDetector {
 					if (isLocalMaximumThresholded3D(stack, x, y, z, thresholdLambda))
 						// normalizeValue0_255(scaleSigmas[z], scaleSigmas[0],
 						// scaleSigmas[scaleSigmas.length - 1]));
-						if (binary)
-							result.set(x, y, 255);
-						else
-							result.setf(x, y, scaleSigmas[z]);
+						if (leaveNMax) {
+							maxima_x.add(x);
+							maxima_y.add(y);
+							maxima_z.add(z);
+							maxima_v.add(stack[z].getf(x, y));
+						} else {
+							if (binary)
+								result.set(x, y, 255);
+							else
+								result.setf(x, y, scaleSigmas[z]);
+						}
 				}
 			}
+		if (leaveNMax) {
+			// sort max list
+			int max_j = -1;
+			float max = -1;
+			float t;
+			int tx, ty,tz;
+			for (int i = 0; i < maxima_v.size(); i++) {
+				max = -1;
+				for (int j = i; j < maxima_v.size(); j++) {
+					// find max
+					if (maxima_v.get(j) > max) {
+						max = maxima_v.get(j);
+						max_j = j;
+					}
+				}
+				// swap max element and current element
+				t = maxima_v.get(max_j);
+				tx = maxima_x.get(max_j);
+				ty = maxima_y.get(max_j);
+				tz = maxima_z.get(max_j);
+
+				maxima_v.set(max_j, maxima_v.get(i));
+				maxima_x.set(max_j, maxima_x.get(i));
+				maxima_y.set(max_j, maxima_y.get(i));
+				maxima_z.set(max_j, maxima_z.get(i));
+
+				maxima_v.set(i, t);
+				maxima_x.set(i, tx);
+				maxima_y.set(i, ty);
+				maxima_z.set(i, tz);
+			}
+
+			for (int i = 0; i < maxima_v.size(); i++) {
+				System.out.printf("%.5f \n", maxima_v.get(i));
+				
+			}
+
+			int max_n = 20;
+			int x, y;
+			for (int i = 0; i < Math.min(max_n, maxima_v.size()); i++) {
+				x = maxima_x.get(i);
+				y = maxima_y.get(i);
+				if (binary)
+					result.set(x, y, 255);
+				else
+					result.setf(x, y, scaleSigmas[maxima_z.get(i)]);
+			}
+		}
 		return result;
 	}
 
