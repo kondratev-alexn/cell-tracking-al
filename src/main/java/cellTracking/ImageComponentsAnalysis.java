@@ -41,6 +41,7 @@ public class ImageComponentsAnalysis {
 		nComponents = (int) imageComponents.getMax() - (int) imageComponents.getMin() + 1; // components are labelled
 																							// from 0 to the number of
 																							// components
+
 		properties = new ArrayList<ComponentProperties>(nComponents);
 		for (int i = 0; i < nComponents; i++)
 			properties.add(new ComponentProperties());
@@ -120,8 +121,8 @@ public class ImageComponentsAnalysis {
 				// if (v > 0) {
 				index = findComponentIndexByDisplayIntensity(v);
 				if (index == -1)
-					index = ++newIndex;
-
+					index = newIndex++;
+				//System.out.println(index);
 				properties.get(index).displayIntensity = v;
 				properties.get(index).area++;
 				properties.get(index).avrgIntensity += imageIntensity.getf(x, y);
@@ -149,7 +150,7 @@ public class ImageComponentsAnalysis {
 				// }
 			}
 		}
-
+		
 		for (int i = 0; i < properties.size(); i++) { // calculate average intensity, mass center (area is number of
 														// pixels)
 			properties.get(i).avrgIntensity /= properties.get(i).area;
