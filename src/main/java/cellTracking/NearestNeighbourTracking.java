@@ -39,28 +39,28 @@ public class NearestNeighbourTracking {
 	/*
 	 * finds nearest components in comp1-comp2 not further than 'radius' pixels. (t1
 	 * and t2 refers to time points of comp1 and comp2 respectively) this should
-	 * refer to the i -> i+1 step
+	 * refer to the i -> i+1 step. So t1>t2
 	 */
 	public void findNearestComponents(ImageComponentsAnalysis comp1, int t1, ImageComponentsAnalysis comp2, int t2,
 			double radius) {
-		Point m1;
+		Point m1, m2;
 		int closestIndex;
 		Node v1, v2;
-		for (int i = 0; i < comp1.getComponentsCount(); i++) {
-			if (comp1.getComponentChildCount(i) > 0) {
+		for (int i = 0; i < comp2.getComponentsCount(); i++) {
+			if (comp2.getComponentHasParent(i)) {	// only add to components that doesn't have parent
 				continue;
 			}
-			m1 = comp1.getComponentMassCenter(i);
-			closestIndex = findClosestPointIndex(m1, comp2, radius);
-			if (closestIndex != -1) { // closest component found, remove from list, add to graph
-				if (comp2.getComponentHasParent(closestIndex)) {
+			m2 = comp2.getComponentMassCenter(i);
+			closestIndex = findClosestPointIndex(m2, comp1, radius);
+			if (closestIndex != -1) { // closest component found, add to graph
+				if (comp1.getComponentChildCount(closestIndex) > 0) { //only if it has no children
 					continue;
 				}
-				v1 = new Node(t1, i);
-				v2 = new Node(t2, closestIndex);
+				v1 = new Node(t1, closestIndex);
+				v2 = new Node(t2, i);
 				cellGraph.addArcFromToAddable(v1, v2);
-				comp2.setComponentHasParent(closestIndex);
-				comp1.incComponentChildCount(i);
+				comp2.setComponentHasParent(i);
+				comp1.incComponentChildCount(closestIndex);
 			} else {
 				// closest component for current component in comp1 was not found - may be
 				// remove it from detection (it may not be correct detection)

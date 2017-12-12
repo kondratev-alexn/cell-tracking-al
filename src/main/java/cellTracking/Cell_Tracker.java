@@ -50,6 +50,7 @@ import inra.ijpb.watershed.Watershed;
 import ij.plugin.filter.MaximumFinder;
 
 import fiji.threshold.Auto_Threshold;
+import evaluation.TrackingEvaluation;
 
 public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
@@ -589,9 +590,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	}
 
 	public static void main(String[] args) {
-		boolean testImageJ = true;
+		boolean testImageJ = false;
 		if (!testImageJ) {
 			System.out.println("HELLO THERE");
+			TrackingEvaluation tra = new TrackingEvaluation();
+			tra.writeTracksToFile_ctc("tracks.txt", null);
 		} else {
 			// set the plugins.dir property to make the plugin appear in the Plugins menu
 			Class<?> clazz = Cell_Tracker.class;
