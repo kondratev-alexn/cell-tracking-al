@@ -78,12 +78,24 @@ public class ImageComponentsAnalysis {
 		return properties.get(index).massCenter;
 	}
 	
-	public boolean getComponentTrackedDown(int index) {
-		return properties.get(index).trackedDown;
+	public int getComponentChildCount(int index) {
+		return properties.get(index).childCount;
 	}
 	
-	public void setComponentTrackedDown(int index) {
-		properties.get(index).trackedDown = true;
+	public void setComponentChildCount(int index, int count) {
+		properties.get(index).childCount = count;
+	}
+	
+	public void incComponentChildCount(int index) {
+		properties.get(index).childCount += 1;
+	}
+	
+	public boolean getComponentHasParent(int index) {
+		return properties.get(index).hasParent;
+	}
+	
+	public void setComponentHasParent(int index) {
+		properties.get(index).hasParent = true;
 	}
 
 	public float getComponentAvrgIntensityByIntensity(int intensity) {

@@ -162,7 +162,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			 * if (gd.wasCanceled()) { resetPreview(); return DONE; }
 			 */
 			roiManager.selectAndMakeVisible(imagePlus, -1);
-			tracking.trackComponents(20);
+			tracking.trackComponents(20, 13, 3);
+			
+			System.out.println(tracking.getGraph());
+			System.out.println(tracking.getGraph().checkNoEqualNodes());
 			ImageProcessor ip = imp.getProcessor();
 			// tracking.drawTracksIp(ip);
 			ImagePlus trResult = tracking.drawTracksImagePlus(imp);
@@ -481,7 +484,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageProcessor marks, marksBright;
 		// marks = maxfinder.findMaxima(findMaximaImage, heightTolerance,
 		// MaximumFinder.SINGLE_POINTS, true);
-		marks = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, true, true, 20);
+		marks = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, true, true, 30);
 		marksBright = brightBlobs.findBlobsBy3x3LocalMaxima((float) heightToleranceBright, true, true, 4);
 
 		//ImagePlus imp = new ImagePlus("marks", marks);
@@ -506,8 +509,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(markerImg, marks,
 				cellMask, 4);
 		ip = watershed.applyWithPriorityQueue();
-		ImagePlus water = new ImagePlus("water", ip);
-		water.show();
+//		ImagePlus water = new ImagePlus("water", ip);
+//		water.show();
 		if (filterComponents) {
 			ImageComponentsAnalysis compAnalisys;
 			ImageFunctions.normalize(intensityImg, 0, 255);
@@ -607,11 +610,15 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_c10 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010910\\T0001.tif");
 			ImagePlus image_stack3 = IJ.openImage("C:\\Tokyo\\\\movement_3images.tif");
 			ImagePlus image_bright_blobs = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
+			ImagePlus image_ez_division = IJ.openImage("C:\\Tokyo\\division.tif");
+			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
 
 			image = image_bright_blobs;
 			image = image_stack20;
+			//image = image_stack10;
 			// image = image_stack3;
 			// image = image_c10;
+			//image = image_ez_division;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

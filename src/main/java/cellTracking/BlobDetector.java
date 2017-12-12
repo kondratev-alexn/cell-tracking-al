@@ -103,10 +103,10 @@ public class BlobDetector {
 				maxima_z.set(i, tz);
 			}
 
-			for (int i = 0; i < maxima_v.size(); i++) {
-				System.out.printf("%.5f \n", maxima_v.get(i));
-			}
-			System.out.println();
+//			for (int i = 0; i < maxima_v.size(); i++) {
+//				System.out.printf("%.5f \n", maxima_v.get(i));
+//			}
+//			System.out.println();
 
 			int x, y;
 			for (int i = 0; i < Math.min(leaveNMax, maxima_v.size()); i++) {

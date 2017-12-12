@@ -38,25 +38,29 @@ public class NearestNeighbourTracking {
 
 	/*
 	 * finds nearest components in comp1-comp2 not further than 'radius' pixels. (t1
-	 * and t2 refers to time points of comp1 and comp2 respectively)
+	 * and t2 refers to time points of comp1 and comp2 respectively) this should
+	 * refer to the i -> i+1 step
 	 */
 	public void findNearestComponents(ImageComponentsAnalysis comp1, int t1, ImageComponentsAnalysis comp2, int t2,
 			double radius) {
-		Point m1, m2;
-		ArrayList<Point> comp2Centers = new ArrayList<Point>(comp2.getComponentsCount());
-		for (int i = 0; i < comp2.getComponentsCount(); i++) {
-			comp2Centers.add(comp2.getComponentMassCenter(i));
-		}
+		Point m1;
 		int closestIndex;
 		Node v1, v2;
 		for (int i = 0; i < comp1.getComponentsCount(); i++) {
+			if (comp1.getComponentChildCount(i) > 0) {
+				continue;
+			}
 			m1 = comp1.getComponentMassCenter(i);
 			closestIndex = findClosestPointIndex(m1, comp2, radius);
 			if (closestIndex != -1) { // closest component found, remove from list, add to graph
+				if (comp2.getComponentHasParent(closestIndex)) {
+					continue;
+				}
 				v1 = new Node(t1, i);
 				v2 = new Node(t2, closestIndex);
 				cellGraph.addArcFromToAddable(v1, v2);
-				comp2.setComponentTrackedDown(closestIndex);
+				comp2.setComponentHasParent(closestIndex);
+				comp1.incComponentChildCount(i);
 			} else {
 				// closest component for current component in comp1 was not found - may be
 				// remove it from detection (it may not be correct detection)
@@ -64,10 +68,57 @@ public class NearestNeighbourTracking {
 		}
 	}
 
-	/* components list should be filled */
-	public void trackComponents(double radius) {
-		for (int i = 1; i < componentsList.size(); i++) {
-			findNearestComponents(componentsList.get(i - 1), i - 1, componentsList.get(i), i, radius);
+	/* this is for back tracking (mitosys should be tracked with this steps) */
+	public void findNearestComponentsBackStep(ImageComponentsAnalysis comp2, int t2, ImageComponentsAnalysis comp1,
+			int t1, double radius) {
+		Point m2;
+		int closestIndex;
+		Node v1, v2;
+		for (int i = 0; i < comp2.getComponentsCount(); i++) {
+			if (comp2.getComponentHasParent(i)) {
+				continue;
+			}
+			m2 = comp2.getComponentMassCenter(i); // component without parent
+			closestIndex = findClosestPointIndex(m2, comp1, radius);
+			if (closestIndex != -1) { // closest component found, add to graph
+				if (comp2.getComponentChildCount(i) == 0 && comp1.getComponentChildCount(closestIndex) > 0) {
+					continue; // if closest "parent" has children. then add this only if it has children
+				}
+				v1 = new Node(t1, closestIndex);
+				v2 = new Node(t2, i);
+				System.out.println("Arc made during back tracking: " + v1 + " -- " + v2);
+				cellGraph.addArcFromToAddable(v1, v2);
+				comp2.setComponentHasParent(i);
+				comp1.incComponentChildCount(closestIndex);
+			} else {
+				// closest component for current component in comp2 was not found
+			}
+		}
+	}
+
+	/*
+	 * components list should be filled tracking algorithm: first, find nearest
+	 * neighbours going from 0 to T time slice then, back tracking: find nearest
+	 * component of i in i-1 that wasn't tracked
+	 */
+	public void trackComponents(double radius, double radiusBackTracking, int n_lookThroughSlices) {
+		// 0 -> T tracking
+
+		for (int j = 0; j < n_lookThroughSlices; j++) {
+			for (int i = 1; i < componentsList.size(); ++i) {
+				if (i + j < componentsList.size())
+					findNearestComponents(componentsList.get(i - 1), i - 1, componentsList.get(i + j), i + j, radius);
+			}
+		}
+
+		// back tracking T -> 0
+		for (int j = 0; j < n_lookThroughSlices; j++) {
+			for (int i = componentsList.size() - 1; i > 0; --i) {
+				if (i - j > 0) {
+					findNearestComponentsBackStep(componentsList.get(i), i, componentsList.get(i - 1 - j), i - 1 - j,
+							radiusBackTracking);
+				}
+			}
 		}
 	}
 
@@ -80,7 +131,7 @@ public class NearestNeighbourTracking {
 		double dist;
 		for (int i = 0; i < comp.getComponentsCount(); i++) {
 			dist = Point.dist(p, comp.getComponentMassCenter(i));
-			if (dist < radius && dist < min_dist && !comp.getComponentTrackedDown(i)) {
+			if (dist < radius && dist < min_dist) {
 				min_dist = dist;
 				min_i = i;
 			}
@@ -150,15 +201,16 @@ public class NearestNeighbourTracking {
 		ImageStack stack = image.getStack();
 
 		System.out.println(stack.getSize());
+		System.out.println(image.getNSlices());
 		stack.setProcessor(image.getStack().getProcessor(1), 1);
 
 		ImageProcessor ip;
-		for (int i = 2; i <= image.getNSlices(); i++) {
+		for (int i = 2; i <= image.getNSlices(); i++) { // slices are from 1 to n_slices
 			ip = image.getStack().getProcessor(i).duplicate();
 			drawTracksIp(ip, cellGraph.getArcsBeforeTimeSlice(i - 1));
 			stack.setProcessor(ip, i);
 		}
-		
+
 		result.setStack(stack);
 		return result;
 	}

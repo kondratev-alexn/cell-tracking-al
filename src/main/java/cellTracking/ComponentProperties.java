@@ -15,7 +15,9 @@ public class ComponentProperties {
 	public float circularity;
 	public int xmin, xmax, ymin, ymax; // corner coordinates for containing rectangle
 
-	public boolean trackedDown; // true if component was tracked during tracking
+	//public boolean trackedDown; // true if component was tracked during tracking (means it has a child). Bad becasue it should be tristate
+	public int childCount; //child count, 0, 1 or 2
+	public boolean hasParent; //true if component was tracked as a child, false if it starts a new tree
 	public State state = State.NORMAL;
 
 	public Point massCenter; // point - center of mass of the component
@@ -36,7 +38,8 @@ public class ComponentProperties {
 		xmax = 0;
 		ymin = h - 1;
 		ymax = 0;
-		trackedDown = false;
+		childCount = 0;
+		hasParent = false;
 		state = State.NORMAL;
 		massCenter = new Point(0, 0);
 	}
