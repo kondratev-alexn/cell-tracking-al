@@ -29,7 +29,8 @@ public class NearestNeighbourTracking {
 	public NearestNeighbourTracking(int slicesCount) {
 		this.slicesCount = slicesCount;
 		componentsList = new ArrayList<ImageComponentsAnalysis>(slicesCount);
-		cellGraph = new Graph();
+		cellGraph = new Graph(5, 5, 5);
+
 	}
 
 	public void addComponentsAnalysis(ImageComponentsAnalysis comps) {
@@ -44,16 +45,23 @@ public class NearestNeighbourTracking {
 	public void findNearestComponents(ImageComponentsAnalysis comp1, int t1, ImageComponentsAnalysis comp2, int t2,
 			double radius) {
 		Point m1, m2;
-		int closestIndex;
+		int closestIndex, backClosestIndex;
 		Node v1, v2;
 		for (int i = 0; i < comp2.getComponentsCount(); i++) {
-			if (comp2.getComponentHasParent(i)) {	// only add to components that doesn't have parent
+			if (comp2.getComponentHasParent(i)) { // only add to components that doesn't have parent
 				continue;
 			}
-			m2 = comp2.getComponentMassCenter(i);
-			closestIndex = findClosestPointIndex(m2, comp1, radius);
+			m2 = comp2.getComponentMassCenter(i); //
+			closestIndex = findClosestPointIndex(m2, comp1, radius); // this method is bad because result depends on
+																		// comp order
 			if (closestIndex != -1) { // closest component found, add to graph
-				if (comp1.getComponentChildCount(closestIndex) > 0) { //only if it has no children
+				// should also check back - if for the found component the closest neighbour is
+				// the same, then link them, otherwise skip?
+				m1 = comp1.getComponentMassCenter(closestIndex);
+				backClosestIndex = findClosestPointIndex(m1, comp2, radius);
+				if (backClosestIndex != i)
+					continue;
+				if (comp1.getComponentChildCount(closestIndex) > 0) { // only if it has no children
 					continue;
 				}
 				v1 = new Node(t1, closestIndex);
@@ -81,12 +89,16 @@ public class NearestNeighbourTracking {
 			m2 = comp2.getComponentMassCenter(i); // component without parent
 			closestIndex = findClosestPointIndex(m2, comp1, radius);
 			if (closestIndex != -1) { // closest component found, add to graph
-				if (comp2.getComponentChildCount(i) == 0 && comp1.getComponentChildCount(closestIndex) > 0) {
-					continue; // if closest "parent" has children. then add this only if it has children
+				if (comp1.getComponentChildCount(closestIndex) > 1 || comp2.getComponentChildCount(i) == 0
+						|| comp1.getComponentState(closestIndex) != State.MITOSIS) {
+					continue; // if closest "parent" already has 2 children, then skip. Or if child component
+								// doesn't have any children, i.e. its a dead track. Or if state isn't mitosys
 				}
 				v1 = new Node(t1, closestIndex);
 				v2 = new Node(t2, i);
-				System.out.println("Arc made during back tracking: " + v1 + " -- " + v2);
+				System.out.println("Arc made during back tracking: " + v1 + " -- " + v2
+						+ " with comp1(closest) child count being " + comp1.getComponentChildCount(closestIndex)
+						+ "and comp2 child count being " + comp2.getComponentChildCount(i));
 				cellGraph.addArcFromToAddable(v1, v2);
 				comp2.setComponentHasParent(i);
 				comp1.incComponentChildCount(closestIndex);

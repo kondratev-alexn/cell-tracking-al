@@ -519,8 +519,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg); // get labelled component image and fill
 																			// properties
 			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
+			compAnalisys.setComponentsBrightBlobStateByMarks(marksBright);
+			// here set component's state by marks image (indicate bright blobs)
 			if (startedProcessing) // add roi only if we started processing
 				compAnalisys.addRoisToManager(roiManager, imagePlus, currSlice);
+			
 
 			if (startedProcessing || doesStacks())
 				prevComponentsAnalysis = compAnalisys;
@@ -590,7 +593,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	}
 
 	public static void main(String[] args) {
-		boolean testImageJ = false;
+		boolean testImageJ = true;
 		if (!testImageJ) {
 			System.out.println("HELLO THERE");
 			TrackingEvaluation tra = new TrackingEvaluation();
@@ -617,7 +620,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
 
 			image = image_bright_blobs;
-			image = image_stack20;
+			//image = image_stack20;
 			//image = image_stack10;
 			// image = image_stack3;
 			// image = image_c10;
@@ -637,64 +640,5 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	 */
 	private String createResultImageName(ImagePlus baseImage) {
 		return baseImage.getShortTitle() + "-" + "result";
-	}
-
-	/*
-	 * first try on segmentation algorithm - threshold of bandpass filter with
-	 * postprocessing of segmented blobs
-	 */
-	private void segmentation(ImageProcessor ip) {
-		if (isBandpass) {
-			bandpassFilter(result);
-			// ImageFunctions.normalize(result, 0f, 255f);
-		} else { // gradient
-			gaussian.GradientMagnitudeGaussian(result, (float) sigma1);
-			// ImageFunctions.clippingIntensity(result, 0, 500);
-			// gaussian.GradientMagnitudeGaussian(result_t, (float)sigma2);
-			// calc.sub(result, result_t);
-		}
-		ImageProcessor intensityImg = result.duplicate();
-		if (showImageForWatershedding) {
-			// need to use the result of the algo from the first frame somehow, and/or
-			// result of intensity thresholding
-			ImageFunctions.threshold(result, minThreshold, maxThreshold);
-
-			if (filterComponents) {
-				// first, do some watershedding
-				float[] weights = ChamferWeights.BORGEFORS.getFloatWeights();
-				final ImageProcessor dist = BinaryImages.distanceMap(ImageFunctions.getBinary(result), weights, true);
-				dist.invert();
-				// ImagePlus test = new ImagePlus("dist", dist);
-				// test.show();
-
-				result = ExtendedMinimaWatershed.extendedMinimaWatershed(dist, result, 1, 4, false);
-
-				ImageComponentsAnalysis compAnalisys, brightBlobsAnalisys;
-				compAnalisys = new ImageComponentsAnalysis(result, intensityImg);
-				brightBlobsAnalisys = new ImageComponentsAnalysis(result, intensityImg);
-
-				result = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 255);
-
-				/*
-				 * here, after the main part of the algorithm, do the following to obtain better
-				 * segmentation: - Do closing with disc_5 radius on T-d bandpass image. - Get
-				 * T-d intensity image (median 8, Tmin = -100, Tmax = 15) - Watershed T-d
-				 * intensity image - add black background from intensity T-d to bandpassed
-				 * (simple AND) - ??? - PROFIT. Now sells are separated. I hope.
-				 */
-
-				/*
-				 * Operation op = Operation.CLOSING; Strel.Shape shape = Strel.Shape.DISK; Strel
-				 * strel = shape.fromRadius(5); result = result.convertToShortProcessor();
-				 * op.apply(result, strel); //closing with disc_5 R result =
-				 * result.convertToFloatProcessor();
-				 */
-				rankFilters.rank(thresholdedIntensity, 4, RankFilters.MEDIAN);
-				backgroundSub.rollingBallBackground(thresholdedIntensity, 20, false, false, false, false, false);
-				ImageFunctions.threshold(thresholdedIntensity, -100, 15);
-
-				// ImageFunctions.AND(result, thresholdedIntensity);
-			}
-		}
 	}
 }

@@ -73,6 +73,14 @@ public class ImageComponentsAnalysis {
 	public int getComponentY0(int index) {
 		return properties.get(index).ymin;
 	}
+	
+	public int getComponentX1(int index) {
+		return properties.get(index).xmax;
+	}
+
+	public int getComponentY1(int index) {
+		return properties.get(index).ymax;
+	}
 
 	public Point getComponentMassCenter(int index) {
 		return properties.get(index).massCenter;
@@ -96,6 +104,14 @@ public class ImageComponentsAnalysis {
 	
 	public void setComponentHasParent(int index) {
 		properties.get(index).hasParent = true;
+	}
+	
+	public State getComponentState(int index) {
+		return properties.get(index).state;
+	}
+	
+	public void setComponentState(int index, State state) {
+		properties.get(index).state = state;
 	}
 
 	public float getComponentAvrgIntensityByIntensity(int intensity) {
@@ -279,6 +295,26 @@ public class ImageComponentsAnalysis {
 			float minAvrgIntensity, float maxAvrgIntensity) {
 		filterComponents(minArea, maxArea, minCirc, maxCirc, minAvrgIntensity, maxAvrgIntensity);
 		return imageComponents;
+	}
+	
+	public void setComponentsBrightBlobStateByMarks(ImageProcessor marksBright) {
+		int index;
+		for (int y=0; y<marksBright.getHeight(); y++)
+			for (int x=0; x<marksBright.getWidth(); x++) {
+				if (marksBright.get(x, y) > 0) { //set component state to mitosis
+					index = getComponentIndexByPosition(x, y);
+					if (index!=-1) {
+						setComponentState(index, State.MITOSIS);
+						//System.out.println("component " +index + " marked as mitosis"); seems working
+					}
+				}
+			}
+		//System.out.println();
+	}
+	
+	public int getComponentIndexByPosition(int x, int y) {
+		int intensity = imageComponents.get(x, y);
+		return findComponentIndexByDisplayIntensity(intensity);
 	}
 
 	/*

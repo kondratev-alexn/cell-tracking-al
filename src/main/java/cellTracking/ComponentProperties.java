@@ -11,7 +11,7 @@ public class ComponentProperties {
 	public int displayIntensity; // intensity used for the component in the image
 	public float avrgIntensity; // average intensity of the component
 	public float perimeter;
-	public int area;
+	public int area; 	
 	public float circularity;
 	public int xmin, xmax, ymin, ymax; // corner coordinates for containing rectangle
 

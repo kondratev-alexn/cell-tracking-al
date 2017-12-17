@@ -4,22 +4,20 @@ import java.util.ArrayList;
 
 /* let it be connected undirected graph (should be sufficient for trees) */
 public class Graph {
-	private ArrayList<Node> nodes; // vertices of the graph
-	private ArrayList<Arc> arcs; // edges of the graph
+	protected ArrayList<Node> nodes; // vertices of the graph
+	protected ArrayList<Arc> arcs; // edges of the graph
 
-	// TODO when adding arcs add the information about it in nodes or in adj matrix
 	// to use the graph easily
-	ArrayList<ArrayList<Integer>> adjLists;
+	protected ArrayList<ArrayList<Integer>> adjLists;
 
-	public Graph() {
+	public Graph(int nNodes, int nArcs, int nAdj) {
 		nodes = new ArrayList<Node>(5);
 		arcs = new ArrayList<Arc>(5);
-		adjLists = new ArrayList<ArrayList<Integer>>();
+		adjLists = new ArrayList<ArrayList<Integer>>(nAdj);
 	}
 
 	/* plain add node into set of nodes */
 	public void addNode(Node v) {
-
 		nodes.add(v);
 		adjLists.add(new ArrayList<Integer>());
 	}
