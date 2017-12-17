@@ -165,8 +165,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			roiManager.selectAndMakeVisible(imagePlus, -1);
 			tracking.trackComponents(20, 13, 3);
 			
-			System.out.println(tracking.getGraph());
-			System.out.println(tracking.getGraph().checkNoEqualNodes());
+			//System.out.println(tracking.getGraph());
+			//System.out.println(tracking.getGraph().checkNoEqualNodes());
 			ImageProcessor ip = imp.getProcessor();
 			// tracking.drawTracksIp(ip);
 			ImagePlus trResult = tracking.drawTracksImagePlus(imp);
@@ -473,7 +473,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageFunctions.normalize(markerImg, 0, 255);
 		ImageFunctions.normalize(ip, 0f, 1f);
 
-		BlobDetector blobs = new BlobDetector(ip, cellMask, sigmas);
+		BlobDetector blobs = new BlobDetector(ip, null, sigmas);
 		float[] sigmas_bright = { 7, 10, 15, 20 };
 
 		// detect bright blobs
@@ -485,7 +485,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageProcessor marks, marksBright;
 		// marks = maxfinder.findMaxima(findMaximaImage, heightTolerance,
 		// MaximumFinder.SINGLE_POINTS, true);
-		marks = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, true, true, 30);
+		marks = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, true, true, 40);
 		marksBright = brightBlobs.findBlobsBy3x3LocalMaxima((float) heightToleranceBright, true, true, 4);
 
 		//ImagePlus imp = new ImagePlus("marks", marks);
@@ -508,7 +508,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 		// ImageFunctions.normalize(markerImg, 0, 255);
 		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(markerImg, marks,
-				cellMask, 4);
+				null, 4);
 		ip = watershed.applyWithPriorityQueue();
 //		ImagePlus water = new ImagePlus("water", ip);
 //		water.show();
@@ -624,7 +624,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			//image = image_stack10;
 			// image = image_stack3;
 			// image = image_c10;
-			//image = image_ez_division;
+			image = image_ez_division;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

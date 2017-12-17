@@ -30,11 +30,14 @@ public class NearestNeighbourTracking {
 		this.slicesCount = slicesCount;
 		componentsList = new ArrayList<ImageComponentsAnalysis>(slicesCount);
 		cellGraph = new Graph(5, 5, 5);
-
 	}
 
 	public void addComponentsAnalysis(ImageComponentsAnalysis comps) {
 		componentsList.add(comps);
+	}
+	
+	public int getSlicesCount() {
+		return slicesCount;		
 	}
 
 	/*
@@ -89,10 +92,14 @@ public class NearestNeighbourTracking {
 			m2 = comp2.getComponentMassCenter(i); // component without parent
 			closestIndex = findClosestPointIndex(m2, comp1, radius);
 			if (closestIndex != -1) { // closest component found, add to graph
-				if (comp1.getComponentChildCount(closestIndex) > 1 || comp2.getComponentChildCount(i) == 0
-						|| comp1.getComponentState(closestIndex) != State.MITOSIS) {
+				if (comp1.getComponentChildCount(closestIndex) > 1 || comp2.getComponentChildCount(i) == 0) {
 					continue; // if closest "parent" already has 2 children, then skip. Or if child component
 								// doesn't have any children, i.e. its a dead track. Or if state isn't mitosys
+				}
+				if (comp1.getComponentChildCount(closestIndex) == 1
+						&& comp1.getComponentState(closestIndex) != State.MITOSIS) {
+					System.out.println("component with index "+closestIndex + " discarded by state");
+					continue; // if closest parent has 1 child but not mitosys, then don't add
 				}
 				v1 = new Node(t1, closestIndex);
 				v2 = new Node(t2, i);
@@ -119,7 +126,8 @@ public class NearestNeighbourTracking {
 		for (int j = 0; j < n_lookThroughSlices; j++) {
 			for (int i = 1; i < componentsList.size(); ++i) {
 				if (i + j < componentsList.size())
-					findNearestComponents(componentsList.get(i - 1), i - 1, componentsList.get(i + j), i + j, radius);
+					findNearestComponents(componentsList.get(i - 1), i - 1, componentsList.get(i + j), i + j,
+							radius + j * 5);
 			}
 		}
 
@@ -128,7 +136,7 @@ public class NearestNeighbourTracking {
 			for (int i = componentsList.size() - 1; i > 0; --i) {
 				if (i - j > 0) {
 					findNearestComponentsBackStep(componentsList.get(i), i, componentsList.get(i - 1 - j), i - 1 - j,
-							radiusBackTracking);
+							radiusBackTracking + j * 5);
 				}
 			}
 		}
@@ -219,7 +227,7 @@ public class NearestNeighbourTracking {
 		ImageProcessor ip;
 		for (int i = 2; i <= image.getNSlices(); i++) { // slices are from 1 to n_slices
 			ip = image.getStack().getProcessor(i).duplicate();
-			drawTracksIp(ip, cellGraph.getArcsBeforeTimeSlice(i - 1));
+			drawTracksIp(ip, cellGraph.getArcsBeforeTimeSlice(i - 1)); //but time is from 0 to nslices-1
 			stack.setProcessor(ip, i);
 		}
 

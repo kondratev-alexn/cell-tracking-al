@@ -176,12 +176,12 @@ public class ImageFunctions {
 
 	/* draw line in-place */
 	public static void drawLine(ImageProcessor ip, Point p0, Point p1) {
-		double dx = (p1.getX() - p0.getX()) / p0.dist() / 1;
-		double dy = (p1.getY() - p0.getY()) / p1.dist() / 1;
 		double x0 = p0.getX();
 		double y0 = p0.getY();
 		double x1 = p1.getX();
 		double y1 = p1.getY();
+		double dx = (p1.getX() - p0.getX()) / Point.dist(p0, p1) / 2;
+		double dy = (p1.getY() - p0.getY()) / Point.dist(p0, p1) / 2;
 
 		float v = (float) ip.getMax();
 
