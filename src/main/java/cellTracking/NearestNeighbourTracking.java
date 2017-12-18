@@ -39,7 +39,10 @@ public class NearestNeighbourTracking {
 	public int getSlicesCount() {
 		return slicesCount;		
 	}
-
+	
+	public ArrayList<ImageComponentsAnalysis> getComponentsList() {
+		return componentsList;
+	}
 	/*
 	 * finds nearest components in comp1-comp2 not further than 'radius' pixels. (t1
 	 * and t2 refers to time points of comp1 and comp2 respectively) this should

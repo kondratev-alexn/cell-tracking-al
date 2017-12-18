@@ -165,7 +165,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			roiManager.selectAndMakeVisible(imagePlus, -1);
 			tracking.trackComponents(20, 13, 3);
 			
-			//System.out.println(tracking.getGraph());
+			System.out.println(tracking.getGraph());
 			//System.out.println(tracking.getGraph().checkNoEqualNodes());
 			ImageProcessor ip = imp.getProcessor();
 			// tracking.drawTracksIp(ip);

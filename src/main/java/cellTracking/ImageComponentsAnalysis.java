@@ -19,7 +19,6 @@ public class ImageComponentsAnalysis {
 	private ImageProcessor imageComponents; // image with components
 	private ImageProcessor imageIntensity; // image for calculating average intensity
 	private int w, h;
-	Point p;
 
 	private int nComponents; // number of components
 	private ArrayList<ComponentProperties> properties; // component properties
@@ -47,6 +46,14 @@ public class ImageComponentsAnalysis {
 			properties.add(new ComponentProperties());
 		fillBasicProperties();
 		fillCircularity();
+	}
+	
+	public int getWidth() {
+		return w;
+	}
+	
+	public int getHeight() {
+		return h;
 	}
 
 	// getters by index
@@ -123,10 +130,6 @@ public class ImageComponentsAnalysis {
 		return nComponents;
 	}
 
-	public void testFunc(ImageComponentsAnalysis cl) {
-
-	}
-
 	/*
 	 * calculates bounding box corners, perimeter, area, average intensity, mass
 	 * center for components and fills the "properties" array
@@ -153,7 +156,8 @@ public class ImageComponentsAnalysis {
 				//System.out.println(index);
 				properties.get(index).displayIntensity = v;
 				properties.get(index).area++;
-				properties.get(index).avrgIntensity += imageIntensity.getf(x, y);
+				if (imageIntensity != null)
+					properties.get(index).avrgIntensity += imageIntensity.getf(x, y);
 				properties.get(index).massCenter.addIn(new Point(x, y));
 
 				if (isBorderPixel4C(imageComponents, x, y)) { // calculate perimeter
