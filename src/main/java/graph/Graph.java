@@ -8,7 +8,7 @@ public class Graph {
 	protected ArrayList<Arc> arcs; // edges of the graph
 
 	// to use the graph easily
-	protected ArrayList<ArrayList<Integer>> adjLists;
+	protected ArrayList<ArrayList<Integer>> adjLists; //has the same size as "nodes"
 
 	public Graph(int nNodes, int nArcs, int nAdj) {
 		nodes = new ArrayList<Node>(5);
@@ -16,7 +16,7 @@ public class Graph {
 		adjLists = new ArrayList<ArrayList<Integer>>(nAdj);
 	}
 
-	/* plain add node into set of nodes */
+	/* "atomic" add node into set of nodes */
 	public void addNode(Node v) {
 		nodes.add(v);
 		adjLists.add(new ArrayList<Integer>());
@@ -32,6 +32,14 @@ public class Graph {
 		int i = nodes.indexOf(arc.getFromNode());
 		int j = nodes.indexOf(arc.getToNode());
 		adjLists.get(i).add(j);
+	}
+	
+	public int getNodeIndexByGlobalIndex(int nodeIndex) {
+		return nodes.get(nodeIndex).get_i();
+	}
+	
+	public int getNodeSliceByGlobalIndex(int nodeIndex) {
+		return nodes.get(nodeIndex).get_t();
 	}
 
 	/* adds the arc only if both nodes are in the graph */

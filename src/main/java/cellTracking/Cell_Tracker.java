@@ -373,6 +373,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// result = ip;
 			// ImageProcessorCalculator.sub(result,
 			// imagePlus.getStack().getProcessor(selectedSlice - 1));
+			ImageProcessor original = result.duplicate();
 			cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
 			if (isBandpass)
 				ImageProcessorCalculator.constMultiply(result, -1);
@@ -384,17 +385,17 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// float[] sigmas = { 1, 20, 30, 50};
 			// ImageFunctions.drawLine(result, 100, 100, 150,50);
 			float[] sigmas_bright = { 7, 10, 15, 20 };
-			BlobDetector blobs = new BlobDetector(result, cellMask, sigmas_bright);
+			BlobDetector blobs = new BlobDetector(result, null, sigmas_bright);
 
 			ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, false, filterComponents,
-					20);
+					4);
 			// result = blobs.findBlobsByMaxSigmasImage();
-			ImageFunctions.drawCirclesBySigmaMarkerks(result, blobDots, true);
+			ImageFunctions.drawCirclesBySigmaMarkerks(original, blobDots, true);
 			// ImageFunctions.drawGaussian(result, 200, 200, (float) sigma1);
 
 			if (previewing && !doesStacks()) {
 				for (int i = 0; i < ip.getPixelCount(); i++) {
-					ip.setf(i, result.getf(i));
+					ip.setf(i, original.getf(i));
 				}
 
 				ip.resetMinAndMax();
@@ -624,7 +625,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			//image = image_stack10;
 			// image = image_stack3;
 			// image = image_c10;
-			image = image_ez_division;
+			//image = image_ez_division;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();
