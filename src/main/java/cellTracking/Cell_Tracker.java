@@ -517,7 +517,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImageComponentsAnalysis compAnalisys;
 			ImageFunctions.normalize(intensityImg, 0, 255);
 			ImageFunctions.subtractBackgroundMinMedian(intensityImg, 8);
-			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg); // get labelled component image and fill
+			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg, true); // get labelled component image and fill
 																			// properties
 			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
 			compAnalisys.setComponentsBrightBlobStateByMarks(marksBright);

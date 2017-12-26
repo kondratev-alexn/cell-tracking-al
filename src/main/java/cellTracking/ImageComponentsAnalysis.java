@@ -25,27 +25,45 @@ public class ImageComponentsAnalysis {
 
 	/*
 	 * initialize class from binary image ip with components and intensity image
-	 * "intensityImage"
+	 * "intensityImage". Components are re-labelled from 0 to nComp
 	 */
-	public ImageComponentsAnalysis(ImageProcessor ip, ImageProcessor intensityImage) {
+	public ImageComponentsAnalysis(ImageProcessor ip, ImageProcessor intensityImage, boolean useLabelling) {
 		w = ip.getWidth();
 		h = ip.getHeight();
 		// imageComponents = ip.duplicate();
-		imageComponents = BinaryImages.componentsLabeling(ip, 4, 16);
+		if (useLabelling) {
+			imageComponents = BinaryImages.componentsLabeling(ip, 4, 16);
+			nComponents = (int) imageComponents.getMax() - (int) imageComponents.getMin() + 1; 
+		}
+		else {
+			imageComponents = ip.duplicate();
+			nComponents = imageComponentsCount(imageComponents); //else count them in this function
+		}
 		// imageComponents = ImageFunctions.operationMorph(imageComponents,
 		// Operation.CLOSING, Strel.Shape.DISK, 1);
 		// ImagePlus t = new ImagePlus("after closing", imageComponents.duplicate());
 		// t.show();
 		imageIntensity = intensityImage;
-		nComponents = (int) imageComponents.getMax() - (int) imageComponents.getMin() + 1; // components are labelled
-																							// from 0 to the number of
-																							// components
 
 		properties = new ArrayList<ComponentProperties>(nComponents);
 		for (int i = 0; i < nComponents; i++)
 			properties.add(new ComponentProperties());
 		fillBasicProperties();
 		fillCircularity();
+	}
+	
+	/* gets the number of components in labelled image. Components can have different intensities */
+	public int imageComponentsCount(ImageProcessor ip) {
+		ArrayList<Integer> foundIntensities = new ArrayList<Integer> (5);
+		int count = 0, v;
+		for (int i=0; i<ip.getPixelCount(); i++) {
+			v = ip.get(i);
+			if (!foundIntensities.contains(v)) {
+				foundIntensities.add(v);
+				count++;				
+			}
+		}
+		return count;
 	}
 	
 	public int getWidth() {
@@ -263,7 +281,7 @@ public class ImageComponentsAnalysis {
 	}
 
 	/* filter components by area and circularity */
-	private void filterComponents(int minArea, int maxArea, float minCirc, float maxCirc, float minAvrgIntensity,
+	public void filterComponents(int minArea, int maxArea, float minCirc, float maxCirc, float minAvrgIntensity,
 			float maxAvrgIntensity) {
 		ArrayList<Integer> list = new ArrayList<Integer>(20); // what components to filter
 		int area;
