@@ -8,7 +8,7 @@ public class Graph {
 	protected ArrayList<Arc> arcs; // edges of the graph
 
 	// to use the graph easily
-	protected ArrayList<ArrayList<Integer>> adjLists; //has the same size as "nodes"
+	protected ArrayList<ArrayList<Integer>> adjLists; // has the same size as "nodes"
 
 	public Graph(int nNodes, int nArcs, int nAdj) {
 		nodes = new ArrayList<Node>(5);
@@ -33,15 +33,15 @@ public class Graph {
 		int j = nodes.indexOf(arc.getToNode());
 		adjLists.get(i).add(j);
 	}
-	
+
 	public int getNodeIndexByGlobalIndex(int nodeIndex) {
 		return nodes.get(nodeIndex).get_i();
 	}
-	
+
 	public int getNodeSliceByGlobalIndex(int nodeIndex) {
 		return nodes.get(nodeIndex).get_t();
-	}	
-	
+	}
+
 	public ArrayList<ArrayList<Integer>> getAdjList() {
 		return adjLists;
 	}
@@ -81,12 +81,16 @@ public class Graph {
 			return true;
 		return false;
 	}
-	
+
 	public static ArrayList<ArrayList<Integer>> copyAdjList(ArrayList<ArrayList<Integer>> list) {
 		ArrayList<ArrayList<Integer>> result = new ArrayList<ArrayList<Integer>>(list.size());
-		result.addAll(list);
-		for (ArrayList<Integer> sublist : list) {
-			result.add(new ArrayList<>(sublist));
+		ArrayList<Integer> currlist;
+		for (int i = 0; i < list.size(); i++) {
+			currlist = new ArrayList<Integer>(list.get(i).size()); // result.add(new ArrayList())
+			for (int j = 0; j < list.get(i).size(); j++) {
+				currlist.add(list.get(i).get(j));
+			}
+			result.add(currlist);
 		}
 		return result;
 	}

@@ -180,6 +180,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking);
 			resultGraph.showTrackedComponentImages();
 			resultGraph.printTrackedGraph();
+			resultGraph.writeTracksToFile_ctc_afterAnalysis("tracks.txt");
 			// System.out.println(cellGraph);
 
 			// Create a new ImagePlus with the filter result
@@ -628,9 +629,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			image = image_bright_blobs;
 			//image = image_stack20;
 			//image = image_stack10;
-			image = image_stack3;
+			//image = image_stack3;
 			// image = image_c10;
-			//image = image_ez_division;
+			image = image_ez_division;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();
