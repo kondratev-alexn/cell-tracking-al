@@ -5,6 +5,7 @@ import java.awt.Scrollbar;
 import java.util.Arrays;
 import java.util.Vector;
 
+import graph.CellTrackingGraph;
 import graph.Graph;
 import ij.IJ;
 import ij.ImageJ;
@@ -175,6 +176,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			trResult.show();
 
 			Graph cellGraph = tracking.getGraph();
+			
+			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking);
+			resultGraph.showTrackedComponentImages();
+			resultGraph.printTrackedGraph();
 			// System.out.println(cellGraph);
 
 			// Create a new ImagePlus with the filter result
@@ -598,7 +603,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		if (!testImageJ) {
 			System.out.println("HELLO THERE");
 			TrackingEvaluation tra = new TrackingEvaluation();
-			tra.writeTracksToFile_ctc("tracks.txt", null);
+			//tra.writeTracksToFile_ctc("tracks.txt", null);
 		} else {
 			// set the plugins.dir property to make the plugin appear in the Plugins menu
 			Class<?> clazz = Cell_Tracker.class;
@@ -623,7 +628,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			image = image_bright_blobs;
 			//image = image_stack20;
 			//image = image_stack10;
-			// image = image_stack3;
+			image = image_stack3;
 			// image = image_c10;
 			//image = image_ez_division;
 			ImageConverter converter = new ImageConverter(image);

@@ -40,6 +40,10 @@ public class Graph {
 	
 	public int getNodeSliceByGlobalIndex(int nodeIndex) {
 		return nodes.get(nodeIndex).get_t();
+	}	
+	
+	public ArrayList<ArrayList<Integer>> getAdjList() {
+		return adjLists;
 	}
 
 	/* adds the arc only if both nodes are in the graph */
@@ -76,6 +80,15 @@ public class Graph {
 		if (nodes.contains(v))
 			return true;
 		return false;
+	}
+	
+	public static ArrayList<ArrayList<Integer>> copyAdjList(ArrayList<ArrayList<Integer>> list) {
+		ArrayList<ArrayList<Integer>> result = new ArrayList<ArrayList<Integer>>(list.size());
+		result.addAll(list);
+		for (ArrayList<Integer> sublist : list) {
+			result.add(new ArrayList<>(sublist));
+		}
+		return result;
 	}
 
 	public boolean checkNoEqualNodes() {
