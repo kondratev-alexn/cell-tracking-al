@@ -139,6 +139,10 @@ public class ImageComponentsAnalysis {
 		properties.get(index).state = state;
 	}
 
+	public float getComponentAvrgIntensity(int index) {
+		return properties.get(index).avrgIntensity;
+	}
+	
 	public float getComponentAvrgIntensityByIntensity(int intensity) {
 		int index = findComponentIndexByDisplayIntensity(intensity);
 		return properties.get(index).avrgIntensity;

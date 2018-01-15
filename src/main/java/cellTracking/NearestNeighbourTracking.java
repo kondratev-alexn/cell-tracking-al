@@ -35,14 +35,15 @@ public class NearestNeighbourTracking {
 	public void addComponentsAnalysis(ImageComponentsAnalysis comps) {
 		componentsList.add(comps);
 	}
-	
+
 	public int getSlicesCount() {
-		return slicesCount;		
+		return slicesCount;
 	}
-	
+
 	public ArrayList<ImageComponentsAnalysis> getComponentsList() {
 		return componentsList;
 	}
+
 	/*
 	 * finds nearest components in comp1-comp2 not further than 'radius' pixels. (t1
 	 * and t2 refers to time points of comp1 and comp2 respectively) this should
@@ -101,7 +102,7 @@ public class NearestNeighbourTracking {
 				}
 				if (comp1.getComponentChildCount(closestIndex) == 1
 						&& comp1.getComponentState(closestIndex) != State.MITOSIS) {
-					System.out.println("component with index "+closestIndex + " discarded by state");
+					System.out.println("component with index " + closestIndex + " discarded by state");
 					continue; // if closest parent has 1 child but not mitosys, then don't add
 				}
 				v1 = new Node(t1, closestIndex);
@@ -160,6 +161,51 @@ public class NearestNeighbourTracking {
 			}
 		}
 		return min_i;
+	}
+
+	/*
+	 * calculates the penalty function between component with index=i1 in comp1 and
+	 * i2 in comp. (So the less it is, the better, the more the chance they should
+	 * be connected)
+	 */
+	private double penalFunctionNN(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2, int i2,
+			double maxRadius) {
+		int area1, area2;
+		float circ1, circ2;
+		float intensity1, intensity2;
+		double dist;
+		double p_circ, p_area, p_int, p_dist;
+		Point m1 = comp1.getComponentMassCenter(i1);
+		Point m2 = comp2.getComponentMassCenter(i2);
+		area1 = comp1.getComponentArea(i1);
+		circ1 = comp1.getComponentCircularity(i1);
+		intensity1 = comp1.getComponentAvrgIntensity(i1);
+		area2 = comp2.getComponentArea(i2);
+		circ2 = comp2.getComponentCircularity(i2);
+		intensity2 = comp2.getComponentAvrgIntensity(i2);
+		dist = Point.dist(m1, m2);
+		p_area = normVal(area1, area2);
+		p_circ = normVal(circ1, circ2);
+		p_int = normVal(intensity1, intensity2);
+		int minDist_in2 = findClosestPointIndex(m1, comp2, maxRadius);
+		int minDist_in1 = findClosestPointIndex(m2, comp1, maxRadius);
+		double minDist1 = Point.dist(m1, comp2.getComponentMassCenter(minDist_in2));
+		double minDist2 = Point.dist(m2, comp1.getComponentMassCenter(minDist_in1));
+		p_dist = normVal(Math.min(minDist1, minDist2), dist);
+
+		// weights for area,circularity, avrg intensity and distance values
+		double w_a = 0.3;
+		double w_c = 0.3;
+		double w_i = 0.5;
+		double w_d = 1;
+		double penal = w_a * p_area + w_c * p_circ + w_i * p_int + w_d * p_dist;
+		return penal;
+	}
+
+	/* gets difference between value in [0,1] */
+	private double normVal(double v1, double v2) {
+		double v = Math.abs(v1 - v2) / Math.sqrt(v1 * v1 + v2 * v2);
+		return v;
 	}
 
 	/* draws cellGraph as tracks on ip */
@@ -230,7 +276,7 @@ public class NearestNeighbourTracking {
 		ImageProcessor ip;
 		for (int i = 2; i <= image.getNSlices(); i++) { // slices are from 1 to n_slices
 			ip = image.getStack().getProcessor(i).duplicate();
-			drawTracksIp(ip, cellGraph.getArcsBeforeTimeSlice(i - 1)); //but time is from 0 to nslices-1
+			drawTracksIp(ip, cellGraph.getArcsBeforeTimeSlice(i - 1)); // but time is from 0 to nslices-1
 			stack.setProcessor(ip, i);
 		}
 
