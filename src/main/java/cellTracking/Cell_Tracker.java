@@ -165,9 +165,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			 */
 			roiManager.selectAndMakeVisible(imagePlus, -1);
 			tracking.trackComponents(20, 13, 3);
-			
+
 			System.out.println(tracking.getGraph());
-			//System.out.println(tracking.getGraph().checkNoEqualNodes());
+			// System.out.println(tracking.getGraph().checkNoEqualNodes());
 			ImageProcessor ip = imp.getProcessor();
 			// tracking.drawTracksIp(ip);
 			ImagePlus trResult = tracking.drawTracksImagePlus(imp);
@@ -176,7 +176,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			trResult.show();
 
 			Graph cellGraph = tracking.getGraph();
-			
+
 			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking);
 			resultGraph.showTrackedComponentImages();
 			resultGraph.printTrackedGraph();
@@ -369,7 +369,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			gaussian.GaussianBlur(result, (float) medianRadius);
 		}
 		cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
-		
+
 		backgroundSub.rollingBallBackground(result, rollingBallRadius, false, false, false, true, false);
 		ImageFunctions.normalize(result, 0, 1);
 
@@ -462,12 +462,12 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		// threshold = markerImg.duplicate(); //this should be otsu thresholded image
 		// with convex hulling aftewards
 		ImageFunctions.threshold(watershedMask, minThreshold, maxThreshold);
-		
-		//cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
-		//imp_mask = new ImagePlus("mask", test_mask);
-		//imp_mask.show();
+
+		// cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
+		// imp_mask = new ImagePlus("mask", test_mask);
+		// imp_mask.show();
 		// ip = imp_mask.getProcessor();
-		//ImagePlus wat = new ImagePlus("mask", watershedMask);
+		// ImagePlus wat = new ImagePlus("mask", watershedMask);
 
 		markerImg = ImageFunctions.operationMorph(markerImg, Operation.CLOSING, Strel.Shape.DISK, closingRadius);
 
@@ -495,9 +495,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		marks = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, true, true, 40);
 		marksBright = brightBlobs.findBlobsBy3x3LocalMaxima((float) heightToleranceBright, true, true, 4);
 
-		//ImagePlus imp = new ImagePlus("marks", marks);
-		//imp.show();
-		
+		// ImagePlus imp = new ImagePlus("marks", marks);
+		// imp.show();
+
 		ImageFunctions.mergeMarkers(marks, prevComponentsAnalysis, dilationRadius);
 
 		gaussian.GradientMagnitudeGaussian(markerImg, (float) sigma);
@@ -509,28 +509,30 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		// ImageFunctions.divideByNegativeValues(markerImg, l2);
 		// ImageProcessorCalculator.linearCombination(0.8f, markerImg, 0.0f, l2);
 
+		boolean addBrightMarkers = false;
 		// combine markerks from bright and dark blobs
-		ImageFunctions.addMarkers(marks, marksBright);
+		if (addBrightMarkers) {
+			ImageFunctions.addMarkers(marks, marksBright);
+		}
 		ImageFunctions.LabelMarker(marks);
 
 		// ImageFunctions.normalize(markerImg, 0, 255);
 		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(markerImg, marks,
 				null, 4);
 		ip = watershed.applyWithPriorityQueue();
-//		ImagePlus water = new ImagePlus("water", ip);
-//		water.show();
+		// ImagePlus water = new ImagePlus("water", ip);
+		// water.show();
 		if (filterComponents) {
 			ImageComponentsAnalysis compAnalisys;
 			ImageFunctions.normalize(intensityImg, 0, 255);
 			ImageFunctions.subtractBackgroundMinMedian(intensityImg, 8);
 			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg, true); // get labelled component image and fill
-																			// properties
+			// properties
 			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
 			compAnalisys.setComponentsBrightBlobStateByMarks(marksBright);
 			// here set component's state by marks image (indicate bright blobs)
 			if (startedProcessing) // add roi only if we started processing
 				compAnalisys.addRoisToManager(roiManager, imagePlus, currSlice);
-			
 
 			if (startedProcessing || doesStacks())
 				prevComponentsAnalysis = compAnalisys;
@@ -604,7 +606,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		if (!testImageJ) {
 			System.out.println("HELLO THERE");
 			TrackingEvaluation tra = new TrackingEvaluation();
-			//tra.writeTracksToFile_ctc("tracks.txt", null);
+			// tra.writeTracksToFile_ctc("tracks.txt", null);
 		} else {
 			// set the plugins.dir property to make the plugin appear in the Plugins menu
 			Class<?> clazz = Cell_Tracker.class;
@@ -627,11 +629,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
 
 			image = image_bright_blobs;
-			//image = image_stack20;
-			//image = image_stack10;
-			//image = image_stack3;
+			// image = image_stack20;
+			// image = image_stack10;
+			// image = image_stack3;
 			// image = image_c10;
-			image = image_ez_division;
+			// image = image_ez_division;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

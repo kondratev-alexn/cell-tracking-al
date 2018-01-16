@@ -47,7 +47,8 @@ public class NearestNeighbourTracking {
 	/*
 	 * finds nearest components in comp1-comp2 not further than 'radius' pixels. (t1
 	 * and t2 refers to time points of comp1 and comp2 respectively) this should
-	 * refer to the i -> i+1 step. So t1>t2
+	 * refer to the i -> i+1 step. So t1>t2. t1 and t2 are only required to properly
+	 * fill in the graph
 	 */
 	public void findNearestComponents(ImageComponentsAnalysis comp1, int t1, ImageComponentsAnalysis comp2, int t2,
 			double radius) {
@@ -59,13 +60,14 @@ public class NearestNeighbourTracking {
 				continue;
 			}
 			m2 = comp2.getComponentMassCenter(i); //
-			closestIndex = findClosestPointIndex(m2, comp1, radius); // this method is bad because result depends on
-																		// comp order
+			// closestIndex = findClosestPointIndex(m2, comp1, radius);
+			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius);
 			if (closestIndex != -1) { // closest component found, add to graph
 				// should also check back - if for the found component the closest neighbour is
 				// the same, then link them, otherwise skip?
 				m1 = comp1.getComponentMassCenter(closestIndex);
-				backClosestIndex = findClosestPointIndex(m1, comp2, radius);
+				// backClosestIndex = findClosestPointIndex(m1, comp2, radius);
+				backClosestIndex = findBestScoringComponentIndex(comp1, closestIndex, comp2, radius);
 				if (backClosestIndex != i)
 					continue;
 				if (comp1.getComponentChildCount(closestIndex) > 0) { // only if it has no children
@@ -94,7 +96,9 @@ public class NearestNeighbourTracking {
 				continue;
 			}
 			m2 = comp2.getComponentMassCenter(i); // component without parent
-			closestIndex = findClosestPointIndex(m2, comp1, radius);
+			// closestIndex = findClosestPointIndex(m2, comp1, radius);
+			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius); // here should be daughter-check, not the
+																				// same scoring function
 			if (closestIndex != -1) { // closest component found, add to graph
 				if (comp1.getComponentChildCount(closestIndex) > 1 || comp2.getComponentChildCount(i) == 0) {
 					continue; // if closest "parent" already has 2 children, then skip. Or if child component
@@ -164,39 +168,70 @@ public class NearestNeighbourTracking {
 	}
 
 	/*
+	 * Similar to 'findClosestPoint', returns the component index in comp2, which
+	 * has the best score for component i1 in comp1
+	 */
+	private int findBestScoringComponentIndex(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2,
+			double maxRadius) {
+		int min_i = -1;
+		double min_score = Double.MAX_VALUE;
+		double score;
+		for (int i = 0; i < comp2.getComponentsCount(); i++) {
+			score = penalFunctionNN(comp1, i1, comp2, i, maxRadius);
+			if (score < min_score) {
+				min_score = score;
+				min_i = i;
+			}
+		}
+		return min_i;
+	}
+
+	/*
 	 * calculates the penalty function between component with index=i1 in comp1 and
 	 * i2 in comp. (So the less it is, the better, the more the chance they should
 	 * be connected)
 	 */
 	private double penalFunctionNN(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2, int i2,
 			double maxRadius) {
+		Point m1 = comp1.getComponentMassCenter(i1);
+		Point m2 = comp2.getComponentMassCenter(i2);
+		double dist = Point.dist(m1, m2);
+		if (dist > maxRadius)
+			return Double.MAX_VALUE;
+
 		int area1, area2;
 		float circ1, circ2;
 		float intensity1, intensity2;
-		double dist;
 		double p_circ, p_area, p_int, p_dist;
-		Point m1 = comp1.getComponentMassCenter(i1);
-		Point m2 = comp2.getComponentMassCenter(i2);
 		area1 = comp1.getComponentArea(i1);
 		circ1 = comp1.getComponentCircularity(i1);
 		intensity1 = comp1.getComponentAvrgIntensity(i1);
 		area2 = comp2.getComponentArea(i2);
 		circ2 = comp2.getComponentCircularity(i2);
 		intensity2 = comp2.getComponentAvrgIntensity(i2);
-		dist = Point.dist(m1, m2);
 		p_area = normVal(area1, area2);
 		p_circ = normVal(circ1, circ2);
 		p_int = normVal(intensity1, intensity2);
 		int minDist_in2 = findClosestPointIndex(m1, comp2, maxRadius);
 		int minDist_in1 = findClosestPointIndex(m2, comp1, maxRadius);
-		double minDist1 = Point.dist(m1, comp2.getComponentMassCenter(minDist_in2));
-		double minDist2 = Point.dist(m2, comp1.getComponentMassCenter(minDist_in1));
-		p_dist = normVal(Math.min(minDist1, minDist2), dist);
+		double minDist1 = Double.MAX_VALUE, minDist2 = Double.MAX_VALUE;
+
+		// if closest component was not found closer than maxRadius, then let minDist be
+		// huge, so score will be =1
+		if (minDist_in2 != -1)
+			minDist1 = Point.dist(m1, comp2.getComponentMassCenter(minDist_in2));
+		if (minDist_in1 != -1)
+			minDist2 = Point.dist(m2, comp1.getComponentMassCenter(minDist_in1));
+
+		if (minDist_in1 == -1 && minDist_in2 == -1)
+			p_dist = 1;
+		else
+			p_dist = normVal(Math.min(minDist1, minDist2), dist);
 
 		// weights for area,circularity, avrg intensity and distance values
-		double w_a = 0.3;
-		double w_c = 0.3;
-		double w_i = 0.5;
+		double w_a = 0.2;
+		double w_c = 0.2;
+		double w_i = 0.4;
 		double w_d = 1;
 		double penal = w_a * p_area + w_c * p_circ + w_i * p_int + w_d * p_dist;
 		return penal;
