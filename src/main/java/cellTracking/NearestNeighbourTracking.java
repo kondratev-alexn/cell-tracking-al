@@ -97,8 +97,9 @@ public class NearestNeighbourTracking {
 			}
 			m2 = comp2.getComponentMassCenter(i); // component without parent
 			// closestIndex = findClosestPointIndex(m2, comp1, radius);
-			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius); // here should be daughter-check, not the
-																				// same scoring function
+			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius); // here should be daughter-check, not
+																					// the
+																					// same scoring function
 			if (closestIndex != -1) { // closest component found, add to graph
 				if (comp1.getComponentChildCount(closestIndex) > 1 || comp2.getComponentChildCount(i) == 0) {
 					continue; // if closest "parent" already has 2 children, then skip. Or if child component
@@ -184,6 +185,18 @@ public class NearestNeighbourTracking {
 			}
 		}
 		return min_i;
+	}
+
+	/*
+	 * find best point for i1 component in comp1 in startSlice+nSlices components.
+	 * Score weights for farther time slices is reduced.
+	 * Returns int[2],  where int[0] is time slice and int[1] is the index.
+	 */
+	private int[] findBestScoringComponentIndexMultiSlice(ImageComponentsAnalysis comp1, int i1,
+			ArrayList<ImageComponentsAnalysis> compList, int startSlice, int nSlices, double maxRadius) {
+		int[] result = new int[2];
+		
+		return result;
 	}
 
 	/*
