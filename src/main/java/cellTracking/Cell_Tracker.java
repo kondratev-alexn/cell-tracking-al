@@ -628,12 +628,12 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_ez_division = IJ.openImage("C:\\Tokyo\\division.tif");
 			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
 
-			image = image_bright_blobs;
+			//image = image_bright_blobs;
 			// image = image_stack20;
 			// image = image_stack10;
 			// image = image_stack3;
 			// image = image_c10;
-			// image = image_ez_division;
+			image = image_ez_division;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

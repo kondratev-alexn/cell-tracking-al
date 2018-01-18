@@ -242,7 +242,7 @@ public class NearestNeighbourTracking {
 			p_dist = normVal(Math.min(minDist1, minDist2), dist);
 
 		// weights for area,circularity, avrg intensity and distance values
-		double w_a = 0.2;
+		double w_a = 0.8;
 		double w_c = 0.2;
 		double w_i = 0.4;
 		double w_d = 1;
