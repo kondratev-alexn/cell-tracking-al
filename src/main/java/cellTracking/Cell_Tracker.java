@@ -164,7 +164,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			 * if (gd.wasCanceled()) { resetPreview(); return DONE; }
 			 */
 			roiManager.selectAndMakeVisible(imagePlus, -1);
-			tracking.trackComponents(20, 13, 3);
+			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 4;
+			double scoreThreshold = 0.2;
+			tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices, scoreThreshold);
 
 			System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
@@ -524,8 +526,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		// water.show();
 		if (filterComponents) {
 			ImageComponentsAnalysis compAnalisys;
-			ImageFunctions.normalize(intensityImg, 0, 255);
-			ImageFunctions.subtractBackgroundMinMedian(intensityImg, 8);
+			//ImageFunctions.normalize(intensityImg, 0, 255);
+			//ImageFunctions.subtractBackgroundMinMedian(intensityImg, 8);
 			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg, true); // get labelled component image and fill
 			// properties
 			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);

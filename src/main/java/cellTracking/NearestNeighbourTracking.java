@@ -51,7 +51,7 @@ public class NearestNeighbourTracking {
 	 * fill in the graph
 	 */
 	public void findNearestComponents(ImageComponentsAnalysis comp1, int t1, ImageComponentsAnalysis comp2, int t2,
-			double radius) {
+			double radius, double scoreThreshold) {
 		Point m1, m2;
 		int closestIndex, backClosestIndex;
 		Node v1, v2;
@@ -61,13 +61,13 @@ public class NearestNeighbourTracking {
 			}
 			m2 = comp2.getComponentMassCenter(i); //
 			// closestIndex = findClosestPointIndex(m2, comp1, radius);
-			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius);
+			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius, scoreThreshold);
 			if (closestIndex != -1) { // closest component found, add to graph
 				// should also check back - if for the found component the closest neighbour is
 				// the same, then link them, otherwise skip?
 				m1 = comp1.getComponentMassCenter(closestIndex);
 				// backClosestIndex = findClosestPointIndex(m1, comp2, radius);
-				backClosestIndex = findBestScoringComponentIndex(comp1, closestIndex, comp2, radius);
+				backClosestIndex = findBestScoringComponentIndex(comp1, closestIndex, comp2, radius, scoreThreshold);
 				if (backClosestIndex != i)
 					continue;
 				if (comp1.getComponentChildCount(closestIndex) > 0) { // only if it has no children
@@ -87,7 +87,7 @@ public class NearestNeighbourTracking {
 
 	/* this is for back tracking (mitosys should be tracked with this steps) */
 	public void findNearestComponentsBackStep(ImageComponentsAnalysis comp2, int t2, ImageComponentsAnalysis comp1,
-			int t1, double radius) {
+			int t1, double radius, double scoreThreshold) {
 		Point m2;
 		int closestIndex;
 		Node v1, v2;
@@ -97,7 +97,7 @@ public class NearestNeighbourTracking {
 			}
 			m2 = comp2.getComponentMassCenter(i); // component without parent
 			// closestIndex = findClosestPointIndex(m2, comp1, radius);
-			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius); // here should be daughter-check, not
+			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius, scoreThreshold); // here should be daughter-check, not
 																					// the
 																					// same scoring function
 			if (closestIndex != -1) { // closest component found, add to graph
@@ -110,6 +110,7 @@ public class NearestNeighbourTracking {
 					System.out.println("component with index " + closestIndex + " discarded by state");
 					continue; // if closest parent has 1 child but not mitosys, then don't add
 				}
+				//if closest component in comp1 has 0 children or 1 children 
 				v1 = new Node(t1, closestIndex);
 				v2 = new Node(t2, i);
 				System.out.println("Arc made during back tracking: " + v1 + " -- " + v2
@@ -129,14 +130,14 @@ public class NearestNeighbourTracking {
 	 * neighbours going from 0 to T time slice then, back tracking: find nearest
 	 * component of i in i-1 that wasn't tracked
 	 */
-	public void trackComponents(double radius, double radiusBackTracking, int n_lookThroughSlices) {
+	public void trackComponents(double radius, double radiusBackTracking, int n_lookThroughSlices, double scoreThreshold) {
 		// 0 -> T tracking
 
 		for (int j = 0; j < n_lookThroughSlices; j++) {
 			for (int i = 1; i < componentsList.size(); ++i) {
 				if (i + j < componentsList.size())
 					findNearestComponents(componentsList.get(i - 1), i - 1, componentsList.get(i + j), i + j,
-							radius + j * 5);
+							radius + j * 10, scoreThreshold);
 			}
 		}
 
@@ -145,7 +146,7 @@ public class NearestNeighbourTracking {
 			for (int i = componentsList.size() - 1; i > 0; --i) {
 				if (i - j > 0) {
 					findNearestComponentsBackStep(componentsList.get(i), i, componentsList.get(i - 1 - j), i - 1 - j,
-							radiusBackTracking + j * 5);
+							radiusBackTracking + j * 10, 2*scoreThreshold);
 				}
 			}
 		}
@@ -170,10 +171,12 @@ public class NearestNeighbourTracking {
 
 	/*
 	 * Similar to 'findClosestPoint', returns the component index in comp2, which
-	 * has the best score for component i1 in comp1
+	 * has the best score for component i1 in comp1.
+	 * maxRadius sets the look up radius for components;
+	 * if min score is higher than scoreThreshold, then don't consider it "best", return -1 (not found)
 	 */
 	private int findBestScoringComponentIndex(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2,
-			double maxRadius) {
+			double maxRadius, double scoreThreshold) {
 		int min_i = -1;
 		double min_score = Double.MAX_VALUE;
 		double score;
@@ -184,18 +187,20 @@ public class NearestNeighbourTracking {
 				min_i = i;
 			}
 		}
+		if (min_score > scoreThreshold)
+			return -1;
 		return min_i;
 	}
 
 	/*
 	 * find best point for i1 component in comp1 in startSlice+nSlices components.
-	 * Score weights for farther time slices is reduced.
-	 * Returns int[2],  where int[0] is time slice and int[1] is the index.
+	 * Score weights for farther time slices is reduced. Returns int[2], where
+	 * int[0] is time slice and int[1] is the index.
 	 */
 	private int[] findBestScoringComponentIndexMultiSlice(ImageComponentsAnalysis comp1, int i1,
 			ArrayList<ImageComponentsAnalysis> compList, int startSlice, int nSlices, double maxRadius) {
 		int[] result = new int[2];
-		
+
 		return result;
 	}
 
@@ -246,7 +251,16 @@ public class NearestNeighbourTracking {
 		double w_c = 0.2;
 		double w_i = 0.4;
 		double w_d = 1;
+		double w_sum = w_a + w_c + w_i + w_d;
+		w_a /= w_sum;	//normalize value to [0,1]
+		w_c /= w_sum;
+		w_i /= w_sum;
+		w_d /= w_sum;
 		double penal = w_a * p_area + w_c * p_circ + w_i * p_int + w_d * p_dist;
+//		System.out.format("Score between component  with area %d, intensity %f, circ %f %n", area1, intensity1, circ1);
+//		System.out.format("and component  with area %d, intensity %f, circ %f %n", area2, intensity2, circ2);
+//		System.out.format("with dist between them %f and min dist %f is %f %n%n", dist, Math.min(minDist1, minDist2),
+//				penal);
 		return penal;
 	}
 

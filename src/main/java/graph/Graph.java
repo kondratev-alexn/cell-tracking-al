@@ -94,6 +94,21 @@ public class Graph {
 		}
 		return result;
 	}
+	
+	/* returns the index in adj list which leads to the %index%, its "grandparent" */
+	public int getStartingAdjIndex(int index) {
+		return getStartingAdjIndex(adjLists, index);
+	}
+	
+	public static int getStartingAdjIndex(ArrayList<ArrayList<Integer>> adj, int index) {
+		ArrayList<Integer> childs = null;
+		for (int i=0; i<adj.size(); i++) {
+			childs = adj.get(i);
+			if (childs.contains(index))
+				return getStartingAdjIndex(adj,i);
+		}
+		return index;
+	}
 
 	public boolean checkNoEqualNodes() {
 		for (int i = 0; i < nodes.size(); i++) {
