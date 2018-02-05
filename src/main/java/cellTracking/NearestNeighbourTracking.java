@@ -97,9 +97,9 @@ public class NearestNeighbourTracking {
 			}
 			m2 = comp2.getComponentMassCenter(i); // component without parent
 			// closestIndex = findClosestPointIndex(m2, comp1, radius);
-			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius, scoreThreshold); // here should be daughter-check, not
-																					// the
-																					// same scoring function
+			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius, scoreThreshold);
+			// here should be daughter-check, not the same scoring function
+
 			if (closestIndex != -1) { // closest component found, add to graph
 				if (comp1.getComponentChildCount(closestIndex) > 1 || comp2.getComponentChildCount(i) == 0) {
 					continue; // if closest "parent" already has 2 children, then skip. Or if child component
@@ -110,7 +110,7 @@ public class NearestNeighbourTracking {
 					System.out.println("component with index " + closestIndex + " discarded by state");
 					continue; // if closest parent has 1 child but not mitosys, then don't add
 				}
-				//if closest component in comp1 has 0 children or 1 children 
+				// if closest component in comp1 has 0 children or 1 children
 				v1 = new Node(t1, closestIndex);
 				v2 = new Node(t2, i);
 				System.out.println("Arc made during back tracking: " + v1 + " -- " + v2
@@ -130,7 +130,8 @@ public class NearestNeighbourTracking {
 	 * neighbours going from 0 to T time slice then, back tracking: find nearest
 	 * component of i in i-1 that wasn't tracked
 	 */
-	public void trackComponents(double radius, double radiusBackTracking, int n_lookThroughSlices, double scoreThreshold) {
+	public void trackComponents(double radius, double radiusBackTracking, int n_lookThroughSlices,
+			double scoreThreshold) {
 		// 0 -> T tracking
 
 		for (int j = 0; j < n_lookThroughSlices; j++) {
@@ -146,9 +147,58 @@ public class NearestNeighbourTracking {
 			for (int i = componentsList.size() - 1; i > 0; --i) {
 				if (i - j > 0) {
 					findNearestComponentsBackStep(componentsList.get(i), i, componentsList.get(i - 1 - j), i - 1 - j,
-							radiusBackTracking + j * 10, 2*scoreThreshold);
+							radiusBackTracking + j * 10, 2 * scoreThreshold);
 				}
 			}
+		}
+	}
+
+	/*
+	 * new version of tracking - in 1 direction, using multislice best score and
+	 * second best score
+	 */
+	public void findBestScoringComponents(ImageComponentsAnalysis comp1, int t1,
+			ArrayList<ImageComponentsAnalysis> comp2List, int nSlices, double maxRadius, double scoreThreshold,
+			double timeDecayCoefficient) {
+		int[] indexes;
+		int backBestIndex = -1;
+		int slice = -1, index = -1;
+		Node v1, v2;
+		for (int i = 0; i < comp1.getComponentsCount(); i++) {
+			if (comp1.getComponentChildCount(i) > 0) {
+				continue;
+			}
+			indexes = findBestScoringComponentIndexMultiSlice(comp1, i, t1, comp2List, nSlices, maxRadius,
+					scoreThreshold, timeDecayCoefficient);
+			slice = indexes[0];
+			index = indexes[1];
+
+			if (index != -1) { // something was found
+				// check back-compatabilty
+				backBestIndex = findBestScoringComponentIndex(comp2List.get(slice), index, comp1, maxRadius,
+						scoreThreshold);
+				if (backBestIndex != i)
+					continue;
+				if (comp2List.get(slice).getComponentHasParent(index))
+					continue;
+
+				v1 = new Node(t1, i);
+				v2 = new Node(slice, index);
+				cellGraph.addArcFromToAddable(v1, v2);
+				comp2List.get(slice).setComponentHasParent(index);
+				comp1.incComponentChildCount(i);
+			} else {
+
+			}
+		}
+	}
+
+	/* */
+	public void trackComponentsMultiSlice(double maxRadius, int nSlices, double scoreThreshold,
+			double timeDecayCoefficient) {
+		for (int t = 0; t < componentsList.size() - 1; ++t) {
+			findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices, maxRadius, scoreThreshold,
+					timeDecayCoefficient);
 		}
 	}
 
@@ -171,9 +221,9 @@ public class NearestNeighbourTracking {
 
 	/*
 	 * Similar to 'findClosestPoint', returns the component index in comp2, which
-	 * has the best score for component i1 in comp1.
-	 * maxRadius sets the look up radius for components;
-	 * if min score is higher than scoreThreshold, then don't consider it "best", return -1 (not found)
+	 * has the best score for component i1 in comp1. maxRadius sets the look up
+	 * radius for components; if min score is higher than scoreThreshold, then don't
+	 * consider it "best", return -1 (not found)
 	 */
 	private int findBestScoringComponentIndex(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2,
 			double maxRadius, double scoreThreshold) {
@@ -193,14 +243,42 @@ public class NearestNeighbourTracking {
 	}
 
 	/*
-	 * find best point for i1 component in comp1 in startSlice+nSlices components.
-	 * Score weights for farther time slices is reduced. Returns int[2], where
-	 * int[0] is time slice and int[1] is the index.
+	 * find best point for i1 component in comp1 (which slice is t1) in [t1+1 :
+	 * t1+nSlices] components. nSlices is the number of slices to look. For standart
+	 * method, nSlices = 1. Score weights for farther time slices is reduced.
+	 * Returns int[2], where int[0] is time slice and int[1] is the index. Let's
+	 * make it find 2 best options
 	 */
-	private int[] findBestScoringComponentIndexMultiSlice(ImageComponentsAnalysis comp1, int i1,
-			ArrayList<ImageComponentsAnalysis> compList, int startSlice, int nSlices, double maxRadius) {
+	private int[] findBestScoringComponentIndexMultiSlice(ImageComponentsAnalysis comp1, int i1, int t1,
+			ArrayList<ImageComponentsAnalysis> comp2List, int nSlices, double maxRadius, double scoreThresholdб,
+			double timeDecayCoefficient) {
 		int[] result = new int[2];
-
+		int firstBestSlice = t1 + 1, secondBestSlice = t1 + 1;
+		int firstBestIndex = -1, secondBestIndex = -1;
+		int dt;
+		double score1 = 1, score2 = 1, score;
+		for (int t = t1 + 1; t < t1 + nSlices + 1; t++) {
+			if (t < 0 || t >= comp2List.size())
+				break;
+			dt = t - t1 - 1; // for multiplier coefficient
+			for (int i2 = 0; i2 < comp2List.get(t).getComponentsCount(); i2++) {
+				score = (1 + dt * timeDecayCoefficient) * penalFunctionNN(comp1, i1, comp2List.get(t), i2, maxRadius);
+				if (score < score1) {
+					score2 = score1; // previous minimum is now second-minimum
+					score1 = score;
+					secondBestSlice = firstBestSlice;
+					firstBestSlice = t;
+					secondBestIndex = firstBestIndex;
+					firstBestIndex = i2;
+				} else if (score < score2) {
+					score2 = score;
+					secondBestSlice = t;
+					secondBestIndex = i2;
+				}
+			}
+		}
+		result[0] = firstBestSlice;
+		result[1] = firstBestIndex;
 		return result;
 	}
 
@@ -208,6 +286,8 @@ public class NearestNeighbourTracking {
 	 * calculates the penalty function between component with index=i1 in comp1 and
 	 * i2 in comp. (So the less it is, the better, the more the chance they should
 	 * be connected)
+	 * Curent problem with it: only counts for slice-slice, bad for slice-multislice
+	 * mb change distance for overlap
 	 */
 	private double penalFunctionNN(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2, int i2,
 			double maxRadius) {
@@ -230,6 +310,7 @@ public class NearestNeighbourTracking {
 		p_area = normVal(area1, area2);
 		p_circ = normVal(circ1, circ2);
 		p_int = normVal(intensity1, intensity2);
+		
 		int minDist_in2 = findClosestPointIndex(m1, comp2, maxRadius);
 		int minDist_in1 = findClosestPointIndex(m2, comp1, maxRadius);
 		double minDist1 = Double.MAX_VALUE, minDist2 = Double.MAX_VALUE;
@@ -245,6 +326,7 @@ public class NearestNeighbourTracking {
 			p_dist = 1;
 		else
 			p_dist = normVal(Math.min(minDist1, minDist2), dist);
+		
 
 		// weights for area,circularity, avrg intensity and distance values
 		double w_a = 0.8;
@@ -252,15 +334,18 @@ public class NearestNeighbourTracking {
 		double w_i = 0.4;
 		double w_d = 1;
 		double w_sum = w_a + w_c + w_i + w_d;
-		w_a /= w_sum;	//normalize value to [0,1]
+		w_a /= w_sum; // normalize value to [0,1]
 		w_c /= w_sum;
 		w_i /= w_sum;
 		w_d /= w_sum;
 		double penal = w_a * p_area + w_c * p_circ + w_i * p_int + w_d * p_dist;
-//		System.out.format("Score between component  with area %d, intensity %f, circ %f %n", area1, intensity1, circ1);
-//		System.out.format("and component  with area %d, intensity %f, circ %f %n", area2, intensity2, circ2);
-//		System.out.format("with dist between them %f and min dist %f is %f %n%n", dist, Math.min(minDist1, minDist2),
-//				penal);
+		// System.out.format("Score between component with area %d, intensity %f, circ
+		// %f %n", area1, intensity1, circ1);
+		// System.out.format("and component with area %d, intensity %f, circ %f %n",
+		// area2, intensity2, circ2);
+		// System.out.format("with dist between them %f and min dist %f is %f %n%n",
+		// dist, Math.min(minDist1, minDist2),
+		// penal);
 		return penal;
 	}
 

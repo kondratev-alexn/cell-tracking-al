@@ -164,9 +164,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			 * if (gd.wasCanceled()) { resetPreview(); return DONE; }
 			 */
 			roiManager.selectAndMakeVisible(imagePlus, -1);
-			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 4;
-			double scoreThreshold = 0.2;
-			tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices, scoreThreshold);
+			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 2;
+			double scoreThreshold = 0.4;
+			double timeDecayCoefficient = 0.1;
+			//tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices, scoreThreshold);
+			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient);
 
 			System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
@@ -630,7 +632,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_ez_division = IJ.openImage("C:\\Tokyo\\division.tif");
 			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
 
-			//image = image_bright_blobs;
+			image = image_bright_blobs;
 			// image = image_stack20;
 			// image = image_stack10;
 			// image = image_stack3;
