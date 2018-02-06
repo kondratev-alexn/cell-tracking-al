@@ -164,11 +164,12 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			 * if (gd.wasCanceled()) { resetPreview(); return DONE; }
 			 */
 			roiManager.selectAndMakeVisible(imagePlus, -1);
-			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 2;
-			double scoreThreshold = 0.4;
-			double timeDecayCoefficient = 0.1;
+			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 4;
+			double oneSliceScoreThreshold = 0.2;
+			double scoreThreshold = 2;
+			double timeDecayCoefficient = 0.8;
 			//tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices, scoreThreshold);
-			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient);
+			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
 
 			System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());

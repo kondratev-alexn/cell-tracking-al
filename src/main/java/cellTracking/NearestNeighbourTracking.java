@@ -193,9 +193,17 @@ public class NearestNeighbourTracking {
 		}
 	}
 
-	/* */
+	/*
+	 * try multi-slice with extra picking of close components: i.e. when score of
+	 * the component is lower than some threshold in the closest slice, then connect
+	 * it immediately
+	 */
 	public void trackComponentsMultiSlice(double maxRadius, int nSlices, double scoreThreshold,
-			double timeDecayCoefficient) {
+			double oneSliceScoreThreshold, double timeDecayCoefficient) {
+		for (int t = 0; t < componentsList.size() - 1; t++) {
+			findBestScoringComponents(componentsList.get(t), t, componentsList, 1, maxRadius, oneSliceScoreThreshold,
+					timeDecayCoefficient);
+		}
 		for (int t = 0; t < componentsList.size() - 1; ++t) {
 			findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices, maxRadius, scoreThreshold,
 					timeDecayCoefficient);
@@ -250,7 +258,7 @@ public class NearestNeighbourTracking {
 	 * make it find 2 best options
 	 */
 	private int[] findBestScoringComponentIndexMultiSlice(ImageComponentsAnalysis comp1, int i1, int t1,
-			ArrayList<ImageComponentsAnalysis> comp2List, int nSlices, double maxRadius, double scoreThresholdб,
+			ArrayList<ImageComponentsAnalysis> comp2List, int nSlices, double maxRadius, double scoreThreshold,
 			double timeDecayCoefficient) {
 		int[] result = new int[2];
 		int firstBestSlice = t1 + 1, secondBestSlice = t1 + 1;
@@ -263,6 +271,8 @@ public class NearestNeighbourTracking {
 			dt = t - t1 - 1; // for multiplier coefficient
 			for (int i2 = 0; i2 < comp2List.get(t).getComponentsCount(); i2++) {
 				score = (1 + dt * timeDecayCoefficient) * penalFunctionNN(comp1, i1, comp2List.get(t), i2, maxRadius);
+				if (score > scoreThreshold) 
+					continue;
 				if (score < score1) {
 					score2 = score1; // previous minimum is now second-minimum
 					score1 = score;
@@ -285,9 +295,8 @@ public class NearestNeighbourTracking {
 	/*
 	 * calculates the penalty function between component with index=i1 in comp1 and
 	 * i2 in comp. (So the less it is, the better, the more the chance they should
-	 * be connected)
-	 * Curent problem with it: only counts for slice-slice, bad for slice-multislice
-	 * mb change distance for overlap
+	 * be connected) Curent problem with it: only counts for slice-slice, bad for
+	 * slice-multislice mb change distance for overlap
 	 */
 	private double penalFunctionNN(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2, int i2,
 			double maxRadius) {
@@ -310,7 +319,7 @@ public class NearestNeighbourTracking {
 		p_area = normVal(area1, area2);
 		p_circ = normVal(circ1, circ2);
 		p_int = normVal(intensity1, intensity2);
-		
+
 		int minDist_in2 = findClosestPointIndex(m1, comp2, maxRadius);
 		int minDist_in1 = findClosestPointIndex(m2, comp1, maxRadius);
 		double minDist1 = Double.MAX_VALUE, minDist2 = Double.MAX_VALUE;
@@ -326,7 +335,6 @@ public class NearestNeighbourTracking {
 			p_dist = 1;
 		else
 			p_dist = normVal(Math.min(minDist1, minDist2), dist);
-		
 
 		// weights for area,circularity, avrg intensity and distance values
 		double w_a = 0.8;
