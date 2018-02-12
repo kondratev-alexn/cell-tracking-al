@@ -164,10 +164,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			 * if (gd.wasCanceled()) { resetPreview(); return DONE; }
 			 */
 			roiManager.selectAndMakeVisible(imagePlus, -1);
-			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 4;
+			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 3;
 			double oneSliceScoreThreshold = 0.2;
 			double scoreThreshold = 2;
-			double timeDecayCoefficient = 0.8;
+			double timeDecayCoefficient = 1;
 			//tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices, scoreThreshold);
 			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
 
@@ -622,16 +622,14 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			// start ImageJ
 			new ImageJ();
-
-			// open one image of sequence. T0104 is for segmentation, T0050 is with mitosis
-			ImagePlus image = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0001.tif");
+			ImagePlus image;
 			ImagePlus image_stack20 = IJ.openImage("C:\\Tokyo\\C002_Movement.tif");
-			ImagePlus image105 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010901\\T0105.tif");
-			ImagePlus image_c10 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010910\\T0001.tif");
+			ImagePlus image_c14 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010914_C002.tif");
 			ImagePlus image_stack3 = IJ.openImage("C:\\Tokyo\\\\movement_3images.tif");
 			ImagePlus image_bright_blobs = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
 			ImagePlus image_ez_division = IJ.openImage("C:\\Tokyo\\division.tif");
 			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
+			ImagePlus image_test_tracking = IJ.openImage("C:\\Tokyo\\test_multi.tif");
 
 			image = image_bright_blobs;
 			// image = image_stack20;
@@ -639,6 +637,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// image = image_stack3;
 			// image = image_c10;
 			image = image_ez_division;
+			image = image_test_tracking;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

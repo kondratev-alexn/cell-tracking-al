@@ -204,10 +204,16 @@ public class NearestNeighbourTracking {
 			findBestScoringComponents(componentsList.get(t), t, componentsList, 1, maxRadius, oneSliceScoreThreshold,
 					timeDecayCoefficient);
 		}
-		for (int t = 0; t < componentsList.size() - 1; ++t) {
+		
+		for (int t = 0; t < componentsList.size() - 1; t++) {
 			findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices, maxRadius, scoreThreshold,
 					timeDecayCoefficient);
 		}
+		
+//		for (int t = 0; t < componentsList.size() - 1; t++) {
+//			findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices, maxRadius, scoreThreshold*2,
+//					0.1);
+//		}
 	}
 
 	/*
@@ -264,15 +270,18 @@ public class NearestNeighbourTracking {
 		int firstBestSlice = t1 + 1, secondBestSlice = t1 + 1;
 		int firstBestIndex = -1, secondBestIndex = -1;
 		int dt;
-		double score1 = 1, score2 = 1, score;
+		double score1 = 100, score2 = 100, score;
 		for (int t = t1 + 1; t < t1 + nSlices + 1; t++) {
 			if (t < 0 || t >= comp2List.size())
 				break;
 			dt = t - t1 - 1; // for multiplier coefficient
 			for (int i2 = 0; i2 < comp2List.get(t).getComponentsCount(); i2++) {
 				score = (1 + dt * timeDecayCoefficient) * penalFunctionNN(comp1, i1, comp2List.get(t), i2, maxRadius);
-				if (score > scoreThreshold) 
+				//System.out.format("Score of component %d in slice %d, t=%d is %f %n", i1, t1, t, score);				
+				if (score > scoreThreshold) {
+					 if (t1 ==4) System.out.format("Score of component %d in slice %d and comp %d, t=%d was higher than threshold (score = %f) %n", i1, t1, i2, t, score);
 					continue;
+				}
 				if (score < score1) {
 					score2 = score1; // previous minimum is now second-minimum
 					score1 = score;
@@ -304,7 +313,7 @@ public class NearestNeighbourTracking {
 		Point m2 = comp2.getComponentMassCenter(i2);
 		double dist = Point.dist(m1, m2);
 		if (dist > maxRadius)
-			return Double.MAX_VALUE;
+			return 100;
 
 		int area1, area2;
 		float circ1, circ2;
