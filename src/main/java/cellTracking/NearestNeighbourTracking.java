@@ -8,13 +8,18 @@ import graph.Node;
 import ij.process.ImageProcessor;
 import ij.ImagePlus;
 import ij.ImageStack;
+
 import point.Point;
+
+import tracks.Tracks;
 
 public class NearestNeighbourTracking {
 	private Graph cellGraph;
 
 	private int currSlice;
 	private int slicesCount;
+	
+	private Tracks tracks;
 
 	/*
 	 * List of components classes, containing image with labels and information
@@ -42,6 +47,15 @@ public class NearestNeighbourTracking {
 
 	public ArrayList<ImageComponentsAnalysis> getComponentsList() {
 		return componentsList;
+	}
+	
+	//fill tracks using cellGraph, should be called after the nnr tracking
+	public void fillTracks() {
+		try {
+			tracks = new Tracks(cellGraph);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	/*

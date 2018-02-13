@@ -170,6 +170,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			double timeDecayCoefficient = 1;
 			//tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices, scoreThreshold);
 			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
+			tracking.fillTracks();
 
 			System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
