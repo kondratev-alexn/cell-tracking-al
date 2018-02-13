@@ -634,10 +634,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			image = image_bright_blobs;
 			// image = image_stack20;
 			// image = image_stack10;
-			// image = image_stack3;
+			image = image_stack3;
 			// image = image_c10;
-			image = image_ez_division;
-			image = image_test_tracking;
+			//image = image_ez_division;
+			//image = image_test_tracking;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

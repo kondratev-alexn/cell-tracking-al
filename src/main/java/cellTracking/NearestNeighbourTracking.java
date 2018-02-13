@@ -279,7 +279,7 @@ public class NearestNeighbourTracking {
 				score = (1 + dt * timeDecayCoefficient) * penalFunctionNN(comp1, i1, comp2List.get(t), i2, maxRadius);
 				//System.out.format("Score of component %d in slice %d, t=%d is %f %n", i1, t1, t, score);				
 				if (score > scoreThreshold) {
-					 if (t1 ==4) System.out.format("Score of component %d in slice %d and comp %d, t=%d was higher than threshold (score = %f) %n", i1, t1, i2, t, score);
+					//if (t1 ==4) System.out.format("Score of component %d in slice %d and comp %d, t=%d was higher than threshold (score = %f) %n", i1, t1, i2, t, score);
 					continue;
 				}
 				if (score < score1) {
