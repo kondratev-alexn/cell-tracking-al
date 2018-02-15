@@ -147,6 +147,10 @@ public class ImageComponentsAnalysis {
 		int index = findComponentIndexByDisplayIntensity(intensity);
 		return properties.get(index).avrgIntensity;
 	}
+	
+	public ImageProcessor getIntensityImage() {
+		return imageIntensity;
+	}
 
 	public int getComponentsCount() {
 		return nComponents;

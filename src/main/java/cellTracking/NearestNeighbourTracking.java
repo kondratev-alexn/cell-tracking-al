@@ -5,12 +5,13 @@ import java.util.ArrayList;
 import graph.Arc;
 import graph.Graph;
 import graph.Node;
+import histogram.FloatHistogram;
 import ij.process.ImageProcessor;
 import ij.ImagePlus;
 import ij.ImageStack;
 
 import point.Point;
-
+import tracks.Track;
 import tracks.Tracks;
 
 public class NearestNeighbourTracking {
@@ -18,7 +19,7 @@ public class NearestNeighbourTracking {
 
 	private int currSlice;
 	private int slicesCount;
-	
+
 	private Tracks tracks;
 
 	/*
@@ -48,8 +49,8 @@ public class NearestNeighbourTracking {
 	public ArrayList<ImageComponentsAnalysis> getComponentsList() {
 		return componentsList;
 	}
-	
-	//fill tracks using cellGraph, should be called after the nnr tracking
+
+	// fill tracks using cellGraph, should be called after the nnr tracking
 	public void fillTracks() {
 		try {
 			tracks = new Tracks(cellGraph);
@@ -218,16 +219,17 @@ public class NearestNeighbourTracking {
 			findBestScoringComponents(componentsList.get(t), t, componentsList, 1, maxRadius, oneSliceScoreThreshold,
 					timeDecayCoefficient);
 		}
-		
+
 		for (int t = 0; t < componentsList.size() - 1; t++) {
 			findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices, maxRadius, scoreThreshold,
 					timeDecayCoefficient);
 		}
-		
-//		for (int t = 0; t < componentsList.size() - 1; t++) {
-//			findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices, maxRadius, scoreThreshold*2,
-//					0.1);
-//		}
+
+		// for (int t = 0; t < componentsList.size() - 1; t++) {
+		// findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices,
+		// maxRadius, scoreThreshold*2,
+		// 0.1);
+		// }
 	}
 
 	/*
@@ -291,9 +293,11 @@ public class NearestNeighbourTracking {
 			dt = t - t1 - 1; // for multiplier coefficient
 			for (int i2 = 0; i2 < comp2List.get(t).getComponentsCount(); i2++) {
 				score = (1 + dt * timeDecayCoefficient) * penalFunctionNN(comp1, i1, comp2List.get(t), i2, maxRadius);
-				//System.out.format("Score of component %d in slice %d, t=%d is %f %n", i1, t1, t, score);				
+				// System.out.format("Score of component %d in slice %d, t=%d is %f %n", i1, t1,
+				// t, score);
 				if (score > scoreThreshold) {
-					//if (t1 ==4) System.out.format("Score of component %d in slice %d and comp %d, t=%d was higher than threshold (score = %f) %n", i1, t1, i2, t, score);
+					// if (t1 ==4) System.out.format("Score of component %d in slice %d and comp %d,
+					// t=%d was higher than threshold (score = %f) %n", i1, t1, i2, t, score);
 					continue;
 				}
 				if (score < score1) {
@@ -384,6 +388,72 @@ public class NearestNeighbourTracking {
 	private double normVal(double v1, double v2) {
 		double v = Math.abs(v1 - v2) / Math.sqrt(v1 * v1 + v2 * v2);
 		return v;
+	}
+
+	public void analyzeTracksForMitosis() {
+		Track tr;
+		int startIndex, endIndex;
+		int startSlice, endSlice;
+		int currAdjIndex, currSlice, currNode;
+		int startNodeIndex;
+
+		Point center;
+		int x0, y0, x1, y1, radius;
+		float avrgVal;
+		FloatHistogram hist;
+		ArrayList<Float> trackValues = new ArrayList<Float>();
+		tracks.printTracksInfo();
+
+		for (int i = 0; i < tracks.tracksCount(); i++) {
+			tr = tracks.getTrack(i);
+			startIndex = tr.getStartAdjIndex();
+			endIndex = tr.getEndAdjIndex();
+
+			startSlice = cellGraph.getNodeSliceByGlobalIndex(startIndex);
+			startNodeIndex = cellGraph.getNodeIndexByGlobalIndex(startIndex);
+
+			if (cellGraph.getNodeSliceByGlobalIndex(endIndex) > componentsList.size() - 4)
+				continue;
+
+			// get histogram for each slice in track and for the next slice
+			currAdjIndex = startIndex;
+			while (currAdjIndex != -1) {
+				currSlice = cellGraph.getNodeSliceByGlobalIndex(currAdjIndex);
+				currNode = cellGraph.getNodeIndexByGlobalIndex(currAdjIndex);
+
+				ImageProcessor ip = componentsList.get(currSlice).getIntensityImage();
+				center = componentsList.get(currSlice).getComponentMassCenter(currNode);
+				x0 = componentsList.get(currSlice).getComponentX0(currNode);
+				x1 = componentsList.get(currSlice).getComponentX1(currNode);
+				y0 = componentsList.get(currSlice).getComponentY0(currNode);
+				y1 = componentsList.get(currSlice).getComponentY1(currNode);
+				radius = Math.max(x1 - x0, y1 - y0) / 2 + 1;
+
+				hist = new FloatHistogram(ip, 0, 1, (int) center.getX(), (int) center.getY(), radius);
+				avrgVal = hist.getAverageValue();
+				trackValues.add(avrgVal);
+				//System.out.format("%f, ", avrgVal);
+
+				currAdjIndex = cellGraph.getFirstChildByGlobalIndex(currAdjIndex);
+
+				if (currAdjIndex == -1) { // calculate last histogram for next slice with same parameters
+					ip = componentsList.get(currSlice + 1).getIntensityImage();
+					hist = new FloatHistogram(ip, 0.0f, 1.0f, (int) center.getX(), (int) center.getY(), radius);
+					avrgVal = hist.getAverageValue();
+					trackValues.add(avrgVal);
+				}
+			}
+
+			// now analyse trackValues
+			System.out.println(
+					"Histogram averages for track starting with slice " + startSlice + " and index " + startNodeIndex);
+			for (int j = 0; j < trackValues.size(); j++) {
+				System.out.format("%f, ", trackValues.get(j));
+			}
+			System.out.println();
+			
+			trackValues.clear();
+		}
 	}
 
 	/* draws cellGraph as tracks on ip */

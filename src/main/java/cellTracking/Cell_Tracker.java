@@ -171,8 +171,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			//tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices, scoreThreshold);
 			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
 			tracking.fillTracks();
+			tracking.analyzeTracksForMitosis();
 
-			System.out.println(tracking.getGraph());
+			//System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
 			ImageProcessor ip = imp.getProcessor();
 			// tracking.drawTracksIp(ip);
@@ -185,7 +186,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking);
 			resultGraph.showTrackedComponentImages();
-			resultGraph.printTrackedGraph();
+			//resultGraph.printTrackedGraph();
 			resultGraph.writeTracksToFile_ctc_afterAnalysis("tracks.txt");
 			// System.out.println(cellGraph);
 
@@ -635,7 +636,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			image = image_bright_blobs;
 			// image = image_stack20;
 			// image = image_stack10;
-			image = image_stack3;
+			//image = image_stack3;
 			// image = image_c10;
 			//image = image_ez_division;
 			//image = image_test_tracking;

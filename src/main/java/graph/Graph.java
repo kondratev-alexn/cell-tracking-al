@@ -41,6 +41,12 @@ public class Graph {
 	public int getNodeSliceByGlobalIndex(int nodeIndex) {
 		return nodes.get(nodeIndex).get_t();
 	}
+	
+	// return -1 if child is empty
+	public int getFirstChildByGlobalIndex(int adjIndex) {
+		ArrayList<Integer> childs = adjLists.get(adjIndex);
+		return childs.isEmpty() ? -1 : childs.get(0);
+	}
 
 	public ArrayList<ArrayList<Integer>> getAdjList() {
 		return adjLists;
