@@ -432,7 +432,7 @@ public class NearestNeighbourTracking {
 				hist = new FloatHistogram(ip, 0, 1, (int) center.getX(), (int) center.getY(), radius);
 				avrgVal = hist.getAverageValue();
 				trackValues.add(avrgVal);
-				//System.out.format("%f, ", avrgVal);
+				// System.out.format("%f, ", avrgVal);
 
 				currAdjIndex = cellGraph.getFirstChildByGlobalIndex(currAdjIndex);
 
@@ -452,8 +452,51 @@ public class NearestNeighbourTracking {
 			}
 			System.out.println();
 			
+			if (trackValues.size() > 3 && checkEndedOnMitosis(trackValues)) 
+				tr.setEndedOnMitosys();
+			
 			trackValues.clear();
 		}
+	}
+
+	/* Returns true if the last difference in intensity values array is the highest through the array
+	 * Means that the mitosis started */
+	private boolean checkEndedOnMitosis(ArrayList<Float> histAveragesList) {
+		if (histAveragesList.size() < 2)
+			return false;
+		float maxDiff = Float.MIN_VALUE;
+		float diff;
+		ArrayList<Float> diffs = new ArrayList<Float>(histAveragesList.size() - 1);
+
+		for (int i = 1; i < histAveragesList.size(); i++) {
+			diff = histAveragesList.get(i) - histAveragesList.get(i - 1);
+			diffs.add(diff);
+			if (diff > maxDiff)
+				maxDiff = diff;
+		}
+
+		return maxDiff == diffs.get(diffs.size() - 1);
+	}
+	
+	/* mitosis tracking */
+	private void startMitosisTracking() {
+		int endSlice;
+		
+		Track tr;
+		for (int i=0; i<tracks.tracksCount(); i++) {
+			tr = tracks.getTrack(i);
+			if (tr.ifEndedOnMitosis()) {
+				//do white blob tracking...
+				endSlice = cellGraph.getNodeSliceByGlobalIndex(tr.getEndAdjIndex());
+				if (endSlice > componentsList.size() - 5) //dont bother with mitosys that started just before the end of the sequence
+					continue;
+			}
+		}
+	}
+	
+	/* looks for the closest white blob in the slice in ROI centered in 'center' and 'radius'*/
+	public void findClosestWhiteBlob(int slice, Point center, int radius) {
+		
 	}
 
 	/* draws cellGraph as tracks on ip */

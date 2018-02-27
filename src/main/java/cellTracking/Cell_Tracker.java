@@ -47,6 +47,7 @@ import inra.ijpb.morphology.attrfilt.AreaOpeningQueue;
 import inra.ijpb.plugins.*;
 import inra.ijpb.watershed.ExtendedMinimaWatershed;
 import inra.ijpb.watershed.MarkerControlledWatershedTransform2D;
+//import inra.ijpb.watershed.
 import inra.ijpb.watershed.Watershed;
 import ij.plugin.filter.MaximumFinder;
 
@@ -633,9 +634,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
 			ImagePlus image_test_tracking = IJ.openImage("C:\\Tokyo\\test_multi.tif");
 
-			image = image_bright_blobs;
+			//image = image_bright_blobs;
 			// image = image_stack20;
-			// image = image_stack10;
+			 image = image_stack10;
 			//image = image_stack3;
 			// image = image_c10;
 			//image = image_ez_division;
