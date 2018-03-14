@@ -52,6 +52,7 @@ import inra.ijpb.watershed.Watershed;
 import ij.plugin.filter.MaximumFinder;
 
 import fiji.threshold.Auto_Threshold;
+import evaluation.EvaluationFromRoi;
 import evaluation.TrackingEvaluation;
 
 public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
@@ -201,7 +202,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		}
 
 		nSlices = imp.getStackSize();
-		tracking = new NearestNeighbourTracking(nSlices);
+		tracking = new NearestNeighbourTracking();
 		cellMask = null;
 
 		// convert to float if plugin just started
@@ -611,6 +612,15 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	public static void main(String[] args) {
 		boolean testImageJ = true;
+		boolean traConvert = true;
+		if (traConvert) {
+			EvaluationFromRoi eval = new EvaluationFromRoi();
+			new ImageJ();
+			String roiFilePath = "C:\\Tokyo\\trackingResults\\c0010901_easy_ex-matchedROI.zip";
+			String imageFilePath = "C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif";
+			eval.convertToTRAformat(roiFilePath, imageFilePath);
+			return;
+		}
 		if (!testImageJ) {
 			System.out.println("HELLO THERE");
 			TrackingEvaluation tra = new TrackingEvaluation();

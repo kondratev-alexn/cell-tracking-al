@@ -32,9 +32,9 @@ public class NearestNeighbourTracking {
 		return cellGraph;
 	}
 
-	public NearestNeighbourTracking(int slicesCount) {
-		this.slicesCount = slicesCount;
-		componentsList = new ArrayList<ImageComponentsAnalysis>(slicesCount);
+	public NearestNeighbourTracking() {
+		//this.slicesCount = slicesCount;
+		componentsList = new ArrayList<ImageComponentsAnalysis>();
 		cellGraph = new Graph(5, 5, 5);
 	}
 
@@ -167,7 +167,7 @@ public class NearestNeighbourTracking {
 			}
 		}
 	}
-
+	
 	/*
 	 * new version of tracking - in 1 direction, using multislice best score and
 	 * second best score
@@ -451,16 +451,18 @@ public class NearestNeighbourTracking {
 				System.out.format("%f, ", trackValues.get(j));
 			}
 			System.out.println();
-			
-			if (trackValues.size() > 3 && checkEndedOnMitosis(trackValues)) 
+
+			if (trackValues.size() > 3 && checkEndedOnMitosis(trackValues))
 				tr.setEndedOnMitosys();
-			
+
 			trackValues.clear();
 		}
 	}
 
-	/* Returns true if the last difference in intensity values array is the highest through the array
-	 * Means that the mitosis started */
+	/*
+	 * Returns true if the last difference in intensity values array is the highest
+	 * through the array Means that the mitosis started
+	 */
 	private boolean checkEndedOnMitosis(ArrayList<Float> histAveragesList) {
 		if (histAveragesList.size() < 2)
 			return false;
@@ -477,26 +479,45 @@ public class NearestNeighbourTracking {
 
 		return maxDiff == diffs.get(diffs.size() - 1);
 	}
-	
+
 	/* mitosis tracking */
-	private void startMitosisTracking() {
+	private void startMitosisTracking(int radius) {
 		int endSlice;
-		
+		int nodeIndex;
+		Point center;
+		WhiteBlobsTracking whiteBlobsTracking = new WhiteBlobsTracking(slicesCount);
+
 		Track tr;
-		for (int i=0; i<tracks.tracksCount(); i++) {
+		for (int i = 0; i < tracks.tracksCount(); i++) {
 			tr = tracks.getTrack(i);
 			if (tr.ifEndedOnMitosis()) {
-				//do white blob tracking...
+				// do white blob tracking...
 				endSlice = cellGraph.getNodeSliceByGlobalIndex(tr.getEndAdjIndex());
-				if (endSlice > componentsList.size() - 5) //dont bother with mitosys that started just before the end of the sequence
+				nodeIndex = cellGraph.getNodeIndexByGlobalIndex(tr.getEndAdjIndex());
+
+				center = componentsList.get(currSlice).getComponentMassCenter(nodeIndex);
+				if (endSlice > componentsList.size() - 5) // dont bother with mitosys that started just before the end
+															// of the sequence
 					continue;
+				WhiteBlobsDetection whiteBlob = new WhiteBlobsDetection(i, center.getX(), center.getY(), radius);
+				whiteBlobsTracking.addWhiteBlob(endSlice + 1, whiteBlob);
 			}
 		}
+		
+		// now analyse images and white blobs... 
+		trackWhiteBlobs(whiteBlobsTracking);
 	}
 	
-	/* looks for the closest white blob in the slice in ROI centered in 'center' and 'radius'*/
-	public void findClosestWhiteBlob(int slice, Point center, int radius) {
+	public void trackWhiteBlobs(WhiteBlobsTracking whiteBlobsTracking) {
 		
+	}
+
+	/*
+	 * looks for the closest white blob in the slice in ROI centered in 'center' and
+	 * 'radius'
+	 */
+	public void findClosestWhiteBlob(int slice, Point center, int radius) {
+
 	}
 
 	/* draws cellGraph as tracks on ip */
@@ -574,4 +595,58 @@ public class NearestNeighbourTracking {
 		result.setStack(stack);
 		return result;
 	}
+	
+	// following 3 functions are for getting TRA metrics from TrackMate's results (ROIs)
+	
+	/*
+	 * returns component index in comp2 which has the same intesity (or -1, if not
+	 * found)
+	 */
+	public int findComponentIndexByIntensity(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2) {
+
+		for (int i2 = 0; i2 < comp2.getComponentsCount(); i2++) {
+			if (comp2.getComponentDisplayIntensity(i2) == comp1.getComponentDisplayIntensity(i1))
+				return i2;
+		}
+		return -1;
+	}
+	
+	public void trackComponentsIntensity(ImageComponentsAnalysis comp1, int t1, ImageComponentsAnalysis comp2, int t2) {
+		int closestIndex;
+		Node v1, v2;
+		for (int i = 0; i < comp2.getComponentsCount(); i++) {
+			if (comp2.getComponentHasParent(i)) {
+				continue;
+			}
+			
+			closestIndex = findComponentIndexByIntensity(comp2, i, comp1);
+
+			if (closestIndex != -1) { // closest component found, add to graph
+				if (comp1.getComponentChildCount(closestIndex) == 1
+						&& comp1.getComponentState(closestIndex) != State.MITOSIS) {
+					System.out.println("component with index " + closestIndex + " discarded by state");
+					continue; // if closest parent has 1 child but not mitosys, then don't add
+				}
+				// if closest component in comp1 has 0 children or 1 children
+				v1 = new Node(t1, closestIndex);
+				v2 = new Node(t2, i);
+//				System.out.println("Arc made during back tracking: " + v1 + " -- " + v2
+//						+ " with comp1(closest) child count being " + comp1.getComponentChildCount(closestIndex)
+//						+ "and comp2 child count being " + comp2.getComponentChildCount(i));
+				cellGraph.addArcFromToAddable(v1, v2);
+				comp2.setComponentHasParent(i);
+				comp1.incComponentChildCount(closestIndex);
+			}
+		}
+	}
+	
+	public void trackComponentsTRAresults(int n_lookThroughSlices) {
+		for (int j = 0; j < n_lookThroughSlices; j++) {
+			for (int i = 1; i < componentsList.size(); ++i) {
+				if (i + j < componentsList.size())
+					trackComponentsIntensity(componentsList.get(i - 1), i - 1, componentsList.get(i + j), i + j);
+			}
+		}
+	}
+
 }
