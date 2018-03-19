@@ -186,7 +186,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			Graph cellGraph = tracking.getGraph();
 
-			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking);
+			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, roiManager, imp);
 			resultGraph.showTrackedComponentImages();
 			//resultGraph.printTrackedGraph();
 			resultGraph.writeTracksToFile_ctc_afterAnalysis("res_track.txt");
@@ -402,7 +402,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			float[] sigmas_bright = { 7, 10, 15, 20 };
 			BlobDetector blobs = new BlobDetector(result, null, sigmas_bright);
 
-			ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, false, filterComponents,
+			ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaximaAsImage((float) heightTolerance, false, filterComponents,
 					4);
 			// result = blobs.findBlobsByMaxSigmasImage();
 			ImageFunctions.drawCirclesBySigmaMarkerks(original, blobDots, true);
@@ -501,8 +501,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageProcessor marks, marksBright;
 		// marks = maxfinder.findMaxima(findMaximaImage, heightTolerance,
 		// MaximumFinder.SINGLE_POINTS, true);
-		marks = blobs.findBlobsBy3x3LocalMaxima((float) heightTolerance, true, true, 40);
-		marksBright = brightBlobs.findBlobsBy3x3LocalMaxima((float) heightToleranceBright, true, true, 4);
+		marks = blobs.findBlobsBy3x3LocalMaximaAsImage((float) heightTolerance, true, true, 40);
+		marksBright = brightBlobs.findBlobsBy3x3LocalMaximaAsImage((float) heightToleranceBright, true, true, 4);
 
 		// ImagePlus imp = new ImagePlus("marks", marks);
 		// imp.show();
@@ -519,7 +519,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		// ImageProcessorCalculator.linearCombination(0.8f, markerImg, 0.0f, l2);
 
 		boolean addBrightMarkers = false;
-		// combine markerks from bright and dark blobs
+		// combine markers from bright and dark blobs
 		if (addBrightMarkers) {
 			ImageFunctions.addMarkers(marks, marksBright);
 		}
@@ -612,7 +612,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	public static void main(String[] args) {
 		boolean testImageJ = true;
-		boolean traConvert = true;
+		boolean traConvert = false;
 		if (traConvert) {
 			EvaluationFromRoi eval = new EvaluationFromRoi();
 			new ImageJ();

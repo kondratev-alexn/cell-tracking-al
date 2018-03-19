@@ -490,21 +490,21 @@ public class NearestNeighbourTracking {
 		Track tr;
 		for (int i = 0; i < tracks.tracksCount(); i++) {
 			tr = tracks.getTrack(i);
-			if (tr.ifEndedOnMitosis()) {
+			if (tr.isEndedOnMitosis()) {
 				// do white blob tracking...
 				endSlice = cellGraph.getNodeSliceByGlobalIndex(tr.getEndAdjIndex());
 				nodeIndex = cellGraph.getNodeIndexByGlobalIndex(tr.getEndAdjIndex());
 
 				center = componentsList.get(currSlice).getComponentMassCenter(nodeIndex);
-				if (endSlice > componentsList.size() - 5) // dont bother with mitosys that started just before the end
+				if (endSlice > componentsList.size() - 5) // don't bother with mitosis that started just before the end
 															// of the sequence
 					continue;
 				WhiteBlobsDetection whiteBlob = new WhiteBlobsDetection(i, center.getX(), center.getY(), radius);
-				whiteBlobsTracking.addWhiteBlob(endSlice + 1, whiteBlob);
+				whiteBlobsTracking.addWhiteBlobDetection(endSlice + 1, whiteBlob);
 			}
 		}
 		
-		// now analyse images and white blobs... 
+		// now analyze images and white blobs... 
 		trackWhiteBlobs(whiteBlobsTracking);
 	}
 	

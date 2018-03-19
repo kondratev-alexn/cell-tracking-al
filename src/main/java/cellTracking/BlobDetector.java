@@ -3,6 +3,8 @@ package cellTracking;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import point.Point;
+
 import java.util.ArrayList;
 
 /* Blob detection using Hessian */
@@ -26,16 +28,95 @@ public class BlobDetector {
 		}
 	}
 
+	/* returns N maxima blobs as a list of points */
+	public ArrayList<Point> findBlobsBy3x3LocalMaximaAsPoints(float thresholdLambda, boolean useLaplacian,
+			int leaveNMax) {
+		ImageProcessor stack[] = new ImageProcessor[hessians.length];
+		ArrayList<Point> list = new ArrayList<Point>(5);
+		for (int z = 0; z < hessians.length; z++) {
+			if (useLaplacian) {
+				stack[z] = hessians[z].getLambda2();
+				ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); // laplacian
+			} else
+				stack[z] = hessians[z].getLambda1();
+		}
+		ByteProcessor result = new ByteProcessor(ip.getWidth(), ip.getHeight());
+		ArrayList<Float> maxima_v = new ArrayList<Float>(20);
+		ArrayList<Integer> maxima_x = new ArrayList<Integer>(20);
+		ArrayList<Integer> maxima_y = new ArrayList<Integer>(20);
+		ArrayList<Integer> maxima_z = new ArrayList<Integer>(20);
+
+		for (int y = 1; y < ip.getHeight() - 1; y++)
+			for (int x = 1; x < ip.getWidth() - 1; x++) {
+				result.setf(x, y, 0);
+				if (mask != null && mask.get(x, y) <= 0)
+					continue;
+				for (int z = 0; z < hessians.length; z++) {
+					if (isLocalMaximumThresholded3D(stack, x, y, z, thresholdLambda))
+						if (leaveNMax != -1) {
+							maxima_x.add(x);
+							maxima_y.add(y);
+							maxima_z.add(z);
+							maxima_v.add(stack[z].getf(x, y));
+						} else {
+							list.add(new Point(x, y));
+						}
+				}
+			}
+		if (leaveNMax != -1) {
+			// sort max list
+			int max_j = -1;
+			float max = -1;
+			float t;
+			int tx, ty, tz;
+			for (int i = 0; i < maxima_v.size(); i++) {
+				max = -1;
+				for (int j = i; j < maxima_v.size(); j++) {
+					// find max
+					if (maxima_v.get(j) > max) {
+						max = maxima_v.get(j);
+						max_j = j;
+					}
+				}
+				// swap max element and current element
+				t = maxima_v.get(max_j);
+				tx = maxima_x.get(max_j);
+				ty = maxima_y.get(max_j);
+				tz = maxima_z.get(max_j);
+
+				maxima_v.set(max_j, maxima_v.get(i));
+				maxima_x.set(max_j, maxima_x.get(i));
+				maxima_y.set(max_j, maxima_y.get(i));
+				maxima_z.set(max_j, maxima_z.get(i));
+
+				maxima_v.set(i, t);
+				maxima_x.set(i, tx);
+				maxima_y.set(i, ty);
+				maxima_z.set(i, tz);
+			}
+			
+			int x, y;
+			Point p;
+			for (int i = 0; i < Math.min(leaveNMax, maxima_v.size()); i++) {
+				x = maxima_x.get(i);
+				y = maxima_y.get(i);
+				p = new Point(x, y);
+				list.add(p);
+			}
+		}
+		return list;
+	}
+
 	/*
 	 * return image with dots corresponding to blob centers and their intensities -
 	 * to sigmas. 'leaveNMax' parameter corresponds to how many maxima point choose.
-	 * Set to -1 if you want all points above threshold
+	 * Set to -1 if you want all points above threshold. If useLaplacian is false, then lambda1 will be used
 	 */
-	public ByteProcessor findBlobsBy3x3LocalMaxima(float thresholdLambda, boolean binary, boolean useLambda2,
+	public ByteProcessor findBlobsBy3x3LocalMaximaAsImage(float thresholdLambda, boolean binary, boolean useLaplacian,
 			int leaveNMax) {
 		ImageProcessor stack[] = new ImageProcessor[hessians.length];
 		for (int z = 0; z < hessians.length; z++) {
-			if (useLambda2) {
+			if (useLaplacian) {
 				stack[z] = hessians[z].getLambda2();
 				ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); // laplacian
 			} else
@@ -52,7 +133,7 @@ public class BlobDetector {
 		for (int y = 1; y < ip.getHeight() - 1; y++)
 			for (int x = 1; x < ip.getWidth() - 1; x++) {
 				result.setf(x, y, 0);
-				if (mask != null && mask.get(x, y) < 1)
+				if (mask != null && mask.get(x, y) <= 0)
 					continue;
 				for (int z = 0; z < hessians.length; z++) {
 					if (isLocalMaximumThresholded3D(stack, x, y, z, thresholdLambda))
@@ -103,10 +184,10 @@ public class BlobDetector {
 				maxima_z.set(i, tz);
 			}
 
-//			for (int i = 0; i < maxima_v.size(); i++) {
-//				System.out.printf("%.5f \n", maxima_v.get(i));
-//			}
-//			System.out.println();
+			// for (int i = 0; i < maxima_v.size(); i++) {
+			// System.out.printf("%.5f \n", maxima_v.get(i));
+			// }
+			// System.out.println();
 
 			int x, y;
 			for (int i = 0; i < Math.min(leaveNMax, maxima_v.size()); i++) {

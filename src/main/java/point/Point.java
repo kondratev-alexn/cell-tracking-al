@@ -77,4 +77,11 @@ public class Point {
 	static public double dist(Point p1, Point p2) {
 		return sub(p1, p2).dist();
 	}
+	
+	// swaps two points
+	static public void swap(Point p1, Point p2) {
+		double x1 =p1.getX(), y1 = p1.getY();
+		p2.set_xy(x1, y1);
+		p1.set_xy(p2.getX(), p2.getY());
+	}
 }
