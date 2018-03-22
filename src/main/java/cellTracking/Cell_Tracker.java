@@ -107,12 +107,13 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private float minCircularity = 0.55f;
 	private float maxCircularity = 1.0f;
 	private int dilationRadius = 2;
+	private int maximumNumberOfCells = 40;	// how many dark blobs will be detected
 
 	private float[] sigmas = { 7, 9, 12, 16, 32 };
 
 	/* booleans for CheckBoxes */
 	private boolean isTestMode = false;
-	private boolean useMedian = false;
+	private boolean useMedian = true;
 	private boolean isBandpass = true;
 	private boolean useOtsuThreshold = false;
 
@@ -174,6 +175,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
 			tracking.fillTracks();
 			tracking.analyzeTracksForMitosis();
+			tracking.startMitosisTracking(40, 0.12);
 
 			//System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
@@ -263,6 +265,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	}
 
 	private void fillGenericDialog(GenericDialog gd, PlugInFilterRunner pfr) {
+		gd.addNumericField("Maximum number of cells", maximumNumberOfCells, 0);
 		gd.addNumericField("Median filter radius", medianRadius, 2);
 		gd.addNumericField("Rolling ball radius", rollingBallRadius, 0);
 		gd.addNumericField("Closing radius", closingRadius, 0);
@@ -314,6 +317,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	private void parseDialogParameters(GenericDialog gd) {
 		// extract chosen parameters
+		maximumNumberOfCells = (int) gd.getNextNumber();
 		medianRadius = gd.getNextNumber();
 		rollingBallRadius = (int) gd.getNextNumber();
 		closingRadius = (int) gd.getNextNumber();
@@ -367,6 +371,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	@Override
 	public void run(ImageProcessor ip) {
 		if (startedProcessing) { // stack processing
+			if (previewing)	//if preview was on, return the stack to original images
+				resetPreview();
 			result = ip.duplicate();
 		} else
 			result = baseImage.duplicate();
@@ -451,7 +457,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	 * watershed, then post-processing (0 ver) I changed gradient threshold to canny
 	 * edge detection for flooding
 	 * 
-	 * (1 ver) Marker controlled watershed on gradient of the badnpass (or
+	 * (1 ver) Marker controlled watershed on gradient of the bandpass (or
 	 * intensity), markers are minima of the bandpass (or intensity). (1 ver)
 	 * Bandpass or intensity is selected by the checkbox
 	 */
@@ -501,7 +507,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageProcessor marks, marksBright;
 		// marks = maxfinder.findMaxima(findMaximaImage, heightTolerance,
 		// MaximumFinder.SINGLE_POINTS, true);
-		marks = blobs.findBlobsBy3x3LocalMaximaAsImage((float) heightTolerance, true, true, 40);
+		marks = blobs.findBlobsBy3x3LocalMaximaAsImage((float) heightTolerance, true, true, maximumNumberOfCells);
 		marksBright = brightBlobs.findBlobsBy3x3LocalMaximaAsImage((float) heightToleranceBright, true, true, 4);
 
 		// ImagePlus imp = new ImagePlus("marks", marks);
@@ -643,6 +649,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_ez_division = IJ.openImage("C:\\Tokyo\\division.tif");
 			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
 			ImagePlus image_test_tracking = IJ.openImage("C:\\Tokyo\\test_multi.tif");
+			ImagePlus image_shorter_bright_blobs = IJ.openImage("C:\\Tokyo\\Short_c1_ex.tif");
 
 			image = image_bright_blobs;
 			// image = image_stack20;
@@ -651,6 +658,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// image = image_c10;
 			//image = image_ez_division;
 			//image = image_test_tracking;
+			image = image_shorter_bright_blobs;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

@@ -7,6 +7,7 @@ import ij.ImagePlus;
 import ij.gui.PolygonRoi;
 import ij.gui.Roi;
 import ij.gui.Wand;
+import ij.plugin.ImageCalculator;
 import ij.plugin.frame.RoiManager;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
@@ -25,7 +26,7 @@ public class ImageComponentsAnalysis {
 
 	/*
 	 * initialize class from binary image ip with components and intensity image
-	 * "intensityImage". Components are re-labelled from 0 to nComp
+	 * "intensityImage". Components are re-labeled from 0 to nComp
 	 */
 	public ImageComponentsAnalysis(ImageProcessor ip, ImageProcessor intensityImage, boolean useLabelling) {
 		w = ip.getWidth();
@@ -33,11 +34,10 @@ public class ImageComponentsAnalysis {
 		// imageComponents = ip.duplicate();
 		if (useLabelling) {
 			imageComponents = BinaryImages.componentsLabeling(ip, 4, 16);
-			nComponents = (int) imageComponents.getMax() - (int) imageComponents.getMin() + 1; 
-		}
-		else {
+			nComponents = (int) imageComponents.getMax() - (int) imageComponents.getMin() + 1;
+		} else {
 			imageComponents = ip.duplicate();
-			nComponents = imageComponentsCount(imageComponents); //else count them in this function
+			nComponents = imageComponentsCount(imageComponents); // else count them in this function
 		}
 		// imageComponents = ImageFunctions.operationMorph(imageComponents,
 		// Operation.CLOSING, Strel.Shape.DISK, 1);
@@ -51,25 +51,28 @@ public class ImageComponentsAnalysis {
 		fillBasicProperties();
 		fillCircularity();
 	}
-	
-	/* gets the number of components in labelled image. Components can have different intensities */
+
+	/*
+	 * gets the number of components in labelled image. Components can have
+	 * different intensities
+	 */
 	public int imageComponentsCount(ImageProcessor ip) {
-		ArrayList<Integer> foundIntensities = new ArrayList<Integer> (5);
+		ArrayList<Integer> foundIntensities = new ArrayList<Integer>(5);
 		int count = 0, v;
-		for (int i=0; i<ip.getPixelCount(); i++) {
+		for (int i = 0; i < ip.getPixelCount(); i++) {
 			v = ip.get(i);
 			if (!foundIntensities.contains(v)) {
 				foundIntensities.add(v);
-				count++;				
+				count++;
 			}
 		}
 		return count;
 	}
-	
+
 	public int getWidth() {
 		return w;
 	}
-	
+
 	public int getHeight() {
 		return h;
 	}
@@ -98,7 +101,7 @@ public class ImageComponentsAnalysis {
 	public int getComponentY0(int index) {
 		return properties.get(index).ymin;
 	}
-	
+
 	public int getComponentX1(int index) {
 		return properties.get(index).xmax;
 	}
@@ -110,31 +113,31 @@ public class ImageComponentsAnalysis {
 	public Point getComponentMassCenter(int index) {
 		return properties.get(index).massCenter;
 	}
-	
+
 	public int getComponentChildCount(int index) {
 		return properties.get(index).childCount;
 	}
-	
+
 	public void setComponentChildCount(int index, int count) {
 		properties.get(index).childCount = count;
 	}
-	
+
 	public void incComponentChildCount(int index) {
 		properties.get(index).childCount += 1;
 	}
-	
+
 	public boolean getComponentHasParent(int index) {
 		return properties.get(index).hasParent;
 	}
-	
+
 	public void setComponentHasParent(int index) {
 		properties.get(index).hasParent = true;
 	}
-	
+
 	public State getComponentState(int index) {
 		return properties.get(index).state;
 	}
-	
+
 	public void setComponentState(int index, State state) {
 		properties.get(index).state = state;
 	}
@@ -142,14 +145,18 @@ public class ImageComponentsAnalysis {
 	public float getComponentAvrgIntensity(int index) {
 		return properties.get(index).avrgIntensity;
 	}
-	
+
 	public float getComponentAvrgIntensityByIntensity(int intensity) {
 		int index = findComponentIndexByDisplayIntensity(intensity);
 		return properties.get(index).avrgIntensity;
 	}
-	
+
 	public ImageProcessor getIntensityImage() {
 		return imageIntensity;
+	}
+
+	public ImageProcessor getInvertedIntensityImage() {
+		return ImageProcessorCalculator.invertedImage(imageIntensity);
 	}
 
 	public int getComponentsCount() {
@@ -179,7 +186,7 @@ public class ImageComponentsAnalysis {
 				index = findComponentIndexByDisplayIntensity(v);
 				if (index == -1)
 					index = newIndex++;
-				//System.out.println(index);
+				// System.out.println(index);
 				properties.get(index).displayIntensity = v;
 				properties.get(index).area++;
 				if (imageIntensity != null)
@@ -208,12 +215,122 @@ public class ImageComponentsAnalysis {
 				// }
 			}
 		}
-		
+
 		for (int i = 0; i < properties.size(); i++) { // calculate average intensity, mass center (area is number of
 														// pixels)
 			properties.get(i).avrgIntensity /= properties.get(i).area;
 			properties.get(i).massCenter.divideByConstIn(properties.get(i).area);
 		}
+	}
+
+	/*
+	 * adds a component to property list, fills its properties and draws it on the
+	 * image. Mask must be the same size as components image return index of the new
+	 * component or -1
+	 */
+	public int addComponent(ImageProcessor componentMask, int intensityInMask, State state) {
+		if (componentMask.getWidth() != w || componentMask.getHeight() != h) {
+			System.out.println("component's mask size ( " + componentMask.getWidth() + " x " + componentMask.getHeight()
+					+ "was different from components images size (" + w + " x " + " h ");
+			return -1;
+		}
+
+		int resultIntensity = getNewIntensity();
+		ComponentProperties newProperties = new ComponentProperties();
+		newProperties.setDefaultValues(componentMask.getWidth(), componentMask.getHeight());
+		newProperties.displayIntensity = resultIntensity;
+		newProperties.state = state;
+
+		int pix4c, pixDc;
+		for (int y = 0; y < componentMask.getHeight(); y++)
+			for (int x = 0; x < componentMask.getWidth(); x++) {
+				// only look at pixels that are in mask and do not correspond to existing
+				// component
+				if (componentMask.get(x, y) == intensityInMask && imageComponents.get(x, y) == 0) {
+					newProperties.area++;
+					if (imageIntensity != null)
+						newProperties.avrgIntensity += imageIntensity.getf(x, y);
+					newProperties.massCenter.addIn(new Point(x, y));
+
+					if (isBorderPixel4C(imageComponents, x, y)) { // calculate perimeter
+						pix4c = numberOfNeighbours4C(imageComponents, x, y);
+						pixDc = numberOfNeighboursDiagC(imageComponents, x, y);
+						newProperties.perimeter += (float) ((pix4c * 1.0f + pixDc * Math.sqrt(2)) / (pix4c + pixDc));
+					}
+					imageComponents.set(x, y, resultIntensity);
+					if (newProperties.xmin > x)
+						newProperties.xmin = x;
+					if (newProperties.xmax < x)
+						newProperties.xmax = x;
+					if (newProperties.ymin > y)
+						newProperties.ymin = y;
+					if (newProperties.ymax < y)
+						newProperties.ymax = y;
+				}
+			}
+
+		//System.out.println("added component area is " + newProperties.area);
+		if (newProperties.area != 0) {
+			newProperties.avrgIntensity /= newProperties.area;
+			newProperties.massCenter.divideByConstIn(newProperties.area);
+			newProperties.calcCircularity();
+			properties.add(newProperties);
+			return properties.size() - 1;
+		}
+		return -1;
+	}
+
+	/* returns intensity that is not in the properties (currently max + 1) */
+	private int getNewIntensity() {
+		int intensity, maxIntensity = -1;
+		for (int i = 0; i < properties.size(); i++) {
+			intensity = getComponentDisplayIntensity(i);
+			if (maxIntensity < intensity)
+				maxIntensity = intensity;
+		}
+		return maxIntensity + 1;
+	}
+
+	/*
+	 * Checks whether components with given indexes are childs. True if penal score
+	 * between them is less than threshold
+	 */
+	public boolean checkIfChildComponents(int index1, int index2, Point parentCenterPoint, double penalThreshold) {
+		double penal = calculateChildPenalScore(index1, index2, parentCenterPoint);
+		System.out.println(" penal score is " + penal);
+		return penal < penalThreshold;
+	}
+
+	/* calculates penal score (the less, the better) */
+	public double calculateChildPenalScore(int index1, int index2, Point parentCenterPoint) {
+		double score = 0;
+		// take into account avrg intensity, size, distance from parent center
+		double c_int, c_size, c_distance; // coefficient
+		c_int = 1;
+		c_size = 0.5;
+		c_distance = 0.8;
+
+		double int1, int2, size1, size2, dist1, dist2;
+		int1 = getComponentAvrgIntensity(index1);
+		int2 = getComponentAvrgIntensity(index2);
+
+		size1 = getComponentArea(index1);
+		size2 = getComponentArea(index2);
+
+		dist1 = Point.dist(getComponentMassCenter(index1), parentCenterPoint);
+		dist2 = Point.dist(getComponentMassCenter(index2), parentCenterPoint);
+
+		double int_score = normVal(int1, int2);
+		double size_score = normVal(size1, size2);
+		double dist_score = normVal(dist1, dist2);
+
+		return (c_int * int_score + c_size * size_score + c_distance * dist_score) / (c_int + c_size + c_distance);
+	}
+
+	/* gets difference between value in [0,1] */
+	private double normVal(double v1, double v2) {
+		double v = Math.abs(v1 - v2) / Math.sqrt(v1 * v1 + v2 * v2);
+		return v;
 	}
 
 	public ImageProcessor getImageComponents() {
@@ -275,7 +392,8 @@ public class ImageComponentsAnalysis {
 		ArrayList<Integer> result = new ArrayList<Integer>(3);
 		int wb = mask.getWidth(), hb = mask.getHeight();
 		int v;
-		// mb later add something that prevents getting the same markerinto the list for
+		// mb later add something that prevents getting the same marker into the list
+		// for
 		// different masks...not here tho
 		for (int y = y0; y < y0 + hb; y++)
 			for (int x = x0; x < x0 + wb; x++) {
@@ -326,22 +444,22 @@ public class ImageComponentsAnalysis {
 		filterComponents(minArea, maxArea, minCirc, maxCirc, minAvrgIntensity, maxAvrgIntensity);
 		return imageComponents;
 	}
-	
+
 	public void setComponentsBrightBlobStateByMarks(ImageProcessor marksBright) {
 		int index;
-		for (int y=0; y<marksBright.getHeight(); y++)
-			for (int x=0; x<marksBright.getWidth(); x++) {
-				if (marksBright.get(x, y) > 0) { //set component state to mitosis
+		for (int y = 0; y < marksBright.getHeight(); y++)
+			for (int x = 0; x < marksBright.getWidth(); x++) {
+				if (marksBright.get(x, y) > 0) { // set component state to mitosis
 					index = getComponentIndexByPosition(x, y);
-					if (index!=-1) {
+					if (index != -1) {
 						setComponentState(index, State.MITOSIS);
-						//System.out.println("component " +index + " marked as mitosis"); seems working
+						// System.out.println("component " +index + " marked as mitosis"); seems working
 					}
 				}
 			}
-		//System.out.println();
+		// System.out.println();
 	}
-	
+
 	public int getComponentIndexByPosition(int x, int y) {
 		int intensity = imageComponents.get(x, y);
 		return findComponentIndexByDisplayIntensity(intensity);
@@ -603,9 +721,9 @@ public class ImageComponentsAnalysis {
 
 	/*
 	 * removes component with given intensity from properties, and deletes it from
-	 * image (by setting its intenssity to zero)
+	 * image (by setting its intensity to zero)
 	 */
-	private void removeComponent(ImageProcessor image, int intensity) {
+	public void removeComponent(ImageProcessor image, int intensity) {
 		int x0, x1, y0, y1, nComp;
 		nComp = findComponentIndexByDisplayIntensity(intensity);
 		x0 = properties.get(nComp).xmin;
@@ -619,6 +737,23 @@ public class ImageComponentsAnalysis {
 					image.set(x, y, 0);
 
 		properties.remove(nComp); // remove from the list
+		nComponents--; // decrease number
+	}
+	
+	public void removeComponentByIndex(int index) {
+		int x0, x1, y0, y1;
+		int intensity = getComponentDisplayIntensity(index);
+		x0 = properties.get(index).xmin;
+		x1 = properties.get(index).xmax;
+		y0 = properties.get(index).ymin;
+		y1 = properties.get(index).ymax;
+
+		for (int y = y0; y <= y1; y++)
+			for (int x = x0; x <= x1; x++)
+				if (imageComponents.get(x, y) == intensity)
+					imageComponents.set(x, y, 0);
+
+		properties.remove(index); // remove from the list
 		nComponents--; // decrease number
 	}
 

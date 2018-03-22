@@ -390,28 +390,36 @@ public class ImageFunctions {
 	}
 
 	/* draws circle of radius r around point (x,y) in ip */
-	public static void drawCircle(ImageProcessor ip, float r, int x, int y, boolean drawCentre) {
-		float maxv = Float.MIN_VALUE;
-		for (int i = 0; i < ip.getPixelCount(); i++)
-			if (ip.getf(i) > maxv)
-				maxv = ip.getf(i);
+	public static void drawCircle(ImageProcessor ip, float r, int x, int y, float intensity, boolean drawCentre,
+			boolean fill) {
+		// float maxv = Float.MIN_VALUE;
+		// for (int i = 0; i < ip.getPixelCount(); i++)
+		// if (ip.getf(i) > maxv)
+		// maxv = ip.getf(i);
 		float eps = r;
 		for (int j = (int) (y - r - 2); j < y + r + 1; j++)
 			for (int i = (int) (x - r - 2); i < x + r + 1; i++)
-				if (Math.abs((i - x) * (i - x) + (j - y) * (j - y) - r * r) < eps && i >= 0 && j >= 0
-						&& i < ip.getWidth() && j < ip.getHeight())
-					ip.setf(i, j, maxv);
+				if (i >= 0 && j >= 0 && i < ip.getWidth() && j < ip.getHeight())
+					if (fill) {
+						if (((i - x) * (i - x) + (j - y) * (j - y)) <= r * r)
+							ip.setf(i, j, intensity);
+					} else if (Math.abs((i - x) * (i - x) + (j - y) * (j - y) - r * r) < eps)
+						ip.setf(i, j, intensity);
 		if (drawCentre)
-			ip.setf(x, y, maxv);
+			ip.setf(x, y, intensity);
 	}
 
 	public static void drawCirclesBySigmaMarkerks(ImageProcessor ip, ImageProcessor blobMarkers, boolean drawCentre) {
 		float sigma;
+		float maxv = Float.MIN_VALUE;
+		for (int i = 0; i < ip.getPixelCount(); i++)
+			if (ip.getf(i) > maxv)
+				maxv = ip.getf(i);
 		for (int y = 0; y < ip.getHeight(); y++)
 			for (int x = 0; x < ip.getWidth(); x++) {
 				sigma = blobMarkers.getf(x, y);
 				if (sigma > 0)
-					drawCircle(ip, sigma * 1.41f, x, y, drawCentre);
+					drawCircle(ip, sigma * 1.41f, x, y, maxv, drawCentre, false);
 			}
 	}
 
