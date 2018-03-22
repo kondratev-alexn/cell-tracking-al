@@ -82,17 +82,26 @@ public class ImageProcessorCalculator {
 		}
 	}
 	
-	/* return image with absolute values (|ip|) */
+	/* take absolute values of the image (|ip|) */
 	static public void abs(ImageProcessor ip) {
 		for (int i=0; i<ip.getPixelCount(); i++) {
 			ip.setf(i, Math.abs(ip.getf(i)));
 		}
 	}
 	
-	/* return image multiplied by const value */
+	/* multiply image by constant value */
 	static public void constMultiply(ImageProcessor ip, float val) {
 		for (int i=0; i<ip.getPixelCount(); i++) {
 			ip.setf(i, val * ip.getf(i));
 		}
-	}		
+	}
+	
+	/* return inverted image */
+	static public ImageProcessor invertedImage(ImageProcessor ip) {
+		ImageProcessor result = ip.duplicate();
+		for (int i=0; i<ip.getPixelCount(); i++) {
+			result.setf(i, -ip.getf(i));
+		}
+		return result;
+	}
 }

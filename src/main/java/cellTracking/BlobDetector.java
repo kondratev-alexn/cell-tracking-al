@@ -4,6 +4,7 @@ import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import point.Point;
+import point.PointWithScale;
 
 import java.util.ArrayList;
 
@@ -29,10 +30,10 @@ public class BlobDetector {
 	}
 
 	/* returns N maxima blobs as a list of points */
-	public ArrayList<Point> findBlobsBy3x3LocalMaximaAsPoints(float thresholdLambda, boolean useLaplacian,
+	public ArrayList<PointWithScale> findBlobsBy3x3LocalMaximaAsPoints(float thresholdLambda, boolean useLaplacian,
 			int leaveNMax) {
 		ImageProcessor stack[] = new ImageProcessor[hessians.length];
-		ArrayList<Point> list = new ArrayList<Point>(5);
+		ArrayList<PointWithScale> list = new ArrayList<PointWithScale>(5);
 		for (int z = 0; z < hessians.length; z++) {
 			if (useLaplacian) {
 				stack[z] = hessians[z].getLambda2();
@@ -59,10 +60,11 @@ public class BlobDetector {
 							maxima_z.add(z);
 							maxima_v.add(stack[z].getf(x, y));
 						} else {
-							list.add(new Point(x, y));
+							list.add(new PointWithScale(x, y, scaleSigmas[z]));
 						}
 				}
 			}
+		
 		if (leaveNMax != -1) {
 			// sort max list
 			int max_j = -1;
@@ -95,12 +97,14 @@ public class BlobDetector {
 				maxima_z.set(i, tz);
 			}
 			
-			int x, y;
-			Point p;
+			int x, y, z;
+			PointWithScale p;
 			for (int i = 0; i < Math.min(leaveNMax, maxima_v.size()); i++) {
 				x = maxima_x.get(i);
 				y = maxima_y.get(i);
-				p = new Point(x, y);
+				z = maxima_z.get(i);
+				p = new PointWithScale(x, y, scaleSigmas[z]);
+				//System.out.println("adding point " + p + ", z= " + z+ ",sigmas = " + scaleSigmas);
 				list.add(p);
 			}
 		}

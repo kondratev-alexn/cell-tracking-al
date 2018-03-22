@@ -41,7 +41,7 @@ public class Graph {
 	public int getNodeSliceByGlobalIndex(int nodeIndex) {
 		return nodes.get(nodeIndex).get_t();
 	}
-	
+
 	// return -1 if child is empty
 	public int getFirstChildByGlobalIndex(int adjIndex) {
 		ArrayList<Integer> childs = adjLists.get(adjIndex);
@@ -82,10 +82,31 @@ public class Graph {
 		addArc(arc);
 	}
 
+	/*
+	 * add arc from node with global index 'nodeIndex' to Node v (which will be
+	 * added if not in the graph
+	 * Returns index of the node 'to'
+	 */
+	public void addArcFromIndexToNodeAddable(int fromNodeIndex, Node to) {
+		if (fromNodeIndex < 0 || fromNodeIndex > nodes.size())
+			return;
+		if (!isNodeInGraph(to))
+			addNode(to);
+		else
+			to = findNode(to);
+		Node from = nodes.get(fromNodeIndex);
+		Arc arc = new Arc(from, to);
+		addArc(arc);
+	}
+
 	private boolean isNodeInGraph(Node v) {
 		if (nodes.contains(v))
 			return true;
 		return false;
+	}
+	
+	public int getNodeIndex(Node v) {
+		return nodes.indexOf(v);
 	}
 
 	public static ArrayList<ArrayList<Integer>> copyAdjList(ArrayList<ArrayList<Integer>> list) {
@@ -100,18 +121,20 @@ public class Graph {
 		}
 		return result;
 	}
-	
-	/* returns the index in adj list which leads to the %index%, its "grandparent" */
+
+	/*
+	 * returns the index in adj list which leads to the %index%, its "grandparent"
+	 */
 	public int getStartingAdjIndex(int index) {
 		return getStartingAdjIndex(adjLists, index);
 	}
-	
+
 	public static int getStartingAdjIndex(ArrayList<ArrayList<Integer>> adj, int index) {
 		ArrayList<Integer> childs = null;
-		for (int i=0; i<adj.size(); i++) {
+		for (int i = 0; i < adj.size(); i++) {
 			childs = adj.get(i);
 			if (childs.contains(index))
-				return getStartingAdjIndex(adj,i);
+				return getStartingAdjIndex(adj, i);
 		}
 		return index;
 	}
