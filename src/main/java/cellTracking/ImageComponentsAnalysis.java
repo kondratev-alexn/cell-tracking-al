@@ -268,8 +268,8 @@ public class ImageComponentsAnalysis {
 						newProperties.ymax = y;
 				}
 			}
-
 		//System.out.println("added component area is " + newProperties.area);
+		System.out.println("added component area is" + newProperties.area);
 		if (newProperties.area != 0) {
 			newProperties.avrgIntensity /= newProperties.area;
 			newProperties.massCenter.divideByConstIn(newProperties.area);
