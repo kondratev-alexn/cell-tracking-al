@@ -60,7 +60,7 @@ public class BlobDetector {
 							maxima_z.add(z);
 							maxima_v.add(stack[z].getf(x, y));
 						} else {
-							list.add(new PointWithScale(x, y, scaleSigmas[z]));
+							list.add(new PointWithScale(x, y, scaleSigmas[z], stack[z].getf(x,y)));
 						}
 				}
 			}
@@ -98,12 +98,14 @@ public class BlobDetector {
 			}
 			
 			int x, y, z;
+			float v;
 			PointWithScale p;
 			for (int i = 0; i < Math.min(leaveNMax, maxima_v.size()); i++) {
 				x = maxima_x.get(i);
 				y = maxima_y.get(i);
 				z = maxima_z.get(i);
-				p = new PointWithScale(x, y, scaleSigmas[z]);
+				v = maxima_v.get(i);
+				p = new PointWithScale(x, y, scaleSigmas[z], v);
 				//System.out.println("adding point " + p + ", z= " + z+ ",sigmas = " + scaleSigmas);
 				list.add(p);
 			}

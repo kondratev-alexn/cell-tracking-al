@@ -501,16 +501,10 @@ public class NearestNeighbourTracking {
 					continue;
 				// create white blob that doesn't need second detection, since its the first
 				// mitosis slice
-<<<<<<< HEAD
 				WhiteBlobsDetection whiteBlob = new WhiteBlobsDetection(center.getX(), center.getY(), radius,
 						tr.getEndAdjIndex(), false);
 				System.out.format("WhiteBlobDetection created in t=%d, at (%f,%f), parent adj is %d %n", endSlice + 1, center.getX(),
 						center.getY(), tr.getEndAdjIndex());
-=======
-				WhiteBlobsDetection whiteBlob = new WhiteBlobsDetection(center.getX(), center.getY(), radius, tr.getEndAdjIndex(),
-						false);
-				System.out.format("WhiteBlobDetection created in t=%d, at (%f,%f) %n", endSlice+1, center.getX(), center.getY());
->>>>>>> b531fb8d3dc53e29cffb4b2f98f21c6ecb2b730f
 				whiteBlobsTracking.addWhiteBlobDetection(endSlice + 1, whiteBlob);
 			}
 		}
@@ -519,7 +513,6 @@ public class NearestNeighbourTracking {
 		trackWhiteBlobs(whiteBlobsTracking, radius, childPenalThreshold);
 	}
 
-<<<<<<< HEAD
 	/*
 	 * must be called after 'start mitosis tracking', namely after initial
 	 * detections are created
@@ -534,24 +527,11 @@ public class NearestNeighbourTracking {
 			whiteBlobsTracking.fillAllSliceDetectionsWithCandidates(slice,
 					componentsList.get(slice).getInvertedIntensityImage(), searchRadius);
 			// here output candidate components for debugging
-			if (whiteBlobsTracking.hasDetections(slice)) {
-				ImagePlus debugComponents = new ImagePlus(Integer.toString(slice),
-						whiteBlobsTracking.getComponentCandidatesImage(slice));
-				debugComponents.show();
-			}
-
-=======
-	/* must be called after 'start mitosis tracking', namely after initial detections are created */
-	private void trackWhiteBlobs(WhiteBlobsTracking whiteBlobsTracking, int searchRadius, double childPenalThreshold) {
-		//fill initial detections with white blobs
-		for (int slice = 0; slice < whiteBlobsTracking.getSlicesCount(); slice++) {
-		}
-		
-		//add first white blobs
-		for (int slice = 0; slice < whiteBlobsTracking.getSlicesCount() - 1; slice++) {
-			whiteBlobsTracking.fillAllSliceDetectionsWithCandidates(slice,
-					componentsList.get(slice).getInvertedIntensityImage(), searchRadius);
->>>>>>> b531fb8d3dc53e29cffb4b2f98f21c6ecb2b730f
+//			if (whiteBlobsTracking.hasDetections(slice)) {
+//				ImagePlus debugComponents = new ImagePlus(Integer.toString(slice),
+//						whiteBlobsTracking.getComponentCandidatesImage(slice));
+//				debugComponents.show();
+//			}
 			whiteBlobsTracking.fillFirstBlobs(slice);
 			whiteBlobsTracking.fillSecondBlobs(slice, childPenalThreshold);
 		}
