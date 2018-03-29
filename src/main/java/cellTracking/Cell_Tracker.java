@@ -98,7 +98,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private double heightTolerance = 0.01; // now its threshold for lambda2+lambda1 in blob detection
 	private double heightToleranceBright = 0.20;
 	private int rollingBallRadius = 20; // for background subtraction
-	private int closingRadius = 2;
+	private int topHatRadius = 10;
 	private double medianRadius = 2;
 	private double minThreshold = 20;
 	private double maxThreshold = 50;
@@ -268,7 +268,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		gd.addNumericField("Maximum number of cells", maximumNumberOfCells, 0);
 		gd.addNumericField("Median filter radius", medianRadius, 2);
 		gd.addNumericField("Rolling ball radius", rollingBallRadius, 0);
-		gd.addNumericField("Closing radius", closingRadius, 0);
+		gd.addNumericField("Closing radius", topHatRadius, 0);
 		gd.addNumericField("Sigma1 (bandpass):", sigma1, 2);
 		gd.addNumericField("Sigma2 (bandpass):", sigma2, 2);
 		gd.addNumericField("Sigma3 (gradient)", sigma3, 2);
@@ -320,7 +320,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		maximumNumberOfCells = (int) gd.getNextNumber();
 		medianRadius = gd.getNextNumber();
 		rollingBallRadius = (int) gd.getNextNumber();
-		closingRadius = (int) gd.getNextNumber();
+		topHatRadius = (int) gd.getNextNumber();
 		sigma1 = gd.getNextNumber();
 		sigma2 = gd.getNextNumber();
 		sigma3 = gd.getNextNumber();
@@ -484,7 +484,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		// ip = imp_mask.getProcessor();
 		// ImagePlus wat = new ImagePlus("mask", watershedMask);
 
-		markerImg = ImageFunctions.operationMorph(markerImg, Operation.CLOSING, Strel.Shape.DISK, closingRadius);
+		markerImg = ImageFunctions.operationMorph(markerImg, Operation.TOPHAT, Strel.Shape.DISK, topHatRadius);
 
 		if (showImageForWatershedding) {
 			ImageFunctions.normalize(markerImg, 0, 255);

@@ -98,6 +98,15 @@ public class Graph {
 		Arc arc = new Arc(from, to);
 		addArc(arc);
 	}
+	
+	public void addArcFromIndexToIndexAddable(int fromNodeIndex, int toNodeIndex) {
+		if (fromNodeIndex < 0 || fromNodeIndex > nodes.size() || toNodeIndex < 0 || toNodeIndex > nodes.size())
+			return;
+		Node from = nodes.get(fromNodeIndex);
+		Node to = nodes.get(toNodeIndex);
+		Arc arc = new Arc(from, to);
+		addArc(arc);
+	}
 
 	private boolean isNodeInGraph(Node v) {
 		if (nodes.contains(v))

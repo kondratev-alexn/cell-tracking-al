@@ -485,7 +485,7 @@ public class NearestNeighbourTracking {
 		int endSlice;
 		int componentIndex;
 		Point center;
-		WhiteBlobsTracking whiteBlobsTracking = new WhiteBlobsTracking(componentsList, cellGraph);
+		WhiteBlobsTracking whiteBlobsTracking = new WhiteBlobsTracking(componentsList, cellGraph, tracks);
 
 		Track tr;
 		for (int i = 0; i < tracks.tracksCount(); i++) {

@@ -268,7 +268,7 @@ public class ImageComponentsAnalysis {
 						newProperties.ymax = y;
 				}
 			}
-		//System.out.println("added component area is " + newProperties.area);
+		// System.out.println("added component area is " + newProperties.area);
 		System.out.println("added component area is" + newProperties.area);
 		if (newProperties.area != 0) {
 			newProperties.avrgIntensity /= newProperties.area;
@@ -295,22 +295,23 @@ public class ImageComponentsAnalysis {
 	 * Checks whether components with given indexes are childs. True if penal score
 	 * between them is less than threshold
 	 */
-	public boolean checkIfChildComponents(int index1, int index2, Point parentCenterPoint, double penalThreshold) {
-		double penal = calculateChildPenalScore(index1, index2, parentCenterPoint);
+	public boolean checkIfChildComponents(int index1, int index2, Point parentCenterPoint, float parentAvrgIntensity, double penalThreshold) {
+		double penal = calculateChildPenalScore(index1, index2, parentCenterPoint, parentAvrgIntensity);
 		System.out.println(" penal score is " + penal);
 		return penal < penalThreshold;
 	}
 
 	/* calculates penal score (the less, the better) */
-	public double calculateChildPenalScore(int index1, int index2, Point parentCenterPoint) {
+	public double calculateChildPenalScore(int index1, int index2, Point parentCenterPoint, float parentAvrgIntensity) {
 		double score = 0;
 		// take into account avrg intensity, size, distance from parent center
-		double c_int, c_size, c_distance; // coefficient
-		c_int = 1;
-		c_size = 0.5;
-		c_distance = 0.8;
+		double c_int, c_size, c_distance, c_diff_intensity; // coefficient
+		c_int = 1;		// for intensity of the child blobs
+		c_size = 0.5;	// for size of child blobs
+		c_distance = 0.8;	// for difference in distance between child blobs and parent
+		c_diff_intensity = 0;	// for difference in intensity between child blobs and parent
 
-		double int1, int2, size1, size2, dist1, dist2;
+		double int1, int2, size1, size2, dist1, dist2, diffInt1, diffInt2;
 		int1 = getComponentAvrgIntensity(index1);
 		int2 = getComponentAvrgIntensity(index2);
 
@@ -320,11 +321,18 @@ public class ImageComponentsAnalysis {
 		dist1 = Point.dist(getComponentMassCenter(index1), parentCenterPoint);
 		dist2 = Point.dist(getComponentMassCenter(index2), parentCenterPoint);
 
+		diffInt1 = parentAvrgIntensity - int1;
+		diffInt2 = parentAvrgIntensity - int2;
+
 		double int_score = normVal(int1, int2);
 		double size_score = normVal(size1, size2);
 		double dist_score = normVal(dist1, dist2);
+		double diff_int_score = normVal(diffInt1, diffInt2);
 
-		return (c_int * int_score + c_size * size_score + c_distance * dist_score) / (c_int + c_size + c_distance);
+		double coef_sum = c_int + c_size + c_distance + c_diff_intensity;
+
+		return (c_int * int_score + c_size * size_score + c_distance * dist_score + c_diff_intensity * diff_int_score)
+				/ coef_sum;
 	}
 
 	/* gets difference between value in [0,1] */
@@ -739,7 +747,7 @@ public class ImageComponentsAnalysis {
 		properties.remove(nComp); // remove from the list
 		nComponents--; // decrease number
 	}
-	
+
 	public void removeComponentByIndex(int index) {
 		int x0, x1, y0, y1;
 		int intensity = getComponentDisplayIntensity(index);
