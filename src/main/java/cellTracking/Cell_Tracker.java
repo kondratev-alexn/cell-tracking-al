@@ -91,14 +91,14 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	// sigmas for bandpass algorithm, also in UI
 	public double sigma1 = 1.40;
-	public double sigma2 = 6.00;
+	public double sigma2 = 10.00;
 	public double sigma3 = 0.80;
 
 	/* numerical parameters for UI */
 	private double heightTolerance = 0.01; // now its threshold for lambda2+lambda1 in blob detection
 	private double heightToleranceBright = 0.20;
 	private int rollingBallRadius = 20; // for background subtraction
-	private int topHatRadius = 10;
+	private int topHatRadius = 20;
 	private double medianRadius = 2;
 	private double minThreshold = 20;
 	private double maxThreshold = 50;
@@ -109,7 +109,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private int dilationRadius = 2;
 	private int maximumNumberOfCells = 40;	// how many dark blobs will be detected
 
-	private float[] sigmas = { 7, 9, 12, 16, 32 };
+	private float[] sigmas = { 6, 9, 12, 16, 32 };
 
 	/* booleans for CheckBoxes */
 	private boolean isTestMode = false;

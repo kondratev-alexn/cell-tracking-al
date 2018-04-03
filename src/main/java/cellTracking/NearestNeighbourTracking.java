@@ -534,6 +534,8 @@ public class NearestNeighbourTracking {
 //			}
 			whiteBlobsTracking.fillFirstBlobs(slice);
 			whiteBlobsTracking.fillSecondBlobs(slice, childPenalThreshold);
+			
+			//whiteBlobsTracking.fillTrackCandidateIndexes(slice, searchTracksRadius);
 		}
 	}
 

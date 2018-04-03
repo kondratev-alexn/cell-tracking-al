@@ -74,8 +74,14 @@ public class Point {
 		return new Point(p.x / c, p.y / c);
 	}
 
+	// static distance measure
 	static public double dist(Point p1, Point p2) {
 		return sub(p1, p2).dist();
+	}
+	
+	// distance from this point to another
+	public double distTo(Point pointTo) {
+		return sub(this, pointTo).dist();
 	}
 	
 	// swaps two points
