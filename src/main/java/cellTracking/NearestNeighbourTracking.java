@@ -213,7 +213,7 @@ public class NearestNeighbourTracking {
 	 * the component is lower than some threshold in the closest slice, then connect
 	 * it immediately
 	 */
-	public void trackComponentsMultiSlice(double maxRadius, int nSlices, double scoreThreshold,
+	public void trackComponentsOneAndMultiSlice(double maxRadius, int nSlices, double scoreThreshold,
 			double oneSliceScoreThreshold, double timeDecayCoefficient) {
 		for (int t = 0; t < componentsList.size() - 1; t++) {
 			findBestScoringComponents(componentsList.get(t), t, componentsList, 1, maxRadius, oneSliceScoreThreshold,
@@ -230,6 +230,22 @@ public class NearestNeighbourTracking {
 		// maxRadius, scoreThreshold*2,
 		// 0.1);
 		// }
+	}
+
+	// separate one-slice tracking from multi-slice, so we can do them at different
+	// times (i.e. after mitosis detection)
+	public void trackComponentsOneSlice(double maxRadius, double oneSliceScoreThreshold) {
+		for (int t = 0; t < componentsList.size() - 1; t++) {
+			findBestScoringComponents(componentsList.get(t), t, componentsList, 1, maxRadius, oneSliceScoreThreshold,
+					1);
+		}
+	}
+	
+	public void trackComponentsMultiSlice(double maxRadius, int nSlices, double scoreThreshold, double timeDecayCoefficient) {
+		for (int t = 0; t < componentsList.size() - 1; t++) {
+			findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices, maxRadius, scoreThreshold,
+					timeDecayCoefficient);
+		}
 	}
 
 	/*
@@ -501,10 +517,10 @@ public class NearestNeighbourTracking {
 					continue;
 				// create white blob that doesn't need second detection, since its the first
 				// mitosis slice
-				WhiteBlobsDetection whiteBlob = new WhiteBlobsDetection(center.getX(), center.getY(), radius,
-						tr.getEndAdjIndex(), false);
-				System.out.format("WhiteBlobDetection created in t=%d, at (%f,%f), parent adj is %d %n", endSlice + 1, center.getX(),
-						center.getY(), tr.getEndAdjIndex());
+				WhiteBlobsDetection whiteBlob = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 1, radius,
+						tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0);
+				System.out.format("WhiteBlobDetection created in t=%d, at (%f,%f), parent adj is %d %n", endSlice + 1,
+						center.getX(), center.getY(), tr.getEndAdjIndex());
 				whiteBlobsTracking.addWhiteBlobDetection(endSlice + 1, whiteBlob);
 			}
 		}
@@ -527,15 +543,15 @@ public class NearestNeighbourTracking {
 			whiteBlobsTracking.fillAllSliceDetectionsWithCandidates(slice,
 					componentsList.get(slice).getInvertedIntensityImage(), searchRadius);
 			// here output candidate components for debugging
-//			if (whiteBlobsTracking.hasDetections(slice)) {
-//				ImagePlus debugComponents = new ImagePlus(Integer.toString(slice),
-//						whiteBlobsTracking.getComponentCandidatesImage(slice));
-//				debugComponents.show();
-//			}
+			// if (whiteBlobsTracking.hasDetections(slice)) {
+			// ImagePlus debugComponents = new ImagePlus(Integer.toString(slice),
+			// whiteBlobsTracking.getComponentCandidatesImage(slice));
+			// debugComponents.show();
+			// }
 			whiteBlobsTracking.fillFirstBlobs(slice);
 			whiteBlobsTracking.fillSecondBlobs(slice, childPenalThreshold);
-			
-			//whiteBlobsTracking.fillTrackCandidateIndexes(slice, searchTracksRadius);
+
+			// whiteBlobsTracking.fillTrackCandidateIndexes(slice, searchTracksRadius);
 		}
 	}
 

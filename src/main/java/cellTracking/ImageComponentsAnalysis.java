@@ -336,7 +336,7 @@ public class ImageComponentsAnalysis {
 	}
 
 	/* gets difference between value in [0,1] */
-	private double normVal(double v1, double v2) {
+	public static double normVal(double v1, double v2) {
 		double v = Math.abs(v1 - v2) / Math.sqrt(v1 * v1 + v2 * v2);
 		return v;
 	}

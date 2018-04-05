@@ -155,27 +155,20 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			stackImage.resetDisplayRange();
 			// stackImage.show();
 
-			// here we should show dialog with a slider to browse acquired rois
-			// EDIT: no, just show roi manager, since it can handle roi in stack images
-			/*
-			 * roiBrowserActive = false; //currRoiManager = rois[selectedSlice];
-			 * GenericDialog gd = new GenericDialog("Browse ROIs"); gd.addSlider("Slice", 1,
-			 * nSlices, selectedSlice); gd.addDialogListener(this);
-			 * 
-			 * gd.showDialog(); // input by the user (or macro) happens here
-			 * 
-			 * if (gd.wasCanceled()) { resetPreview(); return DONE; }
-			 */
 			roiManager.selectAndMakeVisible(imagePlus, -1);
+			
+			// there goes tracking
 			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 3;
-			double oneSliceScoreThreshold = 0.2;
+			double oneSliceScoreThreshold = 0.25;
 			double scoreThreshold = 2;
 			double timeDecayCoefficient = 1;
 			//tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices, scoreThreshold);
-			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
+			//tracking.trackComponentsOneAndMultiSlice(maxRadiusDark, slices, scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
+			tracking.trackComponentsOneSlice(maxRadiusDark, oneSliceScoreThreshold);
 			tracking.fillTracks();
 			tracking.analyzeTracksForMitosis();
 			tracking.startMitosisTracking(40, 0.12);
+			//tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient);
 
 			//System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
