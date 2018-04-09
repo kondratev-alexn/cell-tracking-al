@@ -168,7 +168,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			tracking.fillTracks();
 			tracking.analyzeTracksForMitosis();
 			tracking.startMitosisTracking(40, 0.12);
-			//tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient);
+			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient);
 
 			//System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
@@ -404,8 +404,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaximaAsImage((float) heightTolerance, false, filterComponents,
 					4);
 			// result = blobs.findBlobsByMaxSigmasImage();
-			ImageFunctions.drawCirclesBySigmaMarkerks(original, blobDots, true);
+			//ImageFunctions.drawCirclesBySigmaMarkerks(original, blobDots, true);
 			// ImageFunctions.drawGaussian(result, 200, 200, (float) sigma1);
+			original = ImageFunctions.operationMorph(original, Operation.BOTTOMHAT, Strel.Shape.DISK, topHatRadius);
 
 			if (previewing && !doesStacks()) {
 				for (int i = 0; i < ip.getPixelCount(); i++) {
@@ -651,7 +652,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// image = image_c10;
 			//image = image_ez_division;
 			//image = image_test_tracking;
-			image = image_shorter_bright_blobs;
+			//image = image_shorter_bright_blobs;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

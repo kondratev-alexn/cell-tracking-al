@@ -180,7 +180,7 @@ public class NearestNeighbourTracking {
 		int slice = -1, index = -1;
 		Node v1, v2;
 		for (int i = 0; i < comp1.getComponentsCount(); i++) {
-			if (comp1.getComponentChildCount(i) > 0) {
+			if (comp1.getComponentChildCount(i) > 0 || comp1.getComponentState(i) == State.MITOSIS) {
 				continue;
 			}
 			indexes = findBestScoringComponentIndexMultiSlice(comp1, i, t1, comp2List, nSlices, maxRadius,
@@ -194,12 +194,17 @@ public class NearestNeighbourTracking {
 						scoreThreshold);
 				if (backBestIndex != i)
 					continue;
-				if (comp2List.get(slice).getComponentHasParent(index))
+				if (comp2List.get(slice).getComponentHasParent(index)  || comp2List.get(slice).getComponentState(index) == State.MITOSIS)
 					continue;
 
 				v1 = new Node(t1, i);
 				v2 = new Node(slice, index);
 				cellGraph.addArcFromToAddable(v1, v2);
+				if (nSlices > 1) {
+					System.out.println("Arc added during multislice:" + v1 + " to " + v2);
+					System.out.println("or by adj: " + cellGraph.getNodeIndex(v1) + " to " + cellGraph.getNodeIndex(v2));
+					System.out.println("v2 parameters: hasParent=" + comp2List.get(slice).getComponentHasParent(index));
+				}
 				comp2List.get(slice).setComponentHasParent(index);
 				comp1.incComponentChildCount(i);
 			} else {

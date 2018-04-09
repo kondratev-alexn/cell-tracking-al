@@ -186,9 +186,28 @@ public class Graph {
 	public ArrayList<Arc> getArcs() {
 		return arcs;
 	}
+	
+	private String adjListsToString() {
+		String result = "[";
+		ArrayList<Integer> adj;
+		for (int i=0; i< adjLists.size(); i++) {
+			adj = adjLists.get(i);
+			result = result.concat("[" + i + " | ");
+			for (int j=0; j<adj.size(); j++) {
+				result = result.concat(adj.get(j).toString());
+				if (j <adj.size() - 1)
+					result = result.concat(", ");					
+			}
+			result = result.concat("]");
+			if (i%10 - 9 == 0)
+				result = result.concat(System.getProperty("line.separator"));
+		}
+		result = result.concat("]");
+		return result;
+	}
 
 	@Override
 	public String toString() {
-		return "Graph [nodes=" + nodes + " \n arcs=" + arcs + " \n adjLists=" + adjLists + "]";
+		return "Graph [nodes=" + nodes + " \n arcs=" + arcs + " \n adjLists=" + adjListsToString() + "]";
 	}
 }
