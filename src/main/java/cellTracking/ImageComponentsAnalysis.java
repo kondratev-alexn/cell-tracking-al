@@ -460,14 +460,21 @@ public class ImageComponentsAnalysis {
 				if (marksBright.get(x, y) > 0) { // set component state to mitosis
 					index = getComponentIndexByPosition(x, y);
 					if (index != -1) {
-						setComponentState(index, State.MITOSIS);
-						// System.out.println("component " +index + " marked as mitosis"); seems working
+						setComponentState(index, State.WHITE_BLOB_COMPONENT);
+						// System.out.println("component " +index + " marked as WHITE_BLOB_COMPONENT"); seems working
 					}
 				}
 			}
-		// System.out.println();
 	}
-
+	
+	public void discardWhiteBlobs() {
+		for (int i=0; i<getComponentsCount(); i++) {
+			if (getComponentState(i) == State.WHITE_BLOB_COMPONENT) {
+				removeComponentByIndex(i);
+			}
+		}
+	}
+ 
 	public int getComponentIndexByPosition(int x, int y) {
 		int intensity = imageComponents.get(x, y);
 		return findComponentIndexByDisplayIntensity(intensity);

@@ -3,7 +3,7 @@ package cellTracking;
 import point.Point;
 
 enum State {
-	NORMAL, MITOSIS, DIVIDING
+	NORMAL, MITOSIS, WHITE_BLOB_COMPONENT
 }
 
 /* Class for information about connected components */

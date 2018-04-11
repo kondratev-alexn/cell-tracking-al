@@ -22,11 +22,11 @@ public class Point {
 		x = _x;
 		y = _y;
 	}
-	
+
 	public double getX() {
 		return x;
 	}
-	
+
 	public double getY() {
 		return y;
 	}
@@ -39,6 +39,10 @@ public class Point {
 	public void addIn(Point other) {
 		x += other.x;
 		y += other.y;
+	}
+
+	public static Point center(Point p1, Point p2) {
+		return new Point((p1.getX() + p2.getX()) / 2, (p1.getY() + p2.getY()) / 2);
 	}
 
 	public void subIn(Point other) {
@@ -78,24 +82,24 @@ public class Point {
 	static public double dist(Point p1, Point p2) {
 		return sub(p1, p2).dist();
 	}
-	
+
 	// distance from this point to another
 	public double distTo(Point pointTo) {
 		return sub(this, pointTo).dist();
 	}
-	
+
 	// swaps two points
 	static public void swap(Point p1, Point p2) {
-		double x1 =p1.getX(), y1 = p1.getY();
+		double x1 = p1.getX(), y1 = p1.getY();
 		p1.set_xy(p2.getX(), p2.getY());
 		p2.set_xy(x1, y1);
 	}
-	
+
 	@Override
 	public String toString() {
 		return "Point [x=" + x + ", y=" + y + "]";
 	}
-	
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;

@@ -1,5 +1,7 @@
 package cellTracking;
 
+import java.util.ArrayList;
+
 import fiji.threshold.Auto_Threshold;
 import ij.ImagePlus;
 import ij.plugin.filter.RankFilters;
@@ -37,7 +39,7 @@ public class ImageFunctions {
 	}
 
 	/* leave areas with values between minValue and maxValue */
-	public static void threshold(ImageProcessor ip, double minValue, double maxValue) {
+	public static void thresholdMinMax(ImageProcessor ip, double minValue, double maxValue) {
 		int w = ip.getWidth(), h = ip.getHeight();
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
@@ -51,6 +53,38 @@ public class ImageFunctions {
 					ip.setf(x, y, 255);
 			}
 		}
+	}
+
+	public static ImageProcessor maskThresholdMoreThan(ImageProcessor ip, double maxValue, ImageProcessor mask) {
+		int w = ip.getWidth(), h = ip.getHeight();
+		ImageProcessor result = new ByteProcessor(w, h);
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				if (mask != null && mask.getf(x, y) < 1)
+					continue;
+				if (ip.getf(x, y) > maxValue)
+					result.set(x, y, 255);
+				else
+					result.setf(x, y, 0);
+			}
+		}
+		return result;
+	}
+
+	public static ImageProcessor maskThresholdLessThan(ImageProcessor ip, double minValue, ImageProcessor mask) {
+		int w = ip.getWidth(), h = ip.getHeight();
+		ImageProcessor result = new ByteProcessor(w, h);
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				if (mask != null && mask.getf(x, y) < 1)
+					continue;
+				if (ip.getf(x, y) < minValue)
+					result.set(x, y, 255);
+				else
+					result.setf(x, y, 0);
+			}
+		}
+		return result;
 	}
 
 	public static ImageProcessor getWhiteObjectsMask(ImageProcessor ip, int openingRadius, int closingRadius) {
@@ -359,6 +393,105 @@ public class ImageFunctions {
 		if (grad.getf(x + 1, y) >= t2)
 			return true;
 		return false;
+	}
+
+	/* merges markers */
+	public static ImageProcessor mergeBinaryMarkersInTheSameRegion(ImageProcessor ip, ImageProcessor markerIp,
+			double mergeRadius, float derivativeSumThreshold) {
+		ArrayList<Point> markers = new ArrayList<Point>(20);
+		for (int y = 0; y < markerIp.getHeight(); y++)
+			for (int x = 0; x < markerIp.getWidth(); x++) {
+				if (markerIp.getf(x, y) > 0)
+					markers.add(new Point(x, y));
+			}
+		
+		System.out.println(markers);
+
+		boolean merged = false;
+		Point p1, p2, p;
+		for (int i = 0; i < markers.size(); i++) {
+			p1 = markers.get(i);
+			merged = false;
+			for (int j = i + 1; j < markers.size(); j++) {
+				p2 = markers.get(j);
+				if (p1.distTo(p2) > mergeRadius)
+					continue;
+				if (arePointsInSameRegion(ip, p1.getX(), p1.getY(), p2.getX(), p2.getY(), derivativeSumThreshold)) {
+					// merge markers
+					p = Point.center(p1, p2);
+					markers.add(j + 1, p);
+					markers.remove(j); // remove j first, since j>i
+					markers.remove(i);
+					merged = true;
+					i = -1;
+
+					System.out.println(markers);
+					break;
+				}
+			}
+			// if (merged) {
+			// i = 0;
+			// }
+			// else {
+			// //markers.remove(i);
+			// }
+		}
+
+		ImageProcessor result = new ByteProcessor(ip.getWidth(), ip.getHeight());
+		int x, y;
+		for (int i = 0; i < markers.size(); i++) {
+			x = (int) markers.get(i).getX();
+			y = (int) markers.get(i).getY();
+			result.set(x, y, 255);
+		}
+//		ImagePlus imp = new ImagePlus("hey", result);
+//		imp.show();
+		return result;
+	}
+
+	/*
+	 * ip should be normalized so that total change is the function can be
+	 * adequately thresholded
+	 */
+	private static boolean arePointsInSameRegion(ImageProcessor ip, double x1, double y1, double x2, double y2,
+			float derivativeSumThreshold) {
+		int nPoints = (int) Point.dist(new Point(x1, y1), new Point(x2, y2)) + 1;
+		float[] values = new float[nPoints];
+		float[] derivative = new float[nPoints - 1];
+		double dx = (x2 - x1) / (nPoints - 1);
+		double dy = (y2 - y1) / (nPoints - 1);
+		double x, y;
+
+		for (int i = 0; i < nPoints; i++) {
+			x = x1 + i * dx;
+			y = y1 + i * dy;
+			values[i] = bilinearValue(ip, x, y);
+		}
+
+		float derivativeSum = 0;
+		for (int i = 0; i < nPoints - 1; i++) {
+			derivative[i] = values[i + 1] - values[i];
+			derivativeSum += Math.abs(derivative[i]);
+		}
+		derivativeSum /= (nPoints - 1);
+		System.out.println("deriv sum between points (" + x1 + ", " + y1 + ") and (" + x2 + ", " + y2 + ") is " + derivativeSum);
+
+		return derivativeSum < derivativeSumThreshold;
+	}
+
+	private static float bilinearValue(ImageProcessor ip, double x, double y) {
+		float f00, f01, f10, f11;
+		int xx = (int) x;
+		int yy = (int) y;
+		double dx = x - xx;
+		double dy = y - yy;
+
+		f00 = ip.getf(xx, yy);
+		f01 = ip.getf(xx, yy + 1);
+		f10 = ip.getf(xx + 1, yy);
+		f11 = ip.getf(xx + 1, yy + 1);
+
+		return (float) (f00 * (1 - dx) * (1 - dy) + f01 * (1 - dx) * dy + f10 * dx * (1 - dy) + f11 * dx * dy);
 	}
 
 	/*
