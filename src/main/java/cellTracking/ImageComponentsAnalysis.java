@@ -467,7 +467,7 @@ public class ImageComponentsAnalysis {
 			}
 	}
 	
-	public void discardWhiteBlobs() {
+	public void discardWhiteBlobComponents() {
 		for (int i=0; i<getComponentsCount(); i++) {
 			if (getComponentState(i) == State.WHITE_BLOB_COMPONENT) {
 				removeComponentByIndex(i);

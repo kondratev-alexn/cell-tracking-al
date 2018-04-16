@@ -397,15 +397,15 @@ public class ImageFunctions {
 
 	/* merges markers */
 	public static ImageProcessor mergeBinaryMarkersInTheSameRegion(ImageProcessor ip, ImageProcessor markerIp,
-			double mergeRadius, float derivativeSumThreshold) {
+			double mergeRadius, float totalVariationThreshold) {
 		ArrayList<Point> markers = new ArrayList<Point>(20);
 		for (int y = 0; y < markerIp.getHeight(); y++)
 			for (int x = 0; x < markerIp.getWidth(); x++) {
 				if (markerIp.getf(x, y) > 0)
 					markers.add(new Point(x, y));
 			}
-		
-		System.out.println(markers);
+
+		// System.out.println(markers);
 
 		boolean merged = false;
 		Point p1, p2, p;
@@ -416,7 +416,7 @@ public class ImageFunctions {
 				p2 = markers.get(j);
 				if (p1.distTo(p2) > mergeRadius)
 					continue;
-				if (arePointsInSameRegion(ip, p1.getX(), p1.getY(), p2.getX(), p2.getY(), derivativeSumThreshold)) {
+				if (arePointsInSameRegion(ip, p1.getX(), p1.getY(), p2.getX(), p2.getY(), totalVariationThreshold)) {
 					// merge markers
 					p = Point.center(p1, p2);
 					markers.add(j + 1, p);
@@ -425,16 +425,10 @@ public class ImageFunctions {
 					merged = true;
 					i = -1;
 
-					System.out.println(markers);
+					// System.out.println(markers);
 					break;
 				}
 			}
-			// if (merged) {
-			// i = 0;
-			// }
-			// else {
-			// //markers.remove(i);
-			// }
 		}
 
 		ImageProcessor result = new ByteProcessor(ip.getWidth(), ip.getHeight());
@@ -444,39 +438,58 @@ public class ImageFunctions {
 			y = (int) markers.get(i).getY();
 			result.set(x, y, 255);
 		}
-//		ImagePlus imp = new ImagePlus("hey", result);
-//		imp.show();
+		// ImagePlus imp = new ImagePlus("hey", result);
+		// imp.show();
 		return result;
 	}
 
 	/*
-	 * ip should be normalized so that total change is the function can be
+	 * ip should be normalized so that total change in the function can be
 	 * adequately thresholded
 	 */
 	private static boolean arePointsInSameRegion(ImageProcessor ip, double x1, double y1, double x2, double y2,
-			float derivativeSumThreshold) {
+			float totalVariationThreshold) {
 		int nPoints = (int) Point.dist(new Point(x1, y1), new Point(x2, y2)) + 1;
+		if (nPoints < 3)
+			return true;
 		float[] values = new float[nPoints];
 		float[] derivative = new float[nPoints - 1];
 		double dx = (x2 - x1) / (nPoints - 1);
 		double dy = (y2 - y1) / (nPoints - 1);
 		double x, y;
+		float max = Float.MIN_VALUE, min = Float.MAX_VALUE;
 
 		for (int i = 0; i < nPoints; i++) {
 			x = x1 + i * dx;
 			y = y1 + i * dy;
 			values[i] = bilinearValue(ip, x, y);
+			if (values[i] < min)
+				min = values[i];
+			if (values[i] > max)
+				max = values[i];
 		}
 
-		float derivativeSum = 0;
+//		for (int i = 0; i < nPoints; i++) {
+//			values[i] = (values[i] - min) / (max - min);
+//		}
+
+		float totalVariation = 0;
+		float maxDerivative = Float.MIN_VALUE;
 		for (int i = 0; i < nPoints - 1; i++) {
 			derivative[i] = values[i + 1] - values[i];
-			derivativeSum += Math.abs(derivative[i]);
+			if(Math.abs(derivative[i]) > maxDerivative)
+				maxDerivative = Math.abs(derivative[i]);
+			//totalVariation += Math.abs(derivative[i]);
 		}
-		derivativeSum /= (nPoints - 1);
-		System.out.println("deriv sum between points (" + x1 + ", " + y1 + ") and (" + x2 + ", " + y2 + ") is " + derivativeSum);
 
-		return derivativeSum < derivativeSumThreshold;
+		// System.out.println("deriv sum between points (" + x1 + ", " + y1 + ") and ("
+		// + x2 + ", " + y2 + ") is " + derivativeSum);
+		// for (int i=0; i< nPoints; i++)
+		// System.out.print(values[i] + ", ");
+		// System.out.println();
+
+		//return totalVariation < totalVariationThreshold;
+		return maxDerivative < totalVariationThreshold;
 	}
 
 	private static float bilinearValue(ImageProcessor ip, double x, double y) {
