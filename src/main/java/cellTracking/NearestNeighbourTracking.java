@@ -424,6 +424,7 @@ public class NearestNeighbourTracking {
 		FloatHistogram hist;
 		ArrayList<Float> trackValues = new ArrayList<Float>();
 		tracks.printTracksInfo();
+		ImageProcessor ip;
 
 		for (int i = 0; i < tracks.tracksCount(); i++) {
 			tr = tracks.getTrack(i);
@@ -442,7 +443,7 @@ public class NearestNeighbourTracking {
 				currSlice = cellGraph.getNodeSliceByGlobalIndex(currAdjIndex);
 				currNode = cellGraph.getNodeIndexByGlobalIndex(currAdjIndex);
 
-				ImageProcessor ip = componentsList.get(currSlice).getIntensityImage();
+				ip = componentsList.get(currSlice).getIntensityImage();
 				center = componentsList.get(currSlice).getComponentMassCenter(currNode);
 				x0 = componentsList.get(currSlice).getComponentX0(currNode);
 				x1 = componentsList.get(currSlice).getComponentX1(currNode);
@@ -473,7 +474,7 @@ public class NearestNeighbourTracking {
 			}
 			System.out.println();
 
-			if (trackValues.size() > 3 && checkEndedOnMitosis(trackValues))
+			if (trackValues.size() > 3 && checkEndedOnMitosis(trackValues, 0.8f))
 				tr.setEndedOnMitosys();
 
 			trackValues.clear();
@@ -482,9 +483,9 @@ public class NearestNeighbourTracking {
 
 	/*
 	 * Returns true if the last difference in intensity values array is the highest
-	 * through the array Means that the mitosis started
+	 * through the array, means that the mitosis started
 	 */
-	private boolean checkEndedOnMitosis(ArrayList<Float> histAveragesList) {
+	private boolean checkEndedOnMitosis(ArrayList<Float> histAveragesList, float multiplierThreshold) {
 		if (histAveragesList.size() < 2)
 			return false;
 		float maxDiff = Float.MIN_VALUE;
@@ -492,13 +493,13 @@ public class NearestNeighbourTracking {
 		ArrayList<Float> diffs = new ArrayList<Float>(histAveragesList.size() - 1);
 
 		for (int i = 1; i < histAveragesList.size(); i++) {
-			diff = histAveragesList.get(i) - histAveragesList.get(i - 1);
+			diff = Math.abs(histAveragesList.get(i) - histAveragesList.get(i - 1));
 			diffs.add(diff);
 			if (diff > maxDiff)
 				maxDiff = diff;
 		}
 
-		return maxDiff == diffs.get(diffs.size() - 1);
+		return diffs.get(diffs.size() - 1) > maxDiff * multiplierThreshold;
 	}
 
 	/* mitosis tracking */
@@ -566,6 +567,16 @@ public class NearestNeighbourTracking {
 	 */
 	public void findClosestWhiteBlob(int slice, Point center, int radius) {
 
+	}
+	
+	public void clearIsolatedComponents() {
+		for (int i=0; i<componentsList.size(); i++)
+			for (int j=0; j<componentsList.get(i).getComponentsCount(); j++) {
+				if (componentsList.get(i).getComponentHasParent(j) || componentsList.get(i).getComponentChildCount(j)>0)
+					continue;
+				
+				componentsList.get(i).removeComponentByIndex(j);
+			}
 	}
 
 	/* draws cellGraph as tracks on ip */

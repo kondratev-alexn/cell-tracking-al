@@ -277,6 +277,9 @@ public class ImageComponentsAnalysis {
 			properties.add(newProperties);
 			return properties.size() - 1;
 		}
+		else {
+			showComponentsImage();
+		}
 		return -1;
 	}
 
@@ -295,7 +298,8 @@ public class ImageComponentsAnalysis {
 	 * Checks whether components with given indexes are childs. True if penal score
 	 * between them is less than threshold
 	 */
-	public boolean checkIfChildComponents(int index1, int index2, Point parentCenterPoint, float parentAvrgIntensity, double penalThreshold) {
+	public boolean checkIfChildComponents(int index1, int index2, Point parentCenterPoint, float parentAvrgIntensity,
+			double penalThreshold) {
 		double penal = calculateChildPenalScore(index1, index2, parentCenterPoint, parentAvrgIntensity);
 		System.out.println(" penal score is " + penal);
 		return penal < penalThreshold;
@@ -306,10 +310,10 @@ public class ImageComponentsAnalysis {
 		double score = 0;
 		// take into account avrg intensity, size, distance from parent center
 		double c_int, c_size, c_distance, c_diff_intensity; // coefficient
-		c_int = 1;		// for intensity of the child blobs
-		c_size = 0.5;	// for size of child blobs
-		c_distance = 0.8;	// for difference in distance between child blobs and parent
-		c_diff_intensity = 0;	// for difference in intensity between child blobs and parent
+		c_int = 1; // for intensity of the child blobs
+		c_size = 0.5; // for size of child blobs
+		c_distance = 0.8; // for difference in distance between child blobs and parent
+		c_diff_intensity = 0; // for difference in intensity between child blobs and parent
 
 		double int1, int2, size1, size2, dist1, dist2, diffInt1, diffInt2;
 		int1 = getComponentAvrgIntensity(index1);
@@ -461,20 +465,21 @@ public class ImageComponentsAnalysis {
 					index = getComponentIndexByPosition(x, y);
 					if (index != -1) {
 						setComponentState(index, State.WHITE_BLOB_COMPONENT);
-						// System.out.println("component " +index + " marked as WHITE_BLOB_COMPONENT"); seems working
+						// System.out.println("component " +index + " marked as WHITE_BLOB_COMPONENT");
+						// seems working
 					}
 				}
 			}
 	}
-	
+
 	public void discardWhiteBlobComponents() {
-		for (int i=0; i<getComponentsCount(); i++) {
+		for (int i = 0; i < getComponentsCount(); i++) {
 			if (getComponentState(i) == State.WHITE_BLOB_COMPONENT) {
 				removeComponentByIndex(i);
 			}
 		}
 	}
- 
+
 	public int getComponentIndexByPosition(int x, int y) {
 		int intensity = imageComponents.get(x, y);
 		return findComponentIndexByDisplayIntensity(intensity);
@@ -842,6 +847,11 @@ public class ImageComponentsAnalysis {
 	private boolean hasDiagonalBorderNeighbours(ImageProcessor ip, int x, int y) {
 		return isBorderPixel4C(ip, x - 1, y - 1) || isBorderPixel4C(ip, x - 1, y + 1)
 				|| isBorderPixel4C(ip, x + 1, y - 1) || isBorderPixel4C(ip, x + 1, y + 1);
+	}
+
+	public void showComponentsImage() {
+		ImagePlus image = new ImagePlus("components image", imageComponents);
+		image.show();
 	}
 
 	@Override

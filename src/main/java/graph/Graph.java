@@ -84,8 +84,7 @@ public class Graph {
 
 	/*
 	 * add arc from node with global index 'nodeIndex' to Node v (which will be
-	 * added if not in the graph
-	 * Returns index of the node 'to'
+	 * added if not in the graph Returns index of the node 'to'
 	 */
 	public void addArcFromIndexToNodeAddable(int fromNodeIndex, Node to) {
 		if (fromNodeIndex < 0 || fromNodeIndex > nodes.size())
@@ -98,7 +97,7 @@ public class Graph {
 		Arc arc = new Arc(from, to);
 		addArc(arc);
 	}
-	
+
 	public void addArcFromIndexToIndexAddable(int fromNodeIndex, int toNodeIndex) {
 		if (fromNodeIndex < 0 || fromNodeIndex > nodes.size() || toNodeIndex < 0 || toNodeIndex > nodes.size())
 			return;
@@ -113,7 +112,7 @@ public class Graph {
 			return true;
 		return false;
 	}
-	
+
 	public int getNodeIndex(Node v) {
 		return nodes.indexOf(v);
 	}
@@ -172,6 +171,25 @@ public class Graph {
 		return v;
 	}
 
+	/* removes childs from adj index */
+	private void clearChildsByAdjIndex(int adjIndex) {
+		adjLists.get(adjIndex).clear();
+	}
+
+	/* remove arcs from node with given adj index. 
+	 * Also removes its childs from adj list */
+	public void removeArcAndChildsByAdjIndex(int fromAdjIndex) {
+		Node to, from;
+		for (int i = arcs.size() - 1; i >= 0; i--) {
+			from = arcs.get(i).getFromNode();
+			to = arcs.get(i).getToNode();
+			if (from == nodes.get(fromAdjIndex))
+				arcs.remove(i);
+		}
+		
+		clearChildsByAdjIndex(fromAdjIndex);
+	}
+
 	/* return list of arcs which nodes' time is <= t */
 	public ArrayList<Arc> getArcsBeforeTimeSlice(int t) {
 		ArrayList<Arc> result = new ArrayList<Arc>(arcs.size() / 10);
@@ -186,20 +204,20 @@ public class Graph {
 	public ArrayList<Arc> getArcs() {
 		return arcs;
 	}
-	
+
 	private String adjListsToString() {
 		String result = "[";
 		ArrayList<Integer> adj;
-		for (int i=0; i< adjLists.size(); i++) {
+		for (int i = 0; i < adjLists.size(); i++) {
 			adj = adjLists.get(i);
 			result = result.concat("[" + i + " | ");
-			for (int j=0; j<adj.size(); j++) {
+			for (int j = 0; j < adj.size(); j++) {
 				result = result.concat(adj.get(j).toString());
-				if (j <adj.size() - 1)
-					result = result.concat(", ");					
+				if (j < adj.size() - 1)
+					result = result.concat(", ");
 			}
 			result = result.concat("]");
-			if (i%10 - 9 == 0)
+			if (i % 10 - 9 == 0)
 				result = result.concat(System.getProperty("line.separator"));
 		}
 		result = result.concat("]");

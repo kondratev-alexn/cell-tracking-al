@@ -79,20 +79,20 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private double minThreshold = 20;
 	private double maxThreshold = 50;
 	private int minArea = 100;
-	private int maxArea = 1200;
+	private int maxArea = 1400;
 	private float minCircularity = 0.55f;
 	private float maxCircularity = 1.0f;
 	private int dilationRadius = 2;
 	private int maximumNumberOfCells = 40; // how many dark blobs will be detected
 	
-	private float blobMergeThreshold = 0.3f; //threshold, below which blobs will be merged
+	private float blobMergeThreshold = 0.060f; //threshold, below which blobs will be merged
 
 	private float[] sigmas = { 4, 7, 9, 12, 16, 32 };
 
 	/* booleans for CheckBoxes */
 	private boolean isTestMode = false;
 	private boolean useMedian = true;
-	private boolean isBandpass = true;
+	private boolean isBandpass = false;
 	private boolean useOtsuThreshold = false;
 
 	private boolean showImageForWatershedding = false;
@@ -146,10 +146,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// tracking.trackComponentsOneAndMultiSlice(maxRadiusDark, slices,
 			// scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
 			tracking.trackComponentsOneSlice(maxRadiusDark, oneSliceScoreThreshold);
+			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient);
 			tracking.fillTracks();
 			tracking.analyzeTracksForMitosis();
-			tracking.startMitosisTracking(40, 0.12);
-			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient);
+			tracking.startMitosisTracking(30, 0.12);
 
 			// System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
@@ -518,12 +518,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		if (minCircularity > 0.551)
 			return circles;
 
-		// combine markers from bright and dark blobs
-		boolean addBrightMarkers = true;
-		if (addBrightMarkers) {
-			ImageFunctions.addMarkers(marksDarkBinary, marksBrightBinary);
-		}
-
 		FloatHistogram hist = new FloatHistogram(ip);
 		float otsu = hist.otsuThreshold();
 
@@ -548,7 +542,14 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImageFunctions.drawCirclesBySigmaMarkerks(watershedImage, marksDarkBinary, true);
 			return watershedImage;
 		}
-
+		
+		// combine markers from bright and dark blobs, AFTER DARK BLOBS MERGING	
+		boolean addBrightMarkers = true;
+		if (addBrightMarkers) {
+			ImageFunctions.addMarkers(marksDarkBinary, marksBrightBinary);
+		}
+		
+		//intensityImg = watershedImage;
 		ImageFunctions.LabelMarker(marksDarkBinary);
 		if (sigma > 0)
 			gaussian.GradientMagnitudeGaussian(watershedImage, (float) sigma); //watershed is better on gradient...
@@ -563,9 +564,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			boolean discardWhiteBlobs = true;
 			compAnalisys.setComponentsBrightBlobStateByMarks(marksBrightBinary);
+			
+			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
+
 			if (discardWhiteBlobs)
 				compAnalisys.discardWhiteBlobComponents();
-			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
 
 			// here set component's state by marks image (indicate bright blobs)
 			if (startedProcessing) // add roi only if we started processing
@@ -668,7 +671,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_test_tracking = IJ.openImage("C:\\Tokyo\\test_multi.tif");
 			ImagePlus image_shorter_bright_blobs = IJ.openImage("C:\\Tokyo\\Short_c1_ex.tif");
 
-			// image = image_bright_blobs;
+			image = image_bright_blobs;
 			// image = image_stack20;
 			// image = image_stack10;
 			// image = image_stack3;
