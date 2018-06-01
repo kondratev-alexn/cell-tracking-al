@@ -9,10 +9,12 @@ import ij.gui.Roi;
 import ij.gui.Wand;
 import ij.plugin.ImageCalculator;
 import ij.plugin.frame.RoiManager;
+import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import inra.ijpb.binary.BinaryImages;
 import inra.ijpb.morphology.Strel;
+import inra.ijpb.morphology.Strel.Shape;
 import point.Point;
 import inra.ijpb.morphology.Morphology.Operation;
 
@@ -53,8 +55,8 @@ public class ImageComponentsAnalysis {
 	}
 
 	/*
-	 * gets the number of components in labelled image. Components can have
-	 * different intensities
+	 * gets the number of components in labeled image. Components can have different
+	 * intensities
 	 */
 	public int imageComponentsCount(ImageProcessor ip) {
 		ArrayList<Integer> foundIntensities = new ArrayList<Integer>(5);
@@ -276,8 +278,7 @@ public class ImageComponentsAnalysis {
 			newProperties.calcCircularity();
 			properties.add(newProperties);
 			return properties.size() - 1;
-		}
-		else {
+		} else {
 			showComponentsImage();
 		}
 		return -1;
@@ -311,7 +312,7 @@ public class ImageComponentsAnalysis {
 		// take into account avrg intensity, size, distance from parent center
 		double c_int, c_size, c_distance, c_diff_intensity; // coefficient
 		c_int = 1; // for intensity of the child blobs
-		c_size = 0.5; // for size of child blobs
+		c_size = 0.1; // for size of child blobs
 		c_distance = 0.8; // for difference in distance between child blobs and parent
 		c_diff_intensity = 0; // for difference in intensity between child blobs and parent
 
@@ -420,8 +421,8 @@ public class ImageComponentsAnalysis {
 
 	/* filter components by area and circularity */
 	public void filterComponents(int minArea, int maxArea, float minCirc, float maxCirc, float minAvrgIntensity,
-			float maxAvrgIntensity) {
-		ArrayList<Integer> list = new ArrayList<Integer>(20); // what components to filter
+			float maxAvrgIntensity, boolean discardWhiteBlobs) {
+		ArrayList<Integer> removeList = new ArrayList<Integer>(20); // what components to filter
 		int area;
 		float circ, avrgInt;
 
@@ -430,30 +431,34 @@ public class ImageComponentsAnalysis {
 			area = properties.get(i).area;
 			circ = properties.get(i).circularity;
 			avrgInt = properties.get(i).avrgIntensity;
-			// System.out.println(area + " : " + circ + " : " + avrgInt);
+
 			if (area < minArea || area > maxArea) {
-				list.add(i);
+				removeList.add(i);
 				continue;
 			}
 			if (circ < minCirc || circ > maxCirc) {
-				list.add(i);
+				removeList.add(i);
 				continue;
 			}
 			if (avrgInt < minAvrgIntensity || avrgInt > maxAvrgIntensity) {
-				list.add(i);
+				removeList.add(i);
+				continue;
+			}
+			if (getComponentState(i) == State.WHITE_BLOB_COMPONENT) {
+				removeList.add(i);
 				continue;
 			}
 		}
 
 		// delete components
-		for (int i = list.size() - 1; i >= 0; i--) {
-			removeComponent(imageComponents, properties.get(list.get(i)).displayIntensity);
+		for (int i = removeList.size() - 1; i >= 0; i--) {
+			removeComponent(imageComponents, properties.get(removeList.get(i)).displayIntensity);
 		}
 	}
 
 	public ImageProcessor getFilteredComponentsIp(int minArea, int maxArea, float minCirc, float maxCirc,
-			float minAvrgIntensity, float maxAvrgIntensity) {
-		filterComponents(minArea, maxArea, minCirc, maxCirc, minAvrgIntensity, maxAvrgIntensity);
+			float minAvrgIntensity, float maxAvrgIntensity, boolean discardWhiteBlobs) {
+		filterComponents(minArea, maxArea, minCirc, maxCirc, minAvrgIntensity, maxAvrgIntensity, discardWhiteBlobs);
 		return imageComponents;
 	}
 
@@ -490,6 +495,10 @@ public class ImageComponentsAnalysis {
 	 * "d"
 	 */
 	public ImageProcessor getDilatedComponentImage(int nComp, int d) {
+		return getMorphedComponentImage(Operation.DILATION, Strel.Shape.DISK, nComp, d);
+	}
+
+	public ImageProcessor getMorphedComponentImage(Operation op, Shape shape, int nComp, int d) {
 		int x0 = properties.get(nComp).xmin;
 		int x1 = properties.get(nComp).xmax;
 		int y0 = properties.get(nComp).ymin;
@@ -505,8 +514,22 @@ public class ImageComponentsAnalysis {
 				if (v == compInt)
 					result.setf(x, y, 1);
 			}
-		result = ImageFunctions.operationMorph(result, Operation.DILATION, Strel.Shape.DISK, d);
+		result = ImageFunctions.operationMorph(result, op, shape, d);
 		return result;
+	}
+
+	/* draws morphed component in ip. Only draws on background (i.e. intensity=0) */
+	public void drawMorphedComponentOmImage(ImageProcessor ip, Operation op, Shape shape, int nComp, int d) {
+		int x0 = properties.get(nComp).xmin;
+		int y0 = properties.get(nComp).ymin;
+
+		ImageProcessor compImage = getMorphedComponentImage(op, shape, nComp, d);
+		for (int x = 0; x < compImage.getWidth(); x++)
+			for (int y = 0; y < compImage.getHeight(); y++) {
+				if (x + x0 >= 0 && y + y0 >= 0 && x + x0 < ip.getWidth() && y + y0 < ip.getHeight())
+					if (ip.get(x, y) == 0)
+						ip.set(x + x0, y + y0, compImage.get(x, y));
+			}
 	}
 
 	/*
@@ -686,6 +709,18 @@ public class ImageComponentsAnalysis {
 		properties.get(nComp).displayIntensity = newIntensity;
 		// here we should recalculate all properties...or not here
 	}
+	
+	public Roi getComponentAsRoi(int index, int slice) {
+		Roi roi = null;
+		Wand w = new Wand(imageComponents);
+		int currIntens = getComponentDisplayIntensity(index);	
+		w.autoOutline(properties.get(index).xmin, properties.get(index).ymin, currIntens, currIntens);
+		if (w.npoints > 0) { // we have a roi from the wand...
+			roi = new PolygonRoi(w.xpoints, w.ypoints, w.npoints, Roi.TRACED_ROI);
+			roi.setPosition(slice);
+		}
+		return roi;
+	}
 
 	/*
 	 * Adds rois to roi manager with slice label, with each roi corresponding to one
@@ -697,6 +732,7 @@ public class ImageComponentsAnalysis {
 		Wand w = new Wand(imageComponents);
 		int currIntens = 1;
 		int count = 0, index;
+		boolean isWhiteBlob;
 		String roiName;
 
 		// the first slice is 1 (not 0)
@@ -710,16 +746,18 @@ public class ImageComponentsAnalysis {
 			}
 			w.autoOutline(properties.get(index).xmin, properties.get(index).ymin, currIntens, currIntens);
 			if (w.npoints > 0) { // we have a roi from the wand...
+
+				isWhiteBlob = properties.get(index).state == State.WHITE_BLOB_COMPONENT;
+
 				roi = new PolygonRoi(w.xpoints, w.ypoints, w.npoints, Roi.TRACED_ROI);
 				roiName = String.format("%04d", slice);
 				roiName += "-" + index;
+				if (isWhiteBlob)
+					roiName += "_white_blob";
 				roi.setName(roiName);
+				roi.setPosition(slice);
 
-				// manager.add(img, roi, slice);
-				// img.setRoi(roi);
 				manager.addRoi(roi);
-				// manager.add(img, roi, slice);
-				// res.add(imp, roi, n);
 			}
 			currIntens++;
 			count++; // component added
@@ -736,6 +774,24 @@ public class ImageComponentsAnalysis {
 			if (v != -1)
 				result.setf(i, properties.get(v).avrgIntensity);
 		}
+		return result;
+	}
+
+	public ImageProcessor componentsBasinsImage(int erosionRadius) {
+		int w = imageComponents.getWidth();
+		int h = imageComponents.getHeight();
+		ImageProcessor result = new ByteProcessor(w, h);
+		// for (int i = 0; i < getComponentsCount(); i++) {
+		// drawMorphedComponentOmImage(result, Operation.EROSION, Strel.Shape.DISK, i,
+		// erosionRadius);
+		// }
+		for (int y = 0; y < h; y++)
+			for (int x = 0; x < w; x++) {
+				if (isBorderPixel4C(imageComponents, x, y))
+					result.set(x, y, 0);
+				else
+					result.set(x, y, 255);
+			}
 		return result;
 	}
 

@@ -31,7 +31,7 @@ public class BlobDetector {
 
 	/* returns N maxima blobs as a list of points */
 	public ArrayList<PointWithScale> findBlobsBy3x3LocalMaximaAsPoints(float thresholdLambda, boolean useLaplacian,
-			int leaveNMax) {
+			int leaveNMax, int k_x_radius, int k_y_radius) {
 		ImageProcessor stack[] = new ImageProcessor[hessians.length];
 		ArrayList<PointWithScale> list = new ArrayList<PointWithScale>(5);
 		for (int z = 0; z < hessians.length; z++) {
@@ -47,24 +47,24 @@ public class BlobDetector {
 		ArrayList<Integer> maxima_y = new ArrayList<Integer>(20);
 		ArrayList<Integer> maxima_z = new ArrayList<Integer>(20);
 
-		for (int y = 1; y < ip.getHeight() - 1; y++)
-			for (int x = 1; x < ip.getWidth() - 1; x++) {
+		for (int y = k_y_radius; y < ip.getHeight() - k_y_radius; y++)
+			for (int x = k_x_radius; x < ip.getWidth() - k_x_radius; x++) {
 				result.setf(x, y, 0);
 				if (mask != null && mask.get(x, y) <= 0)
 					continue;
 				for (int z = 0; z < hessians.length; z++) {
-					if (isLocalMaximumThresholded3D(stack, x, y, z, thresholdLambda))
+					if (isLocalMaximumThresholded3D(stack, x, y, z, thresholdLambda, k_x_radius, k_y_radius))
 						if (leaveNMax != -1) {
 							maxima_x.add(x);
 							maxima_y.add(y);
 							maxima_z.add(z);
 							maxima_v.add(stack[z].getf(x, y));
 						} else {
-							list.add(new PointWithScale(x, y, scaleSigmas[z], stack[z].getf(x,y)));
+							list.add(new PointWithScale(x, y, scaleSigmas[z], stack[z].getf(x, y)));
 						}
 				}
 			}
-		
+
 		if (leaveNMax != -1) {
 			// sort max list
 			int max_j = -1;
@@ -96,7 +96,7 @@ public class BlobDetector {
 				maxima_y.set(i, ty);
 				maxima_z.set(i, tz);
 			}
-			
+
 			int x, y, z;
 			float v;
 			PointWithScale p;
@@ -106,7 +106,8 @@ public class BlobDetector {
 				z = maxima_z.get(i);
 				v = maxima_v.get(i);
 				p = new PointWithScale(x, y, scaleSigmas[z], v);
-				//System.out.println("adding point " + p + ", z= " + z+ ",sigmas = " + scaleSigmas);
+				// System.out.println("adding point " + p + ", z= " + z+ ",sigmas = " +
+				// scaleSigmas);
 				list.add(p);
 			}
 		}
@@ -116,17 +117,18 @@ public class BlobDetector {
 	/*
 	 * return image with dots corresponding to blob centers and their intensities -
 	 * to sigmas. 'leaveNMax' parameter corresponds to how many maxima point choose.
-	 * Set to -1 if you want all points above threshold. If useLaplacian is false, then lambda1 will be used
+	 * Set to -1 if you want all points above threshold. If useLaplacian is false,
+	 * then lambda1 will be used
 	 */
-	public ByteProcessor findBlobsBy3x3LocalMaximaAsImage(float thresholdLambda, boolean binary, boolean useLaplacian,
-			int leaveNMax) {
+	public ByteProcessor findBlobsByLocalMaximaAsImage(float thresholdLambda, boolean binary, boolean useLaplacian,
+			int leaveNMax, int k_x_radius, int k_y_radius, boolean considerFirstSigmaAsMaxima) {
 		ImageProcessor stack[] = new ImageProcessor[hessians.length];
 		for (int z = 0; z < hessians.length; z++) {
 			if (useLaplacian) {
-				stack[z] = hessians[z].getLambda2();
+				stack[z] = hessians[z].getLambda2().duplicate();
 				ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); // laplacian
 			} else
-				stack[z] = hessians[z].getLambda1();
+				stack[z] = hessians[z].getLambda1().duplicate();
 			// ImageProcessorCalculator.linearCombination(0.5f, stack[z], 0.5f,
 			// hessians[z].getLambda2());
 		}
@@ -136,13 +138,14 @@ public class BlobDetector {
 		ArrayList<Integer> maxima_y = new ArrayList<Integer>(20);
 		ArrayList<Integer> maxima_z = new ArrayList<Integer>(20);
 
-		for (int y = 1; y < ip.getHeight() - 1; y++)
-			for (int x = 1; x < ip.getWidth() - 1; x++) {
+		int zStackStart = considerFirstSigmaAsMaxima?0:1;
+		for (int y = k_y_radius; y < ip.getHeight() - k_y_radius; y++)
+			for (int x = k_x_radius; x < ip.getWidth() - k_x_radius; x++) {
 				result.setf(x, y, 0);
 				if (mask != null && mask.get(x, y) <= 0)
 					continue;
-				for (int z = 0; z < hessians.length; z++) {
-					if (isLocalMaximumThresholded3D(stack, x, y, z, thresholdLambda))
+				for (int z = zStackStart; z < hessians.length; z++) {
+					if (isLocalMaximumThresholded3D(stack, x, y, z, thresholdLambda, k_x_radius, k_y_radius))
 						// normalizeValue0_255(scaleSigmas[z], scaleSigmas[0],
 						// scaleSigmas[scaleSigmas.length - 1]));
 						if (leaveNMax != -1) {
@@ -231,15 +234,17 @@ public class BlobDetector {
 	}
 
 	/*
-	 * return true if point (x,y; z) in hessian stack is local maximum in 3x3x3
-	 * region
+	 * return true if point (x,y; z) in hessian stack is local maximum in k_size_x
+	 * \times k_size_y \times 3 region
 	 */
-	private boolean isLocalMaximumThresholded3D(ImageProcessor[] stack, int x, int y, int z, float threshold) {
+	private boolean isLocalMaximumThresholded3D(ImageProcessor[] stack, int x, int y, int z, float threshold,
+			int kernel_x_radius, int kernel_y_radius) {
 		float p = stack[z].getf(x, y);
 		if (Math.abs(p) < threshold)
 			return false;
-		for (int dx = -1; dx < 2; dx++)
-			for (int dy = -1; dy < 2; dy++)
+
+		for (int dx = -kernel_x_radius; dx < kernel_x_radius + 1; dx++)
+			for (int dy = -kernel_y_radius; dy < kernel_y_radius + 1; dy++)
 				for (int dz = -1; dz < 2; dz++) {
 					if (z + dz < 0 || z + dz > stack.length - 1)
 						continue;

@@ -1,11 +1,16 @@
 package cellTracking;
 
+import java.awt.Color;
+import java.awt.image.ColorModel;
 import java.util.ArrayList;
+import java.util.Stack;
 
 import graph.Arc;
 import graph.Graph;
 import graph.Node;
 import histogram.FloatHistogram;
+import ij.process.ByteProcessor;
+import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -13,6 +18,9 @@ import ij.ImageStack;
 import point.Point;
 import tracks.Track;
 import tracks.Tracks;
+
+import cellTracking.PenaltyFunction;
+import colorPicking.ColorPicker;
 
 public class NearestNeighbourTracking {
 	private Graph cellGraph;
@@ -194,7 +202,8 @@ public class NearestNeighbourTracking {
 						scoreThreshold);
 				if (backBestIndex != i)
 					continue;
-				if (comp2List.get(slice).getComponentHasParent(index)  || comp2List.get(slice).getComponentState(index) == State.MITOSIS)
+				if (comp2List.get(slice).getComponentHasParent(index)
+						|| comp2List.get(slice).getComponentState(index) == State.MITOSIS)
 					continue;
 
 				v1 = new Node(t1, i);
@@ -202,7 +211,8 @@ public class NearestNeighbourTracking {
 				cellGraph.addArcFromToAddable(v1, v2);
 				if (nSlices > 1) {
 					System.out.println("Arc added during multislice:" + v1 + " to " + v2);
-					System.out.println("or by adj: " + cellGraph.getNodeIndex(v1) + " to " + cellGraph.getNodeIndex(v2));
+					System.out
+							.println("or by adj: " + cellGraph.getNodeIndex(v1) + " to " + cellGraph.getNodeIndex(v2));
 					System.out.println("v2 parameters: hasParent=" + comp2List.get(slice).getComponentHasParent(index));
 				}
 				comp2List.get(slice).setComponentHasParent(index);
@@ -245,29 +255,13 @@ public class NearestNeighbourTracking {
 					1);
 		}
 	}
-	
-	public void trackComponentsMultiSlice(double maxRadius, int nSlices, double scoreThreshold, double timeDecayCoefficient) {
+
+	public void trackComponentsMultiSlice(double maxRadius, int nSlices, double scoreThreshold,
+			double timeDecayCoefficient) {
 		for (int t = 0; t < componentsList.size() - 1; t++) {
 			findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices, maxRadius, scoreThreshold,
 					timeDecayCoefficient);
 		}
-	}
-
-	/*
-	 * returns index of the component in comp, which mass center is the closest to p
-	 */
-	private int findClosestPointIndex(Point p, ImageComponentsAnalysis comp, double radius) {
-		int min_i = -1;
-		double min_dist = Double.MAX_VALUE;
-		double dist;
-		for (int i = 0; i < comp.getComponentsCount(); i++) {
-			dist = Point.dist(p, comp.getComponentMassCenter(i));
-			if (dist < radius && dist < min_dist) {
-				min_dist = dist;
-				min_i = i;
-			}
-		}
-		return min_i;
 	}
 
 	/*
@@ -282,7 +276,7 @@ public class NearestNeighbourTracking {
 		double min_score = Double.MAX_VALUE;
 		double score;
 		for (int i = 0; i < comp2.getComponentsCount(); i++) {
-			score = penalFunctionNN(comp1, i1, comp2, i, maxRadius);
+			score = PenaltyFunction.penalFunctionNN(comp1, i1, comp2, i, maxRadius);
 			if (score < min_score) {
 				min_score = score;
 				min_i = i;
@@ -313,7 +307,8 @@ public class NearestNeighbourTracking {
 				break;
 			dt = t - t1 - 1; // for multiplier coefficient
 			for (int i2 = 0; i2 < comp2List.get(t).getComponentsCount(); i2++) {
-				score = (1 + dt * timeDecayCoefficient) * penalFunctionNN(comp1, i1, comp2List.get(t), i2, maxRadius);
+				score = (1 + dt * timeDecayCoefficient)
+						* PenaltyFunction.penalFunctionNN(comp1, i1, comp2List.get(t), i2, maxRadius);
 				// System.out.format("Score of component %d in slice %d, t=%d is %f %n", i1, t1,
 				// t, score);
 				if (score > scoreThreshold) {
@@ -340,80 +335,52 @@ public class NearestNeighbourTracking {
 		return result;
 	}
 
-	/*
-	 * calculates the penalty function between component with index=i1 in comp1 and
-	 * i2 in comp. (So the less it is, the better, the more the chance they should
-	 * be connected) Curent problem with it: only counts for slice-slice, bad for
-	 * slice-multislice mb change distance for overlap
-	 */
-	private double penalFunctionNN(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2, int i2,
-			double maxRadius) {
-		Point m1 = comp1.getComponentMassCenter(i1);
-		Point m2 = comp2.getComponentMassCenter(i2);
-		double dist = Point.dist(m1, m2);
-		if (dist > maxRadius)
-			return 100;
-
-		int area1, area2;
-		float circ1, circ2;
-		float intensity1, intensity2;
-		double p_circ, p_area, p_int, p_dist;
-		area1 = comp1.getComponentArea(i1);
-		circ1 = comp1.getComponentCircularity(i1);
-		intensity1 = comp1.getComponentAvrgIntensity(i1);
-		area2 = comp2.getComponentArea(i2);
-		circ2 = comp2.getComponentCircularity(i2);
-		intensity2 = comp2.getComponentAvrgIntensity(i2);
-		p_area = normVal(area1, area2);
-		p_circ = normVal(circ1, circ2);
-		p_int = normVal(intensity1, intensity2);
-
-		int minDist_in2 = findClosestPointIndex(m1, comp2, maxRadius);
-		int minDist_in1 = findClosestPointIndex(m2, comp1, maxRadius);
-		double minDist1 = Double.MAX_VALUE, minDist2 = Double.MAX_VALUE;
-
-		// if closest component was not found closer than maxRadius, then let minDist be
-		// huge, so score will be =1
-		if (minDist_in2 != -1)
-			minDist1 = Point.dist(m1, comp2.getComponentMassCenter(minDist_in2));
-		if (minDist_in1 != -1)
-			minDist2 = Point.dist(m2, comp1.getComponentMassCenter(minDist_in1));
-
-		if (minDist_in1 == -1 && minDist_in2 == -1)
-			p_dist = 1;
-		else
-			p_dist = normVal(Math.min(minDist1, minDist2), dist);
-
-		// weights for area,circularity, avrg intensity and distance values
-		double w_a = 0.8;
-		double w_c = 0.2;
-		double w_i = 0.4;
-		double w_d = 1;
-		double w_sum = w_a + w_c + w_i + w_d;
-		w_a /= w_sum; // normalize value to [0,1]
-		w_c /= w_sum;
-		w_i /= w_sum;
-		w_d /= w_sum;
-		double penal = w_a * p_area + w_c * p_circ + w_i * p_int + w_d * p_dist;
-		// System.out.format("Score between component with area %d, intensity %f, circ
-		// %f %n", area1, intensity1, circ1);
-		// System.out.format("and component with area %d, intensity %f, circ %f %n",
-		// area2, intensity2, circ2);
-		// System.out.format("with dist between them %f and min dist %f is %f %n%n",
-		// dist, Math.min(minDist1, minDist2),
-		// penal);
-		return penal;
-	}
-
-	/* gets difference between value in [0,1] */
-	private double normVal(double v1, double v2) {
-		double v = Math.abs(v1 - v2) / Math.sqrt(v1 * v1 + v2 * v2);
-		return v;
-	}
-
-	public void analyzeTracksForMitosis() {
+	public void analyzeTracksForMitosisByWhiteBlob(float whiteBlobThreshold) {
 		Track tr;
-		int startIndex, endIndex;
+		int startAdjIndex, endAdjIndex;
+		int startSlice, endSlice;
+		int currAdjIndex, currSlice, currNode, endComponentIndex;
+		int startNodeIndex;
+
+		Point center;
+		int x0, y0, x1, y1, radius;
+		float avrgVal;
+		FloatHistogram hist;
+		ArrayList<Float> trackValues = new ArrayList<Float>();
+		tracks.printTracksInfo();
+		ImageProcessor ip;
+
+		for (int i = 0; i < tracks.tracksCount(); i++) {
+			tr = tracks.getTrack(i);
+
+			if (tracks.getLength(i) < 2 || tr.isEndedOnMitosis())
+				continue;
+			
+			startAdjIndex = tr.getStartAdjIndex();
+			endAdjIndex = tr.getEndAdjIndex();
+
+			startSlice = cellGraph.getNodeSliceByGlobalIndex(startAdjIndex);
+			endSlice = tracks.getLastSliceForTrack(i);
+			endComponentIndex = cellGraph.getNodeIndexByGlobalIndex(endAdjIndex);
+
+			if (endSlice > componentsList.size() - 4)
+				continue;
+
+			center = componentsList.get(endSlice).getComponentMassCenter(endComponentIndex);
+
+			WhiteBlobsDetection detection = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 1, 30,
+					tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0);
+			detection.fillWithBlobCandidates(componentsList.get(endSlice + 1).getInvertedIntensityImage(), 30);
+			
+			if (detection.isBestBlobValueAboveThreshold(whiteBlobThreshold)) {
+				tr.setEndedOnMitosys();
+			}
+		}
+	}
+
+	public void analyzeTracksForMitosisByAverageIntensity(double mitosisStartIntensityCoefficient) {
+		Track tr;
+		int startAdjIndex, endIndex;
 		int startSlice, endSlice;
 		int currAdjIndex, currSlice, currNode;
 		int startNodeIndex;
@@ -428,17 +395,20 @@ public class NearestNeighbourTracking {
 
 		for (int i = 0; i < tracks.tracksCount(); i++) {
 			tr = tracks.getTrack(i);
-			startIndex = tr.getStartAdjIndex();
+			startAdjIndex = tr.getStartAdjIndex();
 			endIndex = tr.getEndAdjIndex();
 
-			startSlice = cellGraph.getNodeSliceByGlobalIndex(startIndex);
-			startNodeIndex = cellGraph.getNodeIndexByGlobalIndex(startIndex);
+			startSlice = cellGraph.getNodeSliceByGlobalIndex(startAdjIndex);
+			startNodeIndex = cellGraph.getNodeIndexByGlobalIndex(startAdjIndex);
 
 			if (cellGraph.getNodeSliceByGlobalIndex(endIndex) > componentsList.size() - 4)
 				continue;
 
+			if (tr.isEndedOnMitosis())
+				continue;
+
 			// get histogram for each slice in track and for the next slice
-			currAdjIndex = startIndex;
+			currAdjIndex = startAdjIndex;
 			while (currAdjIndex != -1) {
 				currSlice = cellGraph.getNodeSliceByGlobalIndex(currAdjIndex);
 				currNode = cellGraph.getNodeIndexByGlobalIndex(currAdjIndex);
@@ -474,7 +444,7 @@ public class NearestNeighbourTracking {
 			}
 			System.out.println();
 
-			if (trackValues.size() > 3 && checkEndedOnMitosis(trackValues, 0.8f))
+			if (trackValues.size() > 3 && checkEndedOnMitosis(trackValues, (float) mitosisStartIntensityCoefficient))
 				tr.setEndedOnMitosys();
 
 			trackValues.clear();
@@ -523,8 +493,8 @@ public class NearestNeighbourTracking {
 					continue;
 				// create white blob that doesn't need second detection, since its the first
 				// mitosis slice
-				WhiteBlobsDetection whiteBlob = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 1, radius,
-						tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0);
+				WhiteBlobsDetection whiteBlob = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 1,
+						radius, tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0);
 				System.out.format("WhiteBlobDetection created in t=%d, at (%f,%f), parent adj is %d %n", endSlice + 1,
 						center.getX(), center.getY(), tr.getEndAdjIndex());
 				whiteBlobsTracking.addWhiteBlobDetection(endSlice + 1, whiteBlob);
@@ -561,20 +531,14 @@ public class NearestNeighbourTracking {
 		}
 	}
 
-	/*
-	 * looks for the closest white blob in the slice in ROI centered in 'center' and
-	 * 'radius'
-	 */
-	public void findClosestWhiteBlob(int slice, Point center, int radius) {
-
-	}
-	
+	// currently not working: doesn't remove components from graph
 	public void clearIsolatedComponents() {
-		for (int i=0; i<componentsList.size(); i++)
-			for (int j=0; j<componentsList.get(i).getComponentsCount(); j++) {
-				if (componentsList.get(i).getComponentHasParent(j) || componentsList.get(i).getComponentChildCount(j)>0)
+		for (int i = 0; i < componentsList.size(); i++)
+			for (int j = 0; j < componentsList.get(i).getComponentsCount(); j++) {
+				if (componentsList.get(i).getComponentHasParent(j)
+						|| componentsList.get(i).getComponentChildCount(j) > 0)
 					continue;
-				
+
 				componentsList.get(i).removeComponentByIndex(j);
 			}
 	}
@@ -633,6 +597,34 @@ public class NearestNeighbourTracking {
 			ImageFunctions.drawLine(ip, x0, y0, x1, y1);
 		}
 	}
+	
+	/* draw arcs in colorProcessor */	
+	public void drawTracksColor(ColorProcessor cim, ArrayList<Arc> arcs, Color color) {
+		int i0, i1, t0, t1;
+		Node n0, n1;
+		Point p0, p1;
+		int x0, x1, y0, y1;
+		cim.setColor(color);
+		for (int k = 0; k < arcs.size(); k++) {
+			n0 = arcs.get(k).getFromNode();
+			n1 = arcs.get(k).getToNode();
+			i0 = n0.get_i();
+			i1 = n1.get_i();
+			t0 = n0.get_t();
+			t1 = n1.get_t();
+
+			p0 = componentsList.get(t0).getComponentMassCenter(i0);
+			p1 = componentsList.get(t1).getComponentMassCenter(i1);
+
+			x0 = (int) p0.getX();
+			y0 = (int) p0.getY();
+			x1 = (int) p1.getX();
+			y1 = (int) p1.getY();
+			cim.drawDot(x0, y0);
+			cim.drawDot(x1, y1);
+			cim.drawLine(x0, y0, x1, y1);
+		}
+	}
 
 	/* draws tracking result on each slice and return the result */
 	ImagePlus drawTracksImagePlus(ImagePlus image) {
@@ -652,6 +644,23 @@ public class NearestNeighbourTracking {
 		}
 
 		result.setStack(stack);
+		return result;
+	}
+	
+	ImagePlus colorTracks(ImagePlus image) {
+		ColorPicker colorPicker = new ColorPicker();
+		ImageStack stack = new ImageStack(image.getWidth(), image.getHeight(), image.getNSlices());
+		System.out.println(image.getNSlices());
+		ColorProcessor cim;
+		
+		stack.setProcessor(image.getStack().getProcessor(1).convertToColorProcessor(), 1);
+		for (int i = 2; i <= image.getNSlices(); i++) { // slices are from 1 to n_slices
+			cim = image.getStack().getProcessor(i).duplicate().convertToColorProcessor();
+			drawTracksColor(cim, cellGraph.getArcsBeforeTimeSlice(i - 1), colorPicker.nextColor());
+			stack.setProcessor(cim, i);
+		}
+		ImagePlus result = new ImagePlus("tracks", stack);
+		
 		return result;
 	}
 

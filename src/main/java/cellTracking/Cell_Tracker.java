@@ -75,7 +75,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private double heightToleranceBright = 0.20;
 	private int rollingBallRadius = 20; // for background subtraction
 	private int topHatRadius = 20;
-	private double medianRadius = 2;
+	private double gaussianRadius = 2;
 	private double minThreshold = 20;
 	private double maxThreshold = 50;
 	private int minArea = 100;
@@ -84,14 +84,16 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private float maxCircularity = 1.0f;
 	private int dilationRadius = 2;
 	private int maximumNumberOfCells = 40; // how many dark blobs will be detected
-	
-	private float blobMergeThreshold = 0.060f; //threshold, below which blobs will be merged
 
-	private float[] sigmas = { 4, 7, 9, 12, 16, 32 };
+	private float blobMergeThreshold = 0.060f; // threshold, below which blobs will be merged
+	private float childPenaltyThreshold = 0.275f;
+	private float mitosisStartIntensityCoefficient = 0.7f;
+
+	private float[] sigmas = { 6, 9, 12, 16, 32 };
 
 	/* booleans for CheckBoxes */
 	private boolean isTestMode = false;
-	private boolean useMedian = true;
+	private boolean useGaussian = true;
 	private boolean isBandpass = false;
 	private boolean useOtsuThreshold = false;
 
@@ -139,8 +141,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// there goes tracking
 			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 3;
 			double oneSliceScoreThreshold = 0.25;
-			double scoreThreshold = 2;
-			double timeDecayCoefficient = 1;
+			double scoreThreshold = 0.5;
+			double timeDecayCoefficient = 0.3;
 			// tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices,
 			// scoreThreshold);
 			// tracking.trackComponentsOneAndMultiSlice(maxRadiusDark, slices,
@@ -148,14 +150,20 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			tracking.trackComponentsOneSlice(maxRadiusDark, oneSliceScoreThreshold);
 			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient);
 			tracking.fillTracks();
-			tracking.analyzeTracksForMitosis();
-			tracking.startMitosisTracking(30, 0.12);
+			// check for mitosis start by two ideas (intensity change / bright blob nearby)
+			tracking.analyzeTracksForMitosisByAverageIntensity(mitosisStartIntensityCoefficient);
+			tracking.analyzeTracksForMitosisByWhiteBlob(0.5f);
+			tracking.startMitosisTracking(30, childPenaltyThreshold);
+			// tracking.trackComponentsMultiSlice(maxRadiusDark, 4, scoreThreshold,
+			// timeDecayCoefficient);
 
 			// System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
 			ImageProcessor ip = imp.getProcessor();
 			// tracking.drawTracksIp(ip);
-			ImagePlus trResult = tracking.drawTracksImagePlus(imp);
+			//ImagePlus trResult = tracking.drawTracksImagePlus(imp);
+			ImagePlus trResult = tracking.colorTracks(imp);
+			//System.out.println(imp.getNSlices()); = 66
 			trResult.setTitle("Tracking results");
 			imp.show();
 			trResult.show();
@@ -164,6 +172,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, roiManager, imp);
 			resultGraph.showTrackedComponentImages();
+			resultGraph.drawColorComponents(imp);
 			// resultGraph.printTrackedGraph();
 			resultGraph.writeTracksToFile_ctc_afterAnalysis("res_track.txt");
 			// System.out.println(cellGraph);
@@ -240,7 +249,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	private void fillGenericDialog(GenericDialog gd, PlugInFilterRunner pfr) {
 		gd.addNumericField("Maximum number of cells", maximumNumberOfCells, 0);
-		gd.addNumericField("Median filter radius", medianRadius, 2);
+		gd.addNumericField("Median filter radius", gaussianRadius, 2);
 		gd.addNumericField("Rolling ball radius", rollingBallRadius, 0);
 		gd.addNumericField("Closing radius", topHatRadius, 0);
 		gd.addNumericField("Sigma1 (bandpass):", sigma1, 2);
@@ -256,8 +265,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		gd.addNumericField("Max circularity", maxCircularity, 3);
 		gd.addNumericField("Dilation Radius (postprocessing)", dilationRadius, 0);
 		gd.addNumericField("Blob merge threshold", blobMergeThreshold, 3);
+		gd.addNumericField("White childs threshold", childPenaltyThreshold, 3);
+		gd.addNumericField("Ended on mitosis multiplier", mitosisStartIntensityCoefficient, 3);
 		gd.addCheckbox("test mode", isTestMode);
-		gd.addCheckbox("Median Filter", useMedian);
+		gd.addCheckbox("Median Filter", useGaussian);
 		gd.addCheckbox("Bandpass", isBandpass);
 		// gd.addCheckbox("Use Auto Otsu threshold", useOtsuThreshold);
 		gd.addCheckbox("Show Image before Watershedding", showImageForWatershedding);
@@ -294,7 +305,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private void parseDialogParameters(GenericDialog gd) {
 		// extract chosen parameters
 		maximumNumberOfCells = (int) gd.getNextNumber();
-		medianRadius = gd.getNextNumber();
+		gaussianRadius = gd.getNextNumber();
 		rollingBallRadius = (int) gd.getNextNumber();
 		topHatRadius = (int) gd.getNextNumber();
 		sigma1 = gd.getNextNumber();
@@ -310,9 +321,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		maxCircularity = (float) gd.getNextNumber();
 		dilationRadius = (int) gd.getNextNumber();
 		blobMergeThreshold = (float) gd.getNextNumber();
-		
+		childPenaltyThreshold = (float) gd.getNextNumber();
+		mitosisStartIntensityCoefficient = (float) gd.getNextNumber();
+
 		isTestMode = gd.getNextBoolean();
-		useMedian = gd.getNextBoolean();
+		useGaussian = gd.getNextBoolean();
 		isBandpass = gd.getNextBoolean();
 		// useOtsuThreshold = gd.getNextBoolean();
 		showImageForWatershedding = gd.getNextBoolean();
@@ -356,9 +369,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		} else
 			result = baseImage.duplicate();
 
-		if (useMedian) {
+		if (useGaussian) {
 			// rankFilters.rank(result, medianRadius, RankFilters.MEDIAN);
-			gaussian.GaussianBlur(result, (float) medianRadius);
+			gaussian.GaussianBlur(result, (float) gaussianRadius);
 		}
 		cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
 
@@ -367,56 +380,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageFunctions.normalize(result, 0, 1);
 
 		if (isTestMode) {
-			// do some testing and return
-			// ImageFunctions.normalize(result, 0f, 1f);
-			// result = ip;
-			// ImageProcessorCalculator.sub(result,
-			// imagePlus.getStack().getProcessor(selectedSlice - 1));
-			ImageProcessor original = result.duplicate();
-			ImageProcessor test = result.duplicate();
-			cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
-			if (isBandpass)
-				ImageProcessorCalculator.constMultiply(result, -1);
-
-			FloatHistogram hist = new FloatHistogram(original);
-			float otsu = hist.otsuThreshold();
-
-			test = ImageFunctions.operationMorph(test, Operation.CLOSING, Shape.DISK, maximumNumberOfCells);
-			ImageProcessorCalculator.sub(original, test);
-
-			// ImageProcessor whiteMask = ImageFunctions.maskThresholdMoreThan(test, otsu,
-			// null);
-			// original = whiteMask;
-			// original = ImageFunctions.operationMorph(whiteMask, Operation.OPENING,
-			// Shape.DISK, maximumNumberOfCells);
-			// FloatHistogram histMasked = new FloatHistogram(test, whiteMask);
-			// float otsu2 = histMasked.otsuThreshold();
-			// original = ImageFunctions.maskThresholdLessThan(test, otsu2, whiteMask);
-
-			/*
-			 * Hessian hess = new Hessian(result); hess.calculateHessian((float) sigma1); if
-			 * (filterComponents) result = hess.getLambda2(); else result =
-			 * hess.getLambda1();
-			 */
-			// float[] sigmas = { 1, 20, 30, 50};
-			// ImageFunctions.drawLine(result, 100, 100, 150,50);
-			float[] sigmas_bright = { 7, 10, 15, 20 };
-			BlobDetector blobs = new BlobDetector(result, null, sigmas_bright);
-
-			ImageProcessor blobDots = blobs.findBlobsBy3x3LocalMaximaAsImage((float) heightTolerance, false,
-					filterComponents, 4);
-			// result = blobs.findBlobsByMaxSigmasImage();
-			// ImageFunctions.drawCirclesBySigmaMarkerks(original, blobDots, true);
-			// ImageFunctions.drawGaussian(result, 200, 200, (float) sigma1);
-			// original = ImageFunctions.operationMorph(original, Operation.BOTTOMHAT,
-			// Strel.Shape.DISK, topHatRadius);
-			// original = MinimaAndMaxima.extendedMaxima(original, minCircularity);
-			// original = MinimaAndMaxima.regionalMinimaByReconstruction(original, 4);
-			// original = MinimaAndMaxima.extendedMinima(original, otsu);
+			ImageProcessor testResult = testFunction(result);
 
 			if (previewing && !doesStacks()) {
 				for (int i = 0; i < ip.getPixelCount(); i++) {
-					ip.setf(i, original.getf(i));
+					ip.setf(i, testResult.getf(i));
 				}
 
 				ip.resetMinAndMax();
@@ -425,7 +393,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		}
 
 		// segmentation(result);
-		result = maximaWatershedSegmentation(result, sigma3, minThreshold, maxThreshold);
+		result = maximaWatershedSegmentation(result, ip, sigma3, minThreshold, maxThreshold);
 
 		result = result.convertToFloatProcessor();
 		result.resetMinAndMax();
@@ -461,13 +429,16 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	 * intensity), markers are minima of the bandpass (or intensity). (1 ver)
 	 * Bandpass or intensity is selected by the checkbox
 	 */
-	private ImageProcessor maximaWatershedSegmentation(ImageProcessor ip, double sigma, double minThreshold,
-			double maxThreshold) {
+	private ImageProcessor maximaWatershedSegmentation(ImageProcessor ip, ImageProcessor original, double sigma,
+			double minThreshold, double maxThreshold) {
 		// assume ip is already preprocessed, i.e. filtered, background subtracted
 		ImageProcessor watershedImage = ip.duplicate();
 		ImageProcessor intensityImg;
 		ImageProcessor watershedMask;
 		intensityImg = ip.duplicate();
+
+		int blobDetection_x_radius = 3;
+		int blobDetection_y_radius = 3;
 
 		if (isBandpass) {
 			bandpassFilter(watershedImage);
@@ -503,17 +474,17 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageProcessor marksDarkBinary, marksBrightBinary;
 		// marks = maxfinder.findMaxima(findMaximaImage, heightTolerance,
 		// MaximumFinder.SINGLE_POINTS, true);
-		marksDarkBinary = blobs.findBlobsBy3x3LocalMaximaAsImage((float) heightTolerance, true, true,
-				maximumNumberOfCells);
-		ImageProcessor marksSigma = blobs.findBlobsBy3x3LocalMaximaAsImage((float) heightTolerance, false, true,
-				maximumNumberOfCells);
+		marksDarkBinary = blobs.findBlobsByLocalMaximaAsImage((float) heightTolerance, true, true, maximumNumberOfCells,
+				blobDetection_x_radius, blobDetection_y_radius, true);
+		ImageProcessor marksSigma = blobs.findBlobsByLocalMaximaAsImage((float) heightTolerance, false, true,
+				maximumNumberOfCells, blobDetection_x_radius, blobDetection_y_radius, true);
 
 		// find bright markers to create more watershed seeds outside of cells
-		marksBrightBinary = brightBlobs.findBlobsBy3x3LocalMaximaAsImage((float) heightToleranceBright, true, true,
-				maximumNumberOfCells / 4);
+		marksBrightBinary = brightBlobs.findBlobsByLocalMaximaAsImage((float) heightToleranceBright, true, true,
+				maximumNumberOfCells / 4, blobDetection_x_radius, blobDetection_y_radius, false);
 
-		ImageProcessor circles = ip.duplicate();
-		ImageFunctions.drawCirclesBySigmaMarkerks(circles, marksSigma, true);
+		ImageProcessor circles = original.duplicate();
+		ImageFunctions.drawCirclesBySigmaMarkerks(circles, marksSigma, true, false);
 
 		if (minCircularity > 0.551)
 			return circles;
@@ -527,32 +498,42 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageFunctions.normalize(watershedImage, 0, 1);
 		// watershedImage = ImageProcessorCalculator.invertedImage(watershedImage);
 
-
 		if (showImageForWatershedding) {
-			ImageFunctions.normalize(watershedImage, 0, 255);
 			return watershedImage;
 		}
 
 		ImageFunctions.mergeMarkers(marksDarkBinary, prevComponentsAnalysis, dilationRadius);
-		marksDarkBinary = ImageFunctions.mergeBinaryMarkersInTheSameRegion(watershedImage, marksDarkBinary, 30,
-				blobMergeThreshold);
-		
-		if (showBlobs) {
-			ImageFunctions.normalize(marksDarkBinary, 0, 5);
-			ImageFunctions.drawCirclesBySigmaMarkerks(watershedImage, marksDarkBinary, true);
-			return watershedImage;
-		}
-		
-		// combine markers from bright and dark blobs, AFTER DARK BLOBS MERGING	
+		if (blobMergeThreshold > 0)
+			marksDarkBinary = ImageFunctions.mergeBinaryMarkersInTheSameRegion(watershedImage, marksDarkBinary, 40,
+					blobMergeThreshold);
+
+		// combine markers from bright and dark blobs, AFTER DARK BLOBS MERGING
 		boolean addBrightMarkers = true;
 		if (addBrightMarkers) {
 			ImageFunctions.addMarkers(marksDarkBinary, marksBrightBinary);
 		}
-		
-		//intensityImg = watershedImage;
+
+		if (showBlobs) {
+			ImageFunctions.normalize(marksDarkBinary, 0, 5);
+			// marksDarkBinary = ImageFunctions.operationMorph(marksDarkBinary,
+			// Operation.DILATION, Strel.Shape.DISK, 2);
+			ip = original;
+//			ImageFunctions.colorCirclesBySigmaMarkers(ip, marksSigma, true, false);
+//			ImageFunctions.colorCirclesBySigmaMarkers(ip, marksDarkBinary, false, false);
+			ImageFunctions.drawCirclesBySigmaMarkerks(ip, marksDarkBinary, true, false);
+			ImagePlus imp = new ImagePlus("markers", ip);
+			//imp.show();
+			return ip;
+		}
+
+		// intensityImg = watershedImage;
 		ImageFunctions.LabelMarker(marksDarkBinary);
 		if (sigma > 0)
-			gaussian.GradientMagnitudeGaussian(watershedImage, (float) sigma); //watershed is better on gradient...
+			gaussian.GradientMagnitudeGaussian(watershedImage, (float) sigma); // watershed is better on gradient...
+		// watershedImage = ImageFunctions.operationMorph(watershedImage,
+		// Operation.OPENING, Strel.Shape.DISK, 3);
+		// ImagePlus grad = new ImagePlus("grad", watershedImage);
+		// grad.show();
 		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(watershedImage,
 				marksDarkBinary, null, 4);
 		ip = watershed.applyWithPriorityQueue();
@@ -561,14 +542,18 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImageComponentsAnalysis compAnalisys;
 
 			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg, true); // get labelled component image and fill
+			if (false) {
+				ImagePlus basins = new ImagePlus("basins", compAnalisys.componentsBasinsImage(1));
+				basins.show();
+			}
+
+			compAnalisys.setComponentsBrightBlobStateByMarks(marksBrightBinary);
 
 			boolean discardWhiteBlobs = true;
-			compAnalisys.setComponentsBrightBlobStateByMarks(marksBrightBinary);
-			
-			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000);
-
-			if (discardWhiteBlobs)
-				compAnalisys.discardWhiteBlobComponents();
+			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000,
+					discardWhiteBlobs);
+			ImagePlus filtered = new ImagePlus("filtered", ip);
+			// filtered.show();
 
 			// here set component's state by marks image (indicate bright blobs)
 			if (startedProcessing) // add roi only if we started processing
@@ -578,6 +563,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 				prevComponentsAnalysis = compAnalisys;
 			tracking.addComponentsAnalysis(compAnalisys);
 		}
+
 		return ip;
 	}
 
@@ -636,14 +622,82 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		IJ.showMessage("ProcessPixels", "a template for processing each pixel of an image");
 	}
 
+	/* function for algorithms testing */
+	private ImageProcessor testFunction(ImageProcessor ip) {
+		ImageProcessor result = ip.duplicate();
+
+		ImagePlus preprocessed = new ImagePlus("pre", result);
+		preprocessed.show();
+		// do some testing and return
+		// ImageFunctions.normalize(result, 0f, 1f);
+		// result = ip;
+		// ImageProcessorCalculator.sub(result,
+		// imagePlus.getStack().getProcessor(selectedSlice - 1));
+		ImageProcessor original = result.duplicate();
+		ImageProcessor test = result.duplicate();
+
+		cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
+		if (isBandpass)
+			ImageProcessorCalculator.constMultiply(result, -1);
+
+		FloatHistogram hist = new FloatHistogram(original);
+		float otsu = hist.otsuThreshold();
+
+		if (topHatRadius > 0)
+			original = ImageFunctions.operationMorph(original, Operation.TOPHAT, Strel.Shape.DISK, topHatRadius);
+
+		if (maximumNumberOfCells > 0) {
+			test = ImageFunctions.operationMorph(test, Operation.CLOSING, Shape.DISK, maximumNumberOfCells);
+			ImageProcessorCalculator.sub(original, test);
+		}
+
+		result = original;
+
+		// ImageProcessor whiteMask = ImageFunctions.maskThresholdMoreThan(test, otsu,
+		// null);
+		// original = whiteMask;
+		// original = ImageFunctions.operationMorph(whiteMask, Operation.OPENING,
+		// Shape.DISK, maximumNumberOfCells);
+		// FloatHistogram histMasked = new FloatHistogram(test, whiteMask);
+		// float otsu2 = histMasked.otsuThreshold();
+		// original = ImageFunctions.maskThresholdLessThan(test, otsu2, whiteMask);
+
+		/*
+		 * Hessian hess = new Hessian(result); hess.calculateHessian((float) sigma1); if
+		 * (filterComponents) result = hess.getLambda2(); else result =
+		 * hess.getLambda1();
+		 */
+		// float[] sigmas = { 1, 20, 30, 50};
+		// ImageFunctions.drawLine(result, 100, 100, 150,50);
+		float[] sigmas_bright = { 7, 10, 15, 20 };
+		BlobDetector blobs = new BlobDetector(result, null, sigmas_bright);
+
+		ImageProcessor blobDots = blobs.findBlobsByLocalMaximaAsImage((float) heightTolerance, false, filterComponents,
+				4, 1, 1, true);
+		// result = blobs.findBlobsByMaxSigmasImage();
+		// ImageFunctions.drawCirclesBySigmaMarkerks(original, blobDots, true);
+		// ImageFunctions.drawGaussian(result, 200, 200, (float) sigma1);
+		// original = ImageFunctions.operationMorph(original, Operation.BOTTOMHAT,
+		// Strel.Shape.DISK, topHatRadius);
+		// original = MinimaAndMaxima.extendedMaxima(original, minCircularity);
+		// original = MinimaAndMaxima.regionalMinimaByReconstruction(original, 4);
+		// original = MinimaAndMaxima.extendedMinima(original, otsu);
+
+		return result;
+	}
+
 	public static void main(String[] args) {
 		boolean testImageJ = true;
 		boolean traConvert = false;
+		// traConvert = true;
 		if (traConvert) {
 			EvaluationFromRoi eval = new EvaluationFromRoi();
 			new ImageJ();
 			String roiFilePath = "C:\\Tokyo\\trackingResults\\c0010901_easy_ex-matchedROI.zip";
 			String imageFilePath = "C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif";
+
+			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010907_easy_ex-matchedROI.zip";
+			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif";
 			eval.convertToTRAformat(roiFilePath, imageFilePath);
 			return;
 		}
@@ -669,16 +723,18 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_ez_division = IJ.openImage("C:\\Tokyo\\division.tif");
 			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
 			ImagePlus image_test_tracking = IJ.openImage("C:\\Tokyo\\test_multi.tif");
+			ImagePlus image_ex_07 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
 			ImagePlus image_shorter_bright_blobs = IJ.openImage("C:\\Tokyo\\Short_c1_ex.tif");
 
 			image = image_bright_blobs;
+			image = image_ex_07;
 			// image = image_stack20;
 			// image = image_stack10;
 			// image = image_stack3;
 			// image = image_c10;
 			// image = image_ez_division;
 			// image = image_test_tracking;
-			image = image_shorter_bright_blobs;
+			// image = image_shorter_bright_blobs;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

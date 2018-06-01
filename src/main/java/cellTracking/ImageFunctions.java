@@ -1,11 +1,15 @@
 package cellTracking;
 
+import java.awt.Color;
+import java.awt.Image;
+import java.awt.image.RGBImageFilter;
 import java.util.ArrayList;
 
 import fiji.threshold.Auto_Threshold;
 import ij.ImagePlus;
 import ij.plugin.filter.RankFilters;
 import ij.process.ByteProcessor;
+import ij.process.ColorProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import inra.ijpb.morphology.Strel;
@@ -555,7 +559,7 @@ public class ImageFunctions {
 			ip.setf(x, y, intensity);
 	}
 
-	public static void drawCirclesBySigmaMarkerks(ImageProcessor ip, ImageProcessor blobMarkers, boolean drawCentre) {
+	public static void drawCirclesBySigmaMarkerks(ImageProcessor ip, ImageProcessor blobMarkers, boolean drawCentre, boolean fill) {
 		float sigma;
 		float maxv = Float.MIN_VALUE;
 		for (int i = 0; i < ip.getPixelCount(); i++)
@@ -565,9 +569,36 @@ public class ImageFunctions {
 			for (int x = 0; x < ip.getWidth(); x++) {
 				sigma = blobMarkers.getf(x, y);
 				if (sigma > 0)
-					drawCircle(ip, sigma * 1.41f, x, y, maxv, drawCentre, false);
+					drawCircle(ip, sigma * 1.41f, x, y, maxv, drawCentre, fill);
 			}
 	}
+	
+	public static void colorCirclesBySigmaMarkers(ImageProcessor ip, ImageProcessor blobMarkers, boolean drawCentre, boolean fill) {
+		ImageProcessor circles = new ByteProcessor(blobMarkers.getWidth(), blobMarkers.getHeight());
+		drawCirclesBySigmaMarkerks(circles, blobMarkers, drawCentre, fill);
+		ColorProcessor cim = new ColorProcessor(blobMarkers.getWidth(), blobMarkers.getHeight());
+		//cim.setChannel(2, circles.convertToByteProcessor());
+		cim = ip.duplicate().convertToColorProcessor();
+		Color green = new Color(0,255,0);
+		cim.setColor(green);
+		
+		double sigma;
+		int radius;
+		for (int y = 0; y < ip.getHeight(); y++)
+			for (int x = 0; x < ip.getWidth(); x++) {
+				sigma = blobMarkers.getf(x, y);
+				if (sigma > 0) {				
+					radius = (int)(sigma * 1.41f);	
+					cim.drawOval(x-radius, y-radius, 2*radius+1, 2*radius+1);
+					cim.drawOval(x-radius+1, y-radius+1, 2*radius-1, 2*radius-1);
+				}
+//					drawCircle(ip, sigma * 1.41f, x, y, maxv, drawCentre, fill);
+			}
+		
+		ImagePlus res = new ImagePlus("colored", cim);
+		res.show();
+	}
+	
 
 	/* draws gaussian on ip in (x,y) with dev sigma */
 	public static void drawGaussian(ImageProcessor ip, int x, int y, float sigma) {
