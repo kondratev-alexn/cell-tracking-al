@@ -140,8 +140,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			// there goes tracking
 			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 3;
-			double oneSliceScoreThreshold = 0.25;
-			double scoreThreshold = 0.5;
+			double oneSliceScoreThreshold = 0.33;
+			double scoreThreshold = 0.6;
 			double timeDecayCoefficient = 0.3;
 			// tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices,
 			// scoreThreshold);
@@ -172,6 +172,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, roiManager, imp);
 			resultGraph.showTrackedComponentImages();
+			ImagePlus coloredTracksImage = resultGraph.drawComponentColoredByFullTracks(imp);
+			coloredTracksImage.show();
+			
 			resultGraph.drawColorComponents(imp);
 			// resultGraph.printTrackedGraph();
 			resultGraph.writeTracksToFile_ctc_afterAnalysis("res_track.txt");
@@ -499,6 +502,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		// watershedImage = ImageProcessorCalculator.invertedImage(watershedImage);
 
 		if (showImageForWatershedding) {
+			ImagePlus imp = new ImagePlus("preprocessed", watershedImage);
+			imp.show();
 			return watershedImage;
 		}
 
@@ -697,12 +702,19 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			String imageFilePath = "C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif";
 
 			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010907_easy_ex-matchedROI.zip";
-			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif";
+			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif";			
+
+			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010906_medium_double_nuclei_ex-matchedROI.zip";
+			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif";
+			
+			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010913_hard_ex-matchedROI.zip";
+			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif";
+			
 			eval.convertToTRAformat(roiFilePath, imageFilePath);
 			return;
 		}
 		if (!testImageJ) {
-			System.out.println("HELLO THERE");
+			System.out.println("Test");
 			TrackingEvaluation tra = new TrackingEvaluation();
 			// tra.writeTracksToFile_ctc("tracks.txt", null);
 		} else {
@@ -725,16 +737,18 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_test_tracking = IJ.openImage("C:\\Tokyo\\test_multi.tif");
 			ImagePlus image_ex_07 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
 			ImagePlus image_shorter_bright_blobs = IJ.openImage("C:\\Tokyo\\Short_c1_ex.tif");
+			ImagePlus image_ex_06 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
 
 			image = image_bright_blobs;
-			image = image_ex_07;
-			// image = image_stack20;
+			//image = image_ex_07;
+			image = image_stack20;
 			// image = image_stack10;
 			// image = image_stack3;
 			// image = image_c10;
 			// image = image_ez_division;
 			// image = image_test_tracking;
 			// image = image_shorter_bright_blobs;
+			//image = image_ex_06;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

@@ -309,12 +309,16 @@ public class NearestNeighbourTracking {
 			for (int i2 = 0; i2 < comp2List.get(t).getComponentsCount(); i2++) {
 				score = (1 + dt * timeDecayCoefficient)
 						* PenaltyFunction.penalFunctionNN(comp1, i1, comp2List.get(t), i2, maxRadius);
-				// System.out.format("Score of component %d in slice %d, t=%d is %f %n", i1, t1,
-				// t, score);
 				if (score > scoreThreshold) {
-					// if (t1 ==4) System.out.format("Score of component %d in slice %d and comp %d,
-					// t=%d was higher than threshold (score = %f) %n", i1, t1, i2, t, score);
+					// if (t1 == 4)
+					// System.out.format(
+					// "Score of component %d in slice %d and comp %d, t=%d was higher than
+					// threshold (score = %f) %n",
+					// i1, t1, i2, t, score);
 					continue;
+				} else {
+					if (score < 10)
+						System.out.format("Score of component %d in slice %d, t=%d is %f %n", i1, t1, t, score);
 				}
 				if (score < score1) {
 					score2 = score1; // previous minimum is now second-minimum
@@ -355,7 +359,7 @@ public class NearestNeighbourTracking {
 
 			if (tracks.getLength(i) < 2 || tr.isEndedOnMitosis())
 				continue;
-			
+
 			startAdjIndex = tr.getStartAdjIndex();
 			endAdjIndex = tr.getEndAdjIndex();
 
@@ -371,7 +375,7 @@ public class NearestNeighbourTracking {
 			WhiteBlobsDetection detection = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 1, 30,
 					tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0);
 			detection.fillWithBlobCandidates(componentsList.get(endSlice + 1).getInvertedIntensityImage(), 30);
-			
+
 			if (detection.isBestBlobValueAboveThreshold(whiteBlobThreshold)) {
 				tr.setEndedOnMitosys();
 			}
@@ -597,8 +601,8 @@ public class NearestNeighbourTracking {
 			ImageFunctions.drawLine(ip, x0, y0, x1, y1);
 		}
 	}
-	
-	/* draw arcs in colorProcessor */	
+
+	/* draw arcs in colorProcessor */
 	public void drawTracksColor(ColorProcessor cim, ArrayList<Arc> arcs, Color color) {
 		int i0, i1, t0, t1;
 		Node n0, n1;
@@ -646,13 +650,13 @@ public class NearestNeighbourTracking {
 		result.setStack(stack);
 		return result;
 	}
-	
+
 	ImagePlus colorTracks(ImagePlus image) {
 		ColorPicker colorPicker = new ColorPicker();
 		ImageStack stack = new ImageStack(image.getWidth(), image.getHeight(), image.getNSlices());
 		System.out.println(image.getNSlices());
 		ColorProcessor cim;
-		
+
 		stack.setProcessor(image.getStack().getProcessor(1).convertToColorProcessor(), 1);
 		for (int i = 2; i <= image.getNSlices(); i++) { // slices are from 1 to n_slices
 			cim = image.getStack().getProcessor(i).duplicate().convertToColorProcessor();
@@ -660,7 +664,7 @@ public class NearestNeighbourTracking {
 			stack.setProcessor(cim, i);
 		}
 		ImagePlus result = new ImagePlus("tracks", stack);
-		
+
 		return result;
 	}
 

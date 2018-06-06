@@ -77,7 +77,14 @@ public class CellTrackingGraph {
 		resetNewIndex();
 		System.out.println("Graph before analyzing: ");
 		System.out.println(trGraph);
+		
+//		for (int i=0; i<prevComponentsList.size(); i++) {
+//			prevComponentsList.get(i).improveComponentContours();
+//			prevComponentsList.set(i, new ImageComponentsAnalysis(images.get(i), prevComponentsList.get(i).getAvrgIntensityImage(), false));
+//		}
 		analyseTrackingGraph(); // new g is generated, images filled with newly labeled components
+		
+		// code below is useless?
 		for (int i = 0; i < componentsList.size(); i++) {
 			ImageComponentsAnalysis comps = new ImageComponentsAnalysis(images.get(i),
 					prevComponentsList.get(i).getAvrgIntensityImage(), false);
@@ -139,6 +146,95 @@ public class CellTrackingGraph {
 				}
 			}
 	}
+	
+	
+	/* draws components colored by full tracks, i.e. the same color even if separated by 1+ slices */
+	public ImagePlus drawComponentColoredByFullTracks(ImagePlus backgroundImage) {
+		if (images.isEmpty() || backgroundImage.getNSlices() != images.size())
+			return backgroundImage;
+		
+		int w,h;
+		w = images.get(0).getWidth();
+		h = images.get(0).getHeight();
+		
+		ImageStack stack = new ImageStack(w, h);
+		for (int i=0; i<images.size(); i++) {
+			stack.addSlice(backgroundImage.getImageStack().getProcessor(i+1).convertToColorProcessor());
+		}
+		
+		ArrayList<Integer> childs;
+		ArrayList<ArrayList<Integer>> adj = Graph.copyAdjList(trGraph.adjLists);
+
+		resetNewIndex();		
+		for (int i = 0; i < adj.size(); i++) {
+			childs = adj.get(i);
+			if (childs.isEmpty())
+				continue;
+			
+			drawColorTrack(stack, adj, Graph.getStartingAdjIndex(adj, i), getNewIndex());
+		}
+		
+		ImagePlus result = new ImagePlus("Full Tracks Colorized", stack);
+		return result;
+	}
+	
+	// entering this function when childs size > 0
+	void drawColorTrack(ImageStack stack, ArrayList<ArrayList<Integer>> adj, int startIndexAdj, int startingTrackNumber) {
+		boolean added = false;
+		ArrayList<Integer> childs = adj.get(startIndexAdj);
+		if (childs.isEmpty()) {
+			System.out.println("Empty childs in draw color track, shouldn't be");
+			return;
+		}
+		int childIndex = -1, t1, t2, ci1, ci2, i1, i2;
+		int startSlice, endSlice, count = 0;
+		int trackNumber = startingTrackNumber;
+		Roi roi;
+
+		drawComponentOnStackColored(stack , startIndexAdj, trackNumber);
+
+		childs = adj.get(startIndexAdj);
+		while (childs.size() == 1) { // track a component until it has no childen (disappear) or 2 children
+										// (division)
+			// add arc to Graph, draw component
+			childIndex = childs.get(0);
+
+			drawComponentOnStackColored(stack, childIndex, trackNumber);
+
+			childs.clear(); // clear to mark component as tracked in parent node
+			childs = adj.get(childIndex); // go to child component
+		}
+		if (childs.size() == 2) { // create division in graph
+
+			ci1 = getNewIndex(); // get next index and increment it
+			drawColorTrack(stack, adj, childs.get(0), ci1);
+
+			ci2 = getNewIndex(); // get new index and increment it
+			drawColorTrack(stack, adj, childs.get(1), ci2);
+
+			childs.clear();
+		}
+	}
+	
+	Roi getComponentsAsSimpleRoi(int sliceIndex, int intensity, int indexInPrev) {
+		ImageComponentsAnalysis prevComp = prevComponentsList.get(sliceIndex);
+		int x0 = prevComp.getComponentX0(indexInPrev);
+		int y0 = prevComp.getComponentY0(indexInPrev);
+
+		ImageProcessor imageComponents = images.get(sliceIndex);
+
+		Roi roi = null;
+		Wand w = new Wand(imageComponents);
+
+		w.autoOutline(x0, y0, intensity, intensity);
+		if (w.npoints > 0) { // we have a roi from the wand...
+			roi = new PolygonRoi(w.xpoints, w.ypoints, w.npoints, Roi.TRACED_ROI);
+			roi.setPosition(sliceIndex + 1);
+		}
+
+		return roi;
+	}
+	
 
 	Roi getComponentAsRoi(int sliceIndex, int intensity, int indexInPrev, int mainTrackIndex, int labelIndex,
 			int childIndex) {
@@ -453,8 +549,8 @@ public class CellTrackingGraph {
 		return result;
 	}
 
-	/* draw arcs in colorProcessor */
-	public void drawComponentsColored(ColorProcessor cim, int slice) {
+	/* draw components in colorProcessor */
+	public void drawComponentsColored(ColorProcessor cp, int slice) {
 		int i0, i1, t0, t1;
 		Node n0, n1;
 		Point p0, p1;
@@ -462,23 +558,30 @@ public class CellTrackingGraph {
 		Color color;
 		int intensity;
 		int x0, x1, y0, y1;
-		for (int y=0; y<cim.getHeight(); y++)
-			for (int x=0; x<cim.getWidth(); x++) {
+		for (int y=0; y<cp.getHeight(); y++)
+			for (int x=0; x<cp.getWidth(); x++) {
 				intensity = images.get(slice-1).get(x, y); 
 				if (intensity != 0) {
-					cim.setColor(ColorPicker.color(intensity));
-					cim.drawPixel(x, y);
+					cp.setColor(ColorPicker.color(intensity));
+					cp.drawPixel(x, y);
 				}
 			}
+	}
+	
+	public void drawComponentOnStackColored(ImageStack stack, int adjIndex, int trackNumber) {
+		int t = trGraph.getNodeSliceByGlobalIndex(adjIndex);
+		int i = trGraph.getNodeIndexByGlobalIndex(adjIndex);
 		
-//		for (int k = 0; k < componentsList.size(); k++) {
-//			roi = componentsList.get(slice).getComponentAsRoi(k, slice);
-//			if (roi != null) {
-//				color = ColorPicker.color(componentsList.get(slice).getComponentDisplayIntensity(k));
-//				cim.setColor(color);
-//				cim.drawPixel(x, y);
-//			}
-//		}
+		Roi roi = prevComponentsList.get(t).getComponentAsRoi(i);
+		ColorProcessor cp = (ColorProcessor) stack.getProcessor(t+1);
+		drawComponentColoredByRoi(cp, roi, ColorPicker.color(trackNumber));
+	}
+	
+	/* draw components in colorProcessor by roi*/
+	public void drawComponentColoredByRoi(ColorProcessor cp, Roi roi, Color color) {
+		cp.setColor(color);
+		roi.setFillColor(color);
+		cp.drawRoi(roi);
 	}
 
 	public ImagePlus getTrackedComponentImages() {

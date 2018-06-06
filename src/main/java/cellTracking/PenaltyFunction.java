@@ -24,7 +24,7 @@ public class PenaltyFunction {
 		int area1, area2;
 		float circ1, circ2;
 		float intensity1, intensity2;
-		
+
 		double p_circ, p_area, p_int, p_dist, p_overlap;
 		area1 = comp1.getComponentArea(i1);
 		circ1 = comp1.getComponentCircularity(i1);
@@ -36,6 +36,11 @@ public class PenaltyFunction {
 		p_circ = normVal(circ1, circ2);
 		p_int = normVal(intensity1, intensity2);
 		p_overlap = calculateOverlapScore(comp1, i1, comp2, i2);
+		System.out.println("overlap = " + p_overlap);
+
+		// ! Important to do this since we need penal function, so that less=better,
+		// while SEG is opposite
+		p_overlap = 1 - p_overlap;
 
 		int minDist_in2 = findClosestPointIndex(m1, comp2, maxRadius);
 		int minDist_in1 = findClosestPointIndex(m2, comp1, maxRadius);
@@ -100,47 +105,52 @@ public class PenaltyFunction {
 	}
 
 	/* calculates |A & B|/|A | B| where A,B are component masks */
-	private static double calculateOverlapScore(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2, int i2) {
+	private static double calculateOverlapScore(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2,
+			int i2) {
 		int union = 0, cross = 0;
 		ImageProcessor compsImage1, compsImage2;
-		
-		int x10,x11,y10,y11, x20,x21,y20,y21;
+		int intensity1, intensity2;
+
+		int x10, x11, y10, y11, x20, x21, y20, y21;
 		x10 = comp1.getComponentX0(i1);
 		x11 = comp1.getComponentX1(i1);
 		y10 = comp1.getComponentY0(i1);
 		y11 = comp1.getComponentY1(i1);
-		
+
 		x20 = comp2.getComponentX0(i2);
 		x21 = comp2.getComponentX1(i2);
 		y20 = comp2.getComponentY0(i2);
 		y21 = comp2.getComponentY1(i2);
-		
+
+		intensity1 = comp1.getComponentDisplayIntensity(i1);
+		intensity2 = comp2.getComponentDisplayIntensity(i2);
+
 		union = comp1.getComponentArea(i1) + comp2.getComponentArea(i2); // - cross
 		if (union == 0) {
 			System.out.println("Trying to compute union score of components with 0 areas");
 			return 1;
 		}
-		
+
 		compsImage1 = comp1.getImageComponents();
 		compsImage2 = comp2.getImageComponents();
-		
-		int x0,x1,y0,y1;
+
+		int x0, x1, y0, y1;
 		x0 = Math.max(x10, x20);
 		y0 = Math.max(y10, y20);
 		x1 = Math.min(x11, x21);
 		y1 = Math.min(y11, y21);
-		
-		int v1,v2;
-		
-		for (int y=y0; y<=y1; y++)
-			for (int x=x0; x<=x1; x++) {
+
+		int v1, v2;
+
+		for (int y = y0; y <= y1; y++)
+			for (int x = x0; x <= x1; x++) {
 				v1 = compsImage1.get(x, y);
-				v2 = compsImage2.get(x,y);
-				if (v1!=0 && v2!=0) 
+				v2 = compsImage2.get(x, y);
+				if (v1 == intensity1 && v2 == intensity2)
 					++cross;
 			}
-		union = union - cross;		
-		return cross/union;		
+		union = union - cross;
+		return (double) cross / union;
 	}
 
 }

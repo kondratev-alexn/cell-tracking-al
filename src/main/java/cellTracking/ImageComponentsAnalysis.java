@@ -51,7 +51,7 @@ public class ImageComponentsAnalysis {
 		for (int i = 0; i < nComponents; i++)
 			properties.add(new ComponentProperties());
 		fillBasicProperties();
-		fillCircularity();
+		fillCircularity();		
 	}
 
 	/*
@@ -495,10 +495,10 @@ public class ImageComponentsAnalysis {
 	 * "d"
 	 */
 	public ImageProcessor getDilatedComponentImage(int nComp, int d) {
-		return getMorphedComponentImage(Operation.DILATION, Strel.Shape.DISK, nComp, d);
+		return getMorphedComponentImage(Operation.DILATION, Strel.Shape.DISK, nComp, d, 1);
 	}
 
-	public ImageProcessor getMorphedComponentImage(Operation op, Shape shape, int nComp, int d) {
+	public ImageProcessor getMorphedComponentImage(Operation op, Shape shape, int nComp, int d, int intensity) {
 		int x0 = properties.get(nComp).xmin;
 		int x1 = properties.get(nComp).xmax;
 		int y0 = properties.get(nComp).ymin;
@@ -512,24 +512,39 @@ public class ImageComponentsAnalysis {
 			for (int y = d; y < result.getHeight() - d; y++) {
 				v = imageComponents.getf(x0 + x - d, y0 + y - d);
 				if (v == compInt)
-					result.setf(x, y, 1);
+					result.setf(x, y, intensity);
 			}
 		result = ImageFunctions.operationMorph(result, op, shape, d);
 		return result;
 	}
 
 	/* draws morphed component in ip. Only draws on background (i.e. intensity=0) */
-	public void drawMorphedComponentOmImage(ImageProcessor ip, Operation op, Shape shape, int nComp, int d) {
+	public void drawMorphedComponentOnImage(ImageProcessor ip, Operation op, Shape shape, int nComp, int d) {
 		int x0 = properties.get(nComp).xmin;
 		int y0 = properties.get(nComp).ymin;
+		int intensity = properties.get(nComp).displayIntensity;
 
-		ImageProcessor compImage = getMorphedComponentImage(op, shape, nComp, d);
+		ImageProcessor compImage = getMorphedComponentImage(op, shape, nComp, d, intensity);
 		for (int x = 0; x < compImage.getWidth(); x++)
 			for (int y = 0; y < compImage.getHeight(); y++) {
 				if (x + x0 >= 0 && y + y0 >= 0 && x + x0 < ip.getWidth() && y + y0 < ip.getHeight())
 					if (ip.get(x, y) == 0)
 						ip.set(x + x0, y + y0, compImage.get(x, y));
 			}
+	}
+	
+	/* change all component contours with morphing to improve
+	 * now dilation 1 with closing 1+ */
+	public void improveComponentContours() {		
+
+		//ImageProcessor compImage = getMorphedComponentImage(op, shape, nComp, d);
+		for (int i=0; i<getComponentsCount(); i++) {
+			drawMorphedComponentOnImage(imageComponents, Operation.DILATION, Strel.Shape.DISK, i, 1);
+		}
+		
+		for (int i=0; i<getComponentsCount(); i++) {
+			drawMorphedComponentOnImage(imageComponents, Operation.CLOSING, Strel.Shape.DISK, i, 2);
+		}
 	}
 
 	/*
@@ -710,14 +725,13 @@ public class ImageComponentsAnalysis {
 		// here we should recalculate all properties...or not here
 	}
 	
-	public Roi getComponentAsRoi(int index, int slice) {
+	public Roi getComponentAsRoi(int index) {
 		Roi roi = null;
 		Wand w = new Wand(imageComponents);
 		int currIntens = getComponentDisplayIntensity(index);	
 		w.autoOutline(properties.get(index).xmin, properties.get(index).ymin, currIntens, currIntens);
 		if (w.npoints > 0) { // we have a roi from the wand...
 			roi = new PolygonRoi(w.xpoints, w.ypoints, w.npoints, Roi.TRACED_ROI);
-			roi.setPosition(slice);
 		}
 		return roi;
 	}
