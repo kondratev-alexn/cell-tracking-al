@@ -520,8 +520,10 @@ public class NearestNeighbourTracking {
 
 		// add first white blobs
 		for (int slice = 0; slice < whiteBlobsTracking.getSlicesCount() - 1; slice++) {
-			whiteBlobsTracking.fillAllSliceDetectionsWithCandidates(slice,
-					componentsList.get(slice).getInvertedIntensityImage(), searchRadius);
+//			whiteBlobsTracking.fillAllSliceDetectionsWithCandidates(slice,
+//					componentsList.get(slice).getInvertedIntensityImage(), searchRadius);
+			whiteBlobsTracking.fillSliceDetectionsWithUniqueCandidates(slice,
+					componentsList.get(slice).getInvertedIntensityImage());
 			// here output candidate components for debugging
 			// if (whiteBlobsTracking.hasDetections(slice)) {
 			// ImagePlus debugComponents = new ImagePlus(Integer.toString(slice),

@@ -204,7 +204,7 @@ public class CellTrackingGraph {
 			childs.clear(); // clear to mark component as tracked in parent node
 			childs = adj.get(childIndex); // go to child component
 		}
-		if (childs.size() == 2) { // create division in graph
+		if (childs.size() > 2) { // create division in graph
 
 			ci1 = getNewIndex(); // get next index and increment it
 			drawColorTrack(stack, adj, childs.get(0), ci1);
@@ -212,7 +212,9 @@ public class CellTrackingGraph {
 			ci2 = getNewIndex(); // get new index and increment it
 			drawColorTrack(stack, adj, childs.get(1), ci2);
 
-			childs.clear();
+//			childs.clear();
+			childs.remove(0);
+			childs.remove(0);
 		}
 	}
 	
@@ -369,7 +371,7 @@ public class CellTrackingGraph {
 					System.out.println(" ### roi is null for slice " + t1 + " count " + count);
 			}
 		}
-		if (childs.size() == 2) { // create division in graph
+		if (childs.size() > 2) { // create division in graph
 			// add needed arcs from v1 to its children and add 2
 			t2 = trGraph.getNodeSliceByGlobalIndex(childs.get(0));
 			// SO THERE ARE SOME PROBLMES INVOLVING NEW INDEXES OF PARENT NODES WHEN
@@ -393,7 +395,9 @@ public class CellTrackingGraph {
 
 			addTrack(adj, childs.get(1), ci2);
 
-			childs.clear();
+			//childs.clear();
+			childs.remove(0);
+			childs.remove(0);
 		}
 		// better add division events here, because we have index
 		return added;
@@ -500,7 +504,7 @@ public class CellTrackingGraph {
 		}
 
 		result = result.concat(trackString(currTrackIndex, startSlice, t2, parentTrackIndex));
-		if (childs.size() == 2) { // division
+		if (childs.size() > 2) { // division
 
 			result = result.concat(System.getProperty("line.separator"));
 			ci1 = g.getNodeIndexByGlobalIndex(childs.get(0));
@@ -510,7 +514,9 @@ public class CellTrackingGraph {
 			ci2 = g.getNodeIndexByGlobalIndex(childs.get(1));
 			result = result.concat(getTrackString(g, adj, childs.get(1), getNewIndex(), ci2, currTrackIndex));
 
-			childs.clear();
+//			childs.clear();
+			childs.remove(0);
+			childs.remove(0);
 		}
 		return result;
 	}

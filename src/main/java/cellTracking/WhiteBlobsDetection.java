@@ -238,8 +238,8 @@ public class WhiteBlobsDetection {
 		float[] sigmas = { 7, 10, 15, 20 };
 		BlobDetector detector = new BlobDetector(image, mask, sigmas);
 		// search some blobs and get the closest one to the center
-		ArrayList<PointWithScale> points = detector.findBlobsBy3x3LocalMaximaAsPoints(0.001f, true,
-				getBlobSearchCount(), 3, 3);
+		ArrayList<PointWithScale> points = detector.findBlobsByLocalMaximaAsPoints(0.001f, true,
+				getBlobSearchCount(), 2, 2, true);
 		System.out.println(slice);
 		System.out.println(points);
 
@@ -272,7 +272,7 @@ public class WhiteBlobsDetection {
 	public ImageProcessor getBlobMaskImage(int width, int height, int blobIndex, int intensity) {
 		ImageProcessor mask = new ByteProcessor(width, height);
 		PointWithScale pws = blobCenters.get(blobIndex);
-		System.out.println("sigma = " + pws.sigma);
+		//System.out.println("sigma = " + pws.sigma);
 		ImageFunctions.drawCircle(mask, (float) pws.sigma * 1.41f, (int) pws.point.getX(), (int) pws.point.getY(),
 				intensity, false, true);
 		return mask;

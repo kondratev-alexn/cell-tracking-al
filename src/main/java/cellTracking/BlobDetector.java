@@ -18,7 +18,7 @@ public class BlobDetector {
 	/* stack of hessians with different sigmas */
 	private Hessian[] hessians;
 
-	BlobDetector(ImageProcessor image, ImageProcessor blobs_mask, float[] sigmas) {
+	public BlobDetector(ImageProcessor image, ImageProcessor blobs_mask, float[] sigmas) {
 		ip = image;
 		mask = blobs_mask;
 		scaleSigmas = sigmas;
@@ -30,14 +30,15 @@ public class BlobDetector {
 	}
 
 	/* returns N maxima blobs as a list of points */
-	public ArrayList<PointWithScale> findBlobsBy3x3LocalMaximaAsPoints(float thresholdLambda, boolean useLaplacian,
-			int leaveNMax, int k_x_radius, int k_y_radius) {
+	public ArrayList<PointWithScale> findBlobsByLocalMaximaAsPoints(float thresholdLambda, boolean useLaplacian,
+			int leaveNMax, int k_x_radius, int k_y_radius, boolean considerFirstSigmaAsMaxima) {
 		ImageProcessor stack[] = new ImageProcessor[hessians.length];
 		ArrayList<PointWithScale> list = new ArrayList<PointWithScale>(5);
 		for (int z = 0; z < hessians.length; z++) {
 			if (useLaplacian) {
 				stack[z] = hessians[z].getLambda2();
 				ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); // laplacian
+				ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); // laplacian + lambda 1
 			} else
 				stack[z] = hessians[z].getLambda1();
 		}
@@ -46,13 +47,14 @@ public class BlobDetector {
 		ArrayList<Integer> maxima_x = new ArrayList<Integer>(20);
 		ArrayList<Integer> maxima_y = new ArrayList<Integer>(20);
 		ArrayList<Integer> maxima_z = new ArrayList<Integer>(20);
-
+		
+		int zStackStart = considerFirstSigmaAsMaxima?0:1;
 		for (int y = k_y_radius; y < ip.getHeight() - k_y_radius; y++)
 			for (int x = k_x_radius; x < ip.getWidth() - k_x_radius; x++) {
 				result.setf(x, y, 0);
 				if (mask != null && mask.get(x, y) <= 0)
 					continue;
-				for (int z = 0; z < hessians.length; z++) {
+				for (int z = zStackStart; z < hessians.length; z++) {
 					if (isLocalMaximumThresholded3D(stack, x, y, z, thresholdLambda, k_x_radius, k_y_radius))
 						if (leaveNMax != -1) {
 							maxima_x.add(x);
@@ -127,6 +129,7 @@ public class BlobDetector {
 			if (useLaplacian) {
 				stack[z] = hessians[z].getLambda2().duplicate();
 				ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); // laplacian
+				ImageProcessorCalculator.add(stack[z], hessians[z].getLambda1()); // laplacian + lambda 1
 			} else
 				stack[z] = hessians[z].getLambda1().duplicate();
 			// ImageProcessorCalculator.linearCombination(0.5f, stack[z], 0.5f,

@@ -469,7 +469,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		float[] sigmas_bright = { 4, 7, 10, 15, 20 };
 
 		// detect bright blobs
-		ImageProcessor ip_brightBlobs = ip.duplicate();
+		ImageProcessor ip_brightBlobs = intensityImg.duplicate();
 		ImageProcessorCalculator.constMultiply(ip_brightBlobs, -1);
 		BlobDetector brightBlobs = new BlobDetector(ip_brightBlobs, cellMask, sigmas_bright);
 
@@ -507,13 +507,13 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			return watershedImage;
 		}
 
-		ImageFunctions.mergeMarkers(marksDarkBinary, prevComponentsAnalysis, dilationRadius);
+		//ImageFunctions.mergeMarkers(marksDarkBinary, prevComponentsAnalysis, dilationRadius);
 		if (blobMergeThreshold > 0)
-			marksDarkBinary = ImageFunctions.mergeBinaryMarkersInTheSameRegion(watershedImage, marksDarkBinary, 40,
+			marksDarkBinary = ImageFunctions.mergeBinaryMarkersInTheSameRegion(watershedImage, marksDarkBinary, 35,
 					blobMergeThreshold);
 
 		// combine markers from bright and dark blobs, AFTER DARK BLOBS MERGING
-		boolean addBrightMarkers = true;
+		boolean addBrightMarkers = false;
 		if (addBrightMarkers) {
 			ImageFunctions.addMarkers(marksDarkBinary, marksBrightBinary);
 		}
@@ -547,14 +547,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImageComponentsAnalysis compAnalisys;
 
 			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg, true); // get labelled component image and fill
-			if (false) {
-				ImagePlus basins = new ImagePlus("basins", compAnalisys.componentsBasinsImage(1));
-				basins.show();
-			}
 
 			compAnalisys.setComponentsBrightBlobStateByMarks(marksBrightBinary);
 
-			boolean discardWhiteBlobs = true;
+			boolean discardWhiteBlobs = false;
 			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000,
 					discardWhiteBlobs);
 			ImagePlus filtered = new ImagePlus("filtered", ip);
@@ -731,24 +727,25 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_stack20 = IJ.openImage("C:\\Tokyo\\C002_Movement.tif");
 			ImagePlus image_c14 = IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010914_C002.tif");
 			ImagePlus image_stack3 = IJ.openImage("C:\\Tokyo\\\\movement_3images.tif");
-			ImagePlus image_bright_blobs = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
-			ImagePlus image_ez_division = IJ.openImage("C:\\Tokyo\\division.tif");
 			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
-			ImagePlus image_test_tracking = IJ.openImage("C:\\Tokyo\\test_multi.tif");
-			ImagePlus image_ex_07 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
 			ImagePlus image_shorter_bright_blobs = IJ.openImage("C:\\Tokyo\\Short_c1_ex.tif");
+			
+			ImagePlus image_ex_01 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
 			ImagePlus image_ex_06 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
+			ImagePlus image_ex_07 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
+			ImagePlus image_ex_13 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
 
-			image = image_bright_blobs;
+			image = image_ex_01;
 			//image = image_ex_07;
-			image = image_stack20;
+			//image = image_stack20;
 			// image = image_stack10;
 			// image = image_stack3;
 			// image = image_c10;
 			// image = image_ez_division;
 			// image = image_test_tracking;
 			// image = image_shorter_bright_blobs;
-			//image = image_ex_06;
+			image = image_ex_06;
+			image = image_ex_13;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import javax.security.auth.DestroyFailedException;
 
+import blob_detection.WhiteBlobsComponents;
 import graph.Graph;
 import graph.Node;
 import ij.ImagePlus;
@@ -58,9 +59,14 @@ public class WhiteBlobsTracking {
 			fillWhiteBlobsDetectionWithBlobCandidates(slice, index, image, searchRadius);
 		}
 	}
+	
+	public void fillSliceDetectionsWithUniqueCandidates(int slice, ImageProcessor image) {
+		WhiteBlobsComponents whiteBlobs = new WhiteBlobsComponents(image, 5*detectionsLists.get(slice).size());
+		whiteBlobs.distributeBlobsBetweenDetections(detectionsLists.get(slice));
+	}
 
 	/* fills WhiteBlobsDetection with several white blobs for further analysis */
-	public void fillWhiteBlobsDetectionWithBlobCandidates(int slice, int index, ImageProcessor image,
+	private void fillWhiteBlobsDetectionWithBlobCandidates(int slice, int index, ImageProcessor image,
 			int searchRadius) {
 		WhiteBlobsDetection detection = getDetection(slice, index);
 		detection.fillWithBlobCandidates(image, searchRadius);
@@ -293,7 +299,7 @@ public class WhiteBlobsTracking {
 					detection.addTrackCandidateIndex(trackIndexesStartingNextSlice.get(j));
 			}
 		}
-	}
+	}	
 
 	// 1-2 division for case when intensity of the first blob drops
 	// track are sought from detectionSlice - slicesBefore to detetionSlice +

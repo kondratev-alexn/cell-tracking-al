@@ -399,9 +399,12 @@ public class ImageFunctions {
 		return false;
 	}
 
-	/* merges markers */
+	/*
+	 * merges markers by thresholding the derivative of the intensity profile
+	 * between the blobs
+	 */
 	public static ImageProcessor mergeBinaryMarkersInTheSameRegion(ImageProcessor ip, ImageProcessor markerIp,
-			double mergeRadius, float totalVariationThreshold) {
+			double mergeRadius, float derivativeThreshold) {
 		ArrayList<Point> markers = new ArrayList<Point>(20);
 		for (int y = 0; y < markerIp.getHeight(); y++)
 			for (int x = 0; x < markerIp.getWidth(); x++) {
@@ -420,7 +423,10 @@ public class ImageFunctions {
 				p2 = markers.get(j);
 				if (p1.distTo(p2) > mergeRadius)
 					continue;
-				if (arePointsInSameRegion(ip, p1.getX(), p1.getY(), p2.getX(), p2.getY(), totalVariationThreshold)) {
+				// if (arePointsInSameRegion(ip, p1.getX(), p1.getY(), p2.getX(), p2.getY(),
+				// derivativeThreshold)) {
+				if (arePointsInSameRegionLongerProfiles(ip, p1.getX(), p1.getY(), p2.getX(), p2.getY(),
+						derivativeThreshold)) {
 					// merge markers
 					p = Point.center(p1, p2);
 					markers.add(j + 1, p);
@@ -473,17 +479,17 @@ public class ImageFunctions {
 				max = values[i];
 		}
 
-//		for (int i = 0; i < nPoints; i++) {
-//			values[i] = (values[i] - min) / (max - min);
-//		}
+		// for (int i = 0; i < nPoints; i++) {
+		// values[i] = (values[i] - min) / (max - min);
+		// }
 
 		float totalVariation = 0;
 		float maxDerivative = Float.MIN_VALUE;
 		for (int i = 0; i < nPoints - 1; i++) {
 			derivative[i] = values[i + 1] - values[i];
-			if(Math.abs(derivative[i]) > maxDerivative)
+			if (Math.abs(derivative[i]) > maxDerivative)
 				maxDerivative = Math.abs(derivative[i]);
-			//totalVariation += Math.abs(derivative[i]);
+			// totalVariation += Math.abs(derivative[i]);
 		}
 
 		// System.out.println("deriv sum between points (" + x1 + ", " + y1 + ") and ("
@@ -492,8 +498,96 @@ public class ImageFunctions {
 		// System.out.print(values[i] + ", ");
 		// System.out.println();
 
-		//return totalVariation < totalVariationThreshold;
+		// return totalVariation < totalVariationThreshold;
 		return maxDerivative < totalVariationThreshold;
+	}
+
+	private static boolean arePointsInSameRegionLongerProfiles(ImageProcessor ip, double x1, double y1, double x2,
+			double y2, double threshold) {
+		int nPoints = (int) Point.dist(new Point(x1, y1), new Point(x2, y2)) + 1;
+		if (nPoints < 3)
+			return true;
+
+		// first create longer profile, namely add k*length of the profile length to
+		// start and end
+		double k = nPoints > 10 ? 1.5 : 2;
+		double ddx = x2 - x1;
+		double ddy = y2 - y1;
+		double x_start = x1 - k * ddx;
+		double y_start = y1 - k * ddy;
+		double x_end = x2 + k * ddx;
+		double y_end = y2 + k * ddy;
+
+		if (x_start < 0)
+			x_start = 0;
+		if (x_start > ip.getWidth() - 2)
+			x_start = ip.getWidth() - 2;
+		if (x_end < 0)
+			x_end = 0;
+		if (x_end > ip.getWidth() - 2)
+			x_end = ip.getWidth() - 2;
+		if (y_start < 0)
+			y_start = 0;
+		if (y_start > ip.getHeight() - 2)
+			y_start = ip.getHeight() - 2;
+		if (y_end < 0)
+			y_end = 0;
+		if (y_end > ip.getHeight() - 2)
+			y_end = ip.getHeight() - 2;
+
+		nPoints = (int) Point.dist(new Point(x_start, y_start), new Point(x_end, y_end)) + 1;
+
+		float[] profile = new float[nPoints];
+		float[] derivative = new float[nPoints - 1];
+		double dx = (x_end - x_start) / (nPoints - 1);
+		double dy = (y_end - y_start) / (nPoints - 1);
+		double x, y;
+		float max = Float.MIN_VALUE, min = Float.MAX_VALUE;
+		float max_inner = Float.MIN_VALUE, min_inner = Float.MAX_VALUE;
+
+		for (int i = 0; i < nPoints; i++) {
+			x = x_start + i * dx;
+			y = y_start + i * dy;
+			profile[i] = bilinearValue(ip, x, y);
+			if (profile[i] < min)
+				min = profile[i];
+			if (profile[i] > max)
+				max = profile[i];
+			if (dx != 0) {
+				if ((dx > 0 && x >= x1 || dx < 0 && x <= x1) && (dx > 0 && x <= x2 || dx < 0 && x >= x2)) {
+					if (profile[i] < min_inner)
+						min_inner = profile[i];
+					if (profile[i] > max_inner)
+						max_inner = profile[i];
+				}
+			} else {
+				if ((dy > 0 && y >= y1 || dy < 0 && y <= y1) && (dy > 0 && y <= x2 || dy < 0 && y >= x2)) {
+					if (profile[i] < min_inner)
+						min_inner = profile[i];
+					if (profile[i] > max_inner)
+						max_inner = profile[i];
+				}
+			}
+		}
+		// normalize
+		for (int i = 0; i < nPoints; i++) {
+			profile[i] = (profile[i] - min) / (max - min);
+		}
+		min_inner = (min_inner - min) / (max - min);
+		max_inner = (max_inner - min) / (max - min);
+
+		double div_inner = max_inner - min_inner;
+
+		if (div_inner < threshold) {
+			System.out.println("printing profile for points (" + x1 + ", " + y1 + ") and (" + x2 + ", " + y2 + "), div "
+					+ div_inner);
+			for (int i = 0; i < nPoints; i++) {
+				System.out.print(profile[i] + ", ");
+			}
+			System.out.println();
+		}
+
+		return div_inner < threshold;
 	}
 
 	private static float bilinearValue(ImageProcessor ip, double x, double y) {
@@ -559,7 +653,8 @@ public class ImageFunctions {
 			ip.setf(x, y, intensity);
 	}
 
-	public static void drawCirclesBySigmaMarkerks(ImageProcessor ip, ImageProcessor blobMarkers, boolean drawCentre, boolean fill) {
+	public static void drawCirclesBySigmaMarkerks(ImageProcessor ip, ImageProcessor blobMarkers, boolean drawCentre,
+			boolean fill) {
 		float sigma;
 		float maxv = Float.MIN_VALUE;
 		for (int i = 0; i < ip.getPixelCount(); i++)
@@ -572,33 +667,33 @@ public class ImageFunctions {
 					drawCircle(ip, sigma * 1.41f, x, y, maxv, drawCentre, fill);
 			}
 	}
-	
-	public static void colorCirclesBySigmaMarkers(ImageProcessor ip, ImageProcessor blobMarkers, boolean drawCentre, boolean fill) {
+
+	public static void colorCirclesBySigmaMarkers(ImageProcessor ip, ImageProcessor blobMarkers, boolean drawCentre,
+			boolean fill) {
 		ImageProcessor circles = new ByteProcessor(blobMarkers.getWidth(), blobMarkers.getHeight());
 		drawCirclesBySigmaMarkerks(circles, blobMarkers, drawCentre, fill);
 		ColorProcessor cim = new ColorProcessor(blobMarkers.getWidth(), blobMarkers.getHeight());
-		//cim.setChannel(2, circles.convertToByteProcessor());
+		// cim.setChannel(2, circles.convertToByteProcessor());
 		cim = ip.duplicate().convertToColorProcessor();
-		Color green = new Color(0,255,0);
+		Color green = new Color(0, 255, 0);
 		cim.setColor(green);
-		
+
 		double sigma;
 		int radius;
 		for (int y = 0; y < ip.getHeight(); y++)
 			for (int x = 0; x < ip.getWidth(); x++) {
 				sigma = blobMarkers.getf(x, y);
-				if (sigma > 0) {				
-					radius = (int)(sigma * 1.41f);	
-					cim.drawOval(x-radius, y-radius, 2*radius+1, 2*radius+1);
-					cim.drawOval(x-radius+1, y-radius+1, 2*radius-1, 2*radius-1);
+				if (sigma > 0) {
+					radius = (int) (sigma * 1.41f);
+					cim.drawOval(x - radius, y - radius, 2 * radius + 1, 2 * radius + 1);
+					cim.drawOval(x - radius + 1, y - radius + 1, 2 * radius - 1, 2 * radius - 1);
 				}
-//					drawCircle(ip, sigma * 1.41f, x, y, maxv, drawCentre, fill);
+				// drawCircle(ip, sigma * 1.41f, x, y, maxv, drawCentre, fill);
 			}
-		
+
 		ImagePlus res = new ImagePlus("colored", cim);
 		res.show();
 	}
-	
 
 	/* draws gaussian on ip in (x,y) with dev sigma */
 	public static void drawGaussian(ImageProcessor ip, int x, int y, float sigma) {
