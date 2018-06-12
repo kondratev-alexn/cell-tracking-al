@@ -561,7 +561,7 @@ public class ImageFunctions {
 						max_inner = profile[i];
 				}
 			} else {
-				if ((dy > 0 && y >= y1 || dy < 0 && y <= y1) && (dy > 0 && y <= x2 || dy < 0 && y >= x2)) {
+				if ((dy > 0 && y >= y1 || dy < 0 && y <= y1) && (dy > 0 && y <= y2 || dy < 0 && y >= y2)) {
 					if (profile[i] < min_inner)
 						min_inner = profile[i];
 					if (profile[i] > max_inner)
@@ -578,14 +578,14 @@ public class ImageFunctions {
 
 		double div_inner = max_inner - min_inner;
 
-		if (div_inner < threshold) {
-			System.out.println("printing profile for points (" + x1 + ", " + y1 + ") and (" + x2 + ", " + y2 + "), div "
-					+ div_inner);
-			for (int i = 0; i < nPoints; i++) {
-				System.out.print(profile[i] + ", ");
-			}
-			System.out.println();
-		}
+//		if (div_inner < threshold) {
+//			System.out.println("printing profile for points (" + x1 + ", " + y1 + ") and (" + x2 + ", " + y2 + "), div "
+//					+ div_inner);
+//			for (int i = 0; i < nPoints; i++) {
+//				System.out.print(profile[i] + ", ");
+//			}
+//			System.out.println();
+//		}
 
 		return div_inner < threshold;
 	}

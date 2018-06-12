@@ -1,6 +1,7 @@
 package cellTracking;
 
 import java.util.ArrayList;
+import java.util.Collections;
 
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
@@ -13,7 +14,7 @@ public class WhiteBlobsDetection {
 	private int radius;
 	private int slice;
 	private int blobSearchCount; // number of blobs to be searched in this detection (should be 1 ~ 5)
-	private int nodeIndex; // node index in the tracking graph. Used for connecting to other tracks.
+	private int parentAdjIndex; // node index in the tracking graph. Used for connecting to other tracks.
 							// The node is for 'parent'
 
 	private int firstBlobNodeIndex = -1; // index of the node corresponding to the first blob
@@ -46,19 +47,19 @@ public class WhiteBlobsDetection {
 	 * the first slice there is only 1 blob possible, then there can be 1 or 2
 	 * (maybe stop detecting after two child-worthy blobs were detected?..)
 	 */
-	public WhiteBlobsDetection(double xCenter, double yCenter, int slice, int radius, int nodeIndexInTrackingGraph,
+	public WhiteBlobsDetection(double xCenter, double yCenter, int slice, int radius, int parentAdjIndexInTrackingGraph,
 			boolean needSecondDetection, ArrayList<Integer> previousTrackCandidateIndexes, float parentAvrgIntensity) {
 		center = new Point(xCenter, yCenter);
 		this.slice = slice;
 		// firstBlobCenter = new Point(0, 0);
 		// secondBlobCenter = new Point(0, 0);
+		blobSearchCount = 5;
 		blobCenters = new ArrayList<PointWithScale>(blobSearchCount);
 		trackCandidatesIndexes = new ArrayList<Integer>(previousTrackCandidateIndexes);
 		parentFirstBlobAverageIntensity = parentAvrgIntensity;
 		this.radius = radius;
-		nodeIndex = nodeIndexInTrackingGraph;
+		parentAdjIndex = parentAdjIndexInTrackingGraph;
 		isSecondDetectionNeeded = needSecondDetection;
-		blobSearchCount = 5;
 	}
 
 	// public void setFirstBlobCenter(double x, double y) {
@@ -153,8 +154,8 @@ public class WhiteBlobsDetection {
 		this.secondBlobComponentIndex = secondBlobComponentIndex;
 	}
 
-	public int getNodeIndex() {
-		return nodeIndex;
+	public int getParentAdjIndex() {
+		return parentAdjIndex;
 	}
 
 	public int getRadius() {
@@ -233,6 +234,30 @@ public class WhiteBlobsDetection {
 		return secondBlobIndex;
 	}
 	
+	public void sortBlobs() {
+		PointWithScale p_i, bestPoint;
+		double val;
+		double max_val;
+		int best_index;
+
+		for (int i = 0; i < blobCenters.size(); i++) { // sort points by distance from center (the closer the better)
+			max_val = Double.MIN_VALUE;
+			best_index = i;
+			for (int j = i; j < blobCenters.size(); j++) { // find maximum
+				val = blobCenters.get(j).sortValue(getAreaCenter(), getRadius());
+				if (val > max_val) {
+					max_val = val;
+					best_index = j;
+				}
+			}
+			Collections.swap(blobCenters, i, best_index);
+		}
+		
+		System.out.format("Sorted blobs for detection at slice %d, parent Adj %d", slice, parentAdjIndex);
+		System.out.println();
+		System.out.println(blobCenters);
+	}
+	
 	public void fillWithBlobCandidates(ImageProcessor image, int searchRadius) {
 		ImageProcessor mask = getDetectionMaskImage(image.getWidth(), image.getHeight(), searchRadius);
 		float[] sigmas = { 7, 10, 15, 20 };
@@ -240,9 +265,9 @@ public class WhiteBlobsDetection {
 		// search some blobs and get the closest one to the center
 		ArrayList<PointWithScale> points = detector.findBlobsByLocalMaximaAsPoints(0.001f, true,
 				getBlobSearchCount(), 2, 2, true);
-		System.out.println(slice);
+		System.out.println(slice + ": Filling detection with blob candidates");
 		System.out.println(points);
-
+		
 		PointWithScale p_i, bestPoint;
 		double val;
 		double max_val;

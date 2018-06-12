@@ -378,6 +378,7 @@ public class NearestNeighbourTracking {
 
 			if (detection.isBestBlobValueAboveThreshold(whiteBlobThreshold)) {
 				tr.setEndedOnMitosys();
+				System.out.println("track " + i + " ended on mitosis by bright blob");
 			}
 		}
 	}
@@ -448,8 +449,10 @@ public class NearestNeighbourTracking {
 			}
 			System.out.println();
 
-			if (trackValues.size() > 3 && checkEndedOnMitosis(trackValues, (float) mitosisStartIntensityCoefficient))
+			if (trackValues.size() > 3 && checkEndedOnMitosis(trackValues, (float) mitosisStartIntensityCoefficient)) {
 				tr.setEndedOnMitosys();
+				System.out.println("track " + i + " ended on mitosis by intensity change ");
+			}
 
 			trackValues.clear();
 		}
@@ -520,17 +523,20 @@ public class NearestNeighbourTracking {
 
 		// add first white blobs
 		for (int slice = 0; slice < whiteBlobsTracking.getSlicesCount() - 1; slice++) {
-//			whiteBlobsTracking.fillAllSliceDetectionsWithCandidates(slice,
-//					componentsList.get(slice).getInvertedIntensityImage(), searchRadius);
+			System.out.println();
+			System.out.println("--- Mitosis tracking: slice " + slice);
 			whiteBlobsTracking.fillSliceDetectionsWithUniqueCandidates(slice,
 					componentsList.get(slice).getInvertedIntensityImage());
+			whiteBlobsTracking.sortBlobsInDetections(slice);
 			// here output candidate components for debugging
 			// if (whiteBlobsTracking.hasDetections(slice)) {
 			// ImagePlus debugComponents = new ImagePlus(Integer.toString(slice),
 			// whiteBlobsTracking.getComponentCandidatesImage(slice));
 			// debugComponents.show();
 			// }
+			System.out.println("--- Mitosis tracking: Filling first Blobs");
 			whiteBlobsTracking.fillFirstBlobs(slice);
+			System.out.println("--- Mitosis tracking: Filling second Blobs");
 			whiteBlobsTracking.fillSecondBlobs(slice, childPenalThreshold);
 
 			// whiteBlobsTracking.fillTrackCandidateIndexes(slice, searchTracksRadius);

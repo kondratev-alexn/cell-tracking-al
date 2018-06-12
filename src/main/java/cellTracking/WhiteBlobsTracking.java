@@ -78,6 +78,12 @@ public class WhiteBlobsTracking {
 					detection.getBlobCenter(i).sortValue(detection.getAreaCenter(), detection.getRadius()));
 		}
 	}
+	
+	public void sortBlobsInDetections(int slice) {
+		for (int index = 0; index < detectionsLists.get(slice).size(); index++) {
+			detectionsLists.get(slice).get(index).sortBlobs();
+		}
+	}
 
 	/* should be called after detections are filled with blobs */
 	public void fillFirstBlobs(int slice) {
@@ -93,7 +99,7 @@ public class WhiteBlobsTracking {
 			detection = detections.get(i);
 			for (int j = 0; j < detection.getBlobCentersCount(); j++) { // start from index 0, since its the closest one
 				p = detection.getBlobCenter(j);
-				System.out.format("First blob fill: Slice %d, Detection index %d, blob index %d %n", slice, i, j);
+				System.out.format(" *** First blob fill: Slice %d, Detection index %d, blob index %d %n", slice, i, j);
 				if (!isPointInOtherDetections(p.point, slice)) { // search for the closest blob
 
 					// draw component in components image (as filled circle, radius = sqrt(2)*sigma)
@@ -111,19 +117,19 @@ public class WhiteBlobsTracking {
 						avrgIntensity = componentsList.get(slice).getComponentAvrgIntensity(index);
 
 						v = new Node(slice, index);
-						g.addArcFromIndexToNodeAddable(detection.getNodeIndex(), v);
+						g.addArcFromIndexToNodeAddable(detection.getParentAdjIndex(), v);
 						detection.setFirstBlobNodeIndex(g.getNodeIndex(v));
 
 						componentsList.get(slice).setComponentState(index, State.MITOSIS);
 						componentsList.get(slice).setComponentHasParent(index);
 
-						System.out.format("first blob's (%f, %f) avrg intensity is %f, blob val is %f %n",
+						System.out.format("First blob's (%f, %f) avrg intensity is %f, blob val is %f %n",
 								p.point.getX(), p.point.getY(), avrgIntensity, p.value);
 
 						// if intensity of the first blob severely dropped compared to its parent, then
 						// we should search for child tracks
 						if (avrgIntensity < detection.getParentFirstBlobAverageIntensity() * 0.65) {
-							System.out.println("track terminated due to intensity change");
+							System.out.println("White blob tracking terminated due to intensity change");
 							// look for child tracks
 							connectFirstBlobToTwoTracks(detection, 40, 4, 6);
 
@@ -144,7 +150,7 @@ public class WhiteBlobsTracking {
 						}
 						break;
 					} else {
-						System.out.println("component wasn't added during first blob fill");
+						System.out.println("Component wasn't added during first blob fill");
 						// terminate track
 					}
 				}
@@ -171,6 +177,9 @@ public class WhiteBlobsTracking {
 		boolean isChilds;
 		for (int i = 0; i < detections.size(); i++) {
 			detection = detections.get(i);
+			if (!detection.isSecondDetectionNeeded()) {
+				continue;
+			}
 			// first check if there are enough blobs. If only one, create next detection
 			if (detection.getBlobCentersCount() == 1 && detection.isFirstDetected()) {
 
@@ -203,9 +212,9 @@ public class WhiteBlobsTracking {
 					if (index2 != -1) { // component was succesfully added
 
 						// checking if childs
-						prevIndex = g.getNodeIndexByGlobalIndex(detection.getNodeIndex());
-						prevSlice = g.getNodeSliceByGlobalIndex(detection.getNodeIndex());
-						System.out.format("checking for child in slice %d %n", slice);
+						prevIndex = g.getNodeIndexByGlobalIndex(detection.getParentAdjIndex());
+						prevSlice = g.getNodeSliceByGlobalIndex(detection.getParentAdjIndex());
+						System.out.format("Checking for child in slice %d %n", slice);
 						parentCenter = componentsList.get(prevSlice).getComponentMassCenter(prevIndex);
 						parentAvrgIntensity = componentsList.get(prevSlice).getComponentAvrgIntensity(prevIndex);
 
@@ -214,7 +223,7 @@ public class WhiteBlobsTracking {
 
 						if (isChilds) {
 							v = new Node(slice, index2);
-							g.addArcFromIndexToNodeAddable(detection.getNodeIndex(), v);
+							g.addArcFromIndexToNodeAddable(detection.getParentAdjIndex(), v);
 
 							detection.setSecondBlobIndex(j);
 							detection.setSecondDetected();
@@ -242,7 +251,7 @@ public class WhiteBlobsTracking {
 									thisFirstBlobAvrgIntensity);
 
 							System.out.format(
-									"child not detected, creating detection with parent adj %d at (%f, %f) %n",
+									"Child not detected, creating detection with parent adj %d at (%f, %f) %n",
 									detection.getFirstBlobNodeIndex(), x, y);
 							addWhiteBlobDetection(slice + 1, nextDetection);
 							break;
@@ -313,6 +322,7 @@ public class WhiteBlobsTracking {
 		int detectionSlice = detection.getSlice();
 		int componentIndex;
 		int trackStartingSlice;
+		int dSlice;
 		Point mc;
 		ArrayList<Integer> possibleTracksIndexes = new ArrayList<Integer>(10);
 		double minDistance = Double.MAX_VALUE, dist;
@@ -323,6 +333,10 @@ public class WhiteBlobsTracking {
 			if (tracks.getLength(i) < 3)
 				continue;
 			trackStartingSlice = tracks.getStartSliceForTrack(i);
+			dSlice = detectionSlice - trackStartingSlice; 
+			// would need to remove dSlice + 1 components
+			if (dSlice + 1 >= tracks.getLength(i)) 
+				continue;
 			if (trackStartingSlice < detectionSlice - slicesBefore
 					|| trackStartingSlice >= detectionSlice + slicesThroughAfter)
 				continue;
@@ -341,7 +355,7 @@ public class WhiteBlobsTracking {
 			}
 		}
 
-		System.out.println("possibleTrackIndexes: " + possibleTracksIndexes.toString());
+//		System.out.println("possibleTrackIndexes: " + possibleTracksIndexes.toString());
 
 		// in case no tracks were found
 		if (possibleTracksIndexes.isEmpty())
@@ -353,21 +367,27 @@ public class WhiteBlobsTracking {
 		// in case only 1 track was found
 		if (possibleTracksIndexes.size() == 1) {
 			int trIndex = possibleTracksIndexes.get(0);
-			g.addArcFromIndexToIndexAddable(detection.getNodeIndex(), tracks.getStartAdjIndexForTrack(trIndex));
-			tracks.setTrackAsWhiteBlobParent(trIndex);
 
 			int dSlice1 = detectionSlice - tracks.getStartSliceForTrack(trIndex);
 			System.out.println("slice differences is: " + dSlice1);
 			// if in the same slice then dSlice=0, should remove first component
-			if (dSlice1 <= 0)
-				tracks.disconnectFirstComponentsFromTrack(trIndex, -dSlice1 - 1);
+			if (dSlice1 >= 0) {
+				if (!tracks.disconnectFirstComponentsFromTrack(trIndex, dSlice1 + 1)) {
+					//trying to remove the whole track, do something
+					return;
+				}
+			}			
+
+			int nodeToIndex = tracks.getStartAdjIndexForTrack(trIndex);
+			g.addArcFromIndexToIndexAddable(detection.getParentAdjIndex(), nodeToIndex);
+			tracks.setTrackAsWhiteBlobParent(trIndex);
 
 			componentsList.get(detection.getSlice()).incComponentChildCount(detection.getFirstBlobIndex());
 			componentsList.get(tracks.getStartSliceForTrack(trIndex))
 					.setComponentHasParent(tracks.getFirstComponentIndexForTrack(trIndex));
-			System.out.println("Only 1 child; added arc from " + detection.getNodeIndex() + " to "
+			
+			System.out.println("Only 1 child; added arc from " + detection.getParentAdjIndex() + " to "
 					+ tracks.getStartAdjIndexForTrack(trIndex));
-
 			return;
 		}
 
@@ -385,7 +405,7 @@ public class WhiteBlobsTracking {
 					componentsList.get(trackStartingSlice), componentIndex, minDistance);
 			tracksPenalScores.add(score);
 		}
-		System.out.println("score unsorted: " + tracksPenalScores.toString());
+//		System.out.println("score unsorted: " + tracksPenalScores.toString());
 
 		// then sort them
 		int currBestIndex = 0;
@@ -404,8 +424,8 @@ public class WhiteBlobsTracking {
 			Collections.swap(tracksPenalScores, i, currBestIndex);
 		}
 
-		System.out.println("score sorted: " + tracksPenalScores.toString());
-		System.out.println("track indexes sorted: " + possibleTracksIndexes.toString());
+//		System.out.println("score sorted: " + tracksPenalScores.toString());
+//		System.out.println("track indexes sorted: " + possibleTracksIndexes.toString());
 
 		// now find best pair that will become childs
 		// only look in no more than 5 best candidates

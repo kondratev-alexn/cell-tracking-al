@@ -53,8 +53,6 @@ public class CellTrackingGraph {
 		componentsList = new ArrayList<ImageComponentsAnalysis>(trackingResult.getSlicesCount());
 		images = new ArrayList<ImageProcessor>(trackingResult.getSlicesCount());
 		prevComponentsList = trackingResult.getComponentsList();
-		// trGraph = trackingResult.getGraph();
-
 		for (int i = 0; i < prevComponentsList.size(); i++) {
 			images.add(new ShortProcessor(prevComponentsList.get(i).getWidth(), prevComponentsList.get(i).getHeight()));
 		}
@@ -183,7 +181,7 @@ public class CellTrackingGraph {
 		boolean added = false;
 		ArrayList<Integer> childs = adj.get(startIndexAdj);
 		if (childs.isEmpty()) {
-			System.out.println("Empty childs in draw color track, shouldn't be");
+			System.out.println("Empty childs in draw color track, probably new track");
 			return;
 		}
 		int childIndex = -1, t1, t2, ci1, ci2, i1, i2;
@@ -204,7 +202,7 @@ public class CellTrackingGraph {
 			childs.clear(); // clear to mark component as tracked in parent node
 			childs = adj.get(childIndex); // go to child component
 		}
-		if (childs.size() > 2) { // create division in graph
+		if (childs.size() >= 2) { // create division in graph
 
 			ci1 = getNewIndex(); // get next index and increment it
 			drawColorTrack(stack, adj, childs.get(0), ci1);
@@ -239,7 +237,7 @@ public class CellTrackingGraph {
 	
 
 	Roi getComponentAsRoi(int sliceIndex, int intensity, int indexInPrev, int mainTrackIndex, int labelIndex,
-			int childIndex) {
+			int adjIndex) {
 		ImageComponentsAnalysis prevComp = prevComponentsList.get(sliceIndex);
 		int x0 = prevComp.getComponentX0(indexInPrev);
 		int y0 = prevComp.getComponentY0(indexInPrev);
@@ -254,9 +252,9 @@ public class CellTrackingGraph {
 		if (w.npoints > 0) { // we have a roi from the wand...
 			roi = new PolygonRoi(w.xpoints, w.ypoints, w.npoints, Roi.TRACED_ROI);
 			roiName = String.format("Track%04d", mainTrackIndex);
-			roiName = roiName.concat(String.format("t%03d", sliceIndex));
-			roiName = roiName.concat(String.format("R%06d", labelIndex));
-			roiName = roiName.concat(String.format("child%06d", childIndex));
+			roiName = roiName.concat(String.format("_T%03d", sliceIndex));
+			roiName = roiName.concat(String.format("_No%03d", labelIndex));
+			roiName = roiName.concat(String.format("_Adj%06d", adjIndex));
 			// roiName = roiName.concat(String.format("adj%06d", adjIndex));
 			roi.setName(roiName);
 			roi.setPosition(sliceIndex + 1);
@@ -371,7 +369,7 @@ public class CellTrackingGraph {
 					System.out.println(" ### roi is null for slice " + t1 + " count " + count);
 			}
 		}
-		if (childs.size() > 2) { // create division in graph
+		if (childs.size() >= 2) { // create division in graph
 			// add needed arcs from v1 to its children and add 2
 			t2 = trGraph.getNodeSliceByGlobalIndex(childs.get(0));
 			// SO THERE ARE SOME PROBLMES INVOLVING NEW INDEXES OF PARENT NODES WHEN
@@ -504,7 +502,7 @@ public class CellTrackingGraph {
 		}
 
 		result = result.concat(trackString(currTrackIndex, startSlice, t2, parentTrackIndex));
-		if (childs.size() > 2) { // division
+		if (childs.size() >= 2) { // division
 
 			result = result.concat(System.getProperty("line.separator"));
 			ci1 = g.getNodeIndexByGlobalIndex(childs.get(0));

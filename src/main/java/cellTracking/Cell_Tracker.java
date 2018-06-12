@@ -82,12 +82,12 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private int maxArea = 1400;
 	private float minCircularity = 0.55f;
 	private float maxCircularity = 1.0f;
-	private int dilationRadius = 2;
-	private int maximumNumberOfCells = 40; // how many dark blobs will be detected
+	private int dilationRadius = 1;
+	private int maximumNumberOfCells = 60; // how many dark blobs will be detected
 
-	private float blobMergeThreshold = 0.060f; // threshold, below which blobs will be merged
+	private float blobMergeThreshold = 0.32f; // threshold, below which blobs will be merged
 	private float childPenaltyThreshold = 0.275f;
-	private float mitosisStartIntensityCoefficient = 0.7f;
+	private float mitosisStartIntensityCoefficient = 1.00f;
 
 	private float[] sigmas = { 6, 9, 12, 16, 32 };
 
@@ -507,13 +507,13 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			return watershedImage;
 		}
 
-		//ImageFunctions.mergeMarkers(marksDarkBinary, prevComponentsAnalysis, dilationRadius);
+		ImageFunctions.mergeMarkers(marksDarkBinary, prevComponentsAnalysis, dilationRadius);
 		if (blobMergeThreshold > 0)
 			marksDarkBinary = ImageFunctions.mergeBinaryMarkersInTheSameRegion(watershedImage, marksDarkBinary, 35,
 					blobMergeThreshold);
 
 		// combine markers from bright and dark blobs, AFTER DARK BLOBS MERGING
-		boolean addBrightMarkers = false;
+		boolean addBrightMarkers = true;
 		if (addBrightMarkers) {
 			ImageFunctions.addMarkers(marksDarkBinary, marksBrightBinary);
 		}
@@ -550,7 +550,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			compAnalisys.setComponentsBrightBlobStateByMarks(marksBrightBinary);
 
-			boolean discardWhiteBlobs = false;
+			boolean discardWhiteBlobs = true;
 			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000,
 					discardWhiteBlobs);
 			ImagePlus filtered = new ImagePlus("filtered", ip);
@@ -744,8 +744,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// image = image_ez_division;
 			// image = image_test_tracking;
 			// image = image_shorter_bright_blobs;
-			image = image_ex_06;
-			image = image_ex_13;
+			//image = image_ex_06;
+			//image = image_ex_13;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

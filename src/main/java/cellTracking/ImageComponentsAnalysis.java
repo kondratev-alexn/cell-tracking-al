@@ -271,7 +271,6 @@ public class ImageComponentsAnalysis {
 				}
 			}
 		// System.out.println("added component area is " + newProperties.area);
-		System.out.println("added component area is" + newProperties.area);
 		if (newProperties.area != 0) {
 			newProperties.avrgIntensity /= newProperties.area;
 			newProperties.massCenter.divideByConstIn(newProperties.area);
@@ -279,7 +278,7 @@ public class ImageComponentsAnalysis {
 			properties.add(newProperties);
 			return properties.size() - 1;
 		} else {
-			showComponentsImage();
+			//showComponentsImage();
 		}
 		return -1;
 	}

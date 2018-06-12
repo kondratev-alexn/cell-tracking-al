@@ -33,19 +33,21 @@ public class PointWithScale {
 	/*
 	 * calculates values based on point's 'value' and distance to the
 	 * 'distancePoint'. Used for sorting the points. (Distance value is 'radial'
-	 * function ~ 1-r)
+	 * function ~ 1-r). The more the better.
 	 */
 	public double sortValue(Point distancePoint, double maxDistance) {
 		double w_d, w_v;
 		w_d = 0.5;
 		w_v = 0.5;
 
+		double w_sum = w_d + w_v;
+
 		double dist = Point.dist(point, distancePoint);
 		double dist_v = 0;
 		if (dist < maxDistance)
 			dist_v = 1 - dist / maxDistance;
 
-		return value * w_v + dist_v * w_d;
+		return (value * w_v + dist_v * w_d) / w_sum;
 	}
 
 	@Override

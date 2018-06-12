@@ -125,10 +125,16 @@ public class Tracks {
 	}
 
 	/* disconnects first componentsCount components from track and from the graph */
-	public void disconnectFirstComponentsFromTrack(int trackIndex, int componentsCount) {
+	public boolean disconnectFirstComponentsFromTrack(int trackIndex, int componentsCount) {
+		Track tr = tracks.get(trackIndex);
+		if (tr.getLength() <= componentsCount) {
+			//trying to delete the whole track - better return false and do something
+			return false;
+		}
 		for (int i = 0; i < componentsCount; i++) {
 			disconnectFirstComponentFromTrack(trackIndex);
 		}
+		return true;
 	}
 
 	public ArrayList<Integer> getTrackIndexesListStartingInSlice(int startSlice) {

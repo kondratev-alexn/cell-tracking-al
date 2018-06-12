@@ -32,6 +32,7 @@ public class Graph {
 		int i = nodes.indexOf(arc.getFromNode());
 		int j = nodes.indexOf(arc.getToNode());
 		adjLists.get(i).add(j);
+		//System.out.println(" ### Graph: Arc from " + i + " to " + j + " added");
 	}
 
 	public int getNodeIndexByGlobalIndex(int nodeIndex) {
