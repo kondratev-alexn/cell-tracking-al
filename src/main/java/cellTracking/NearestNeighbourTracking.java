@@ -372,13 +372,23 @@ public class NearestNeighbourTracking {
 
 			center = componentsList.get(endSlice).getComponentMassCenter(endComponentIndex);
 
-			WhiteBlobsDetection detection = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 1, 30,
-					tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0);
-			detection.fillWithBlobCandidates(componentsList.get(endSlice + 1).getInvertedIntensityImage(), 30);
+			WhiteBlobsDetection detectionNextSlice = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 1, 30,
+					tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0, null);
+			detectionNextSlice.fillWithBlobCandidates(componentsList.get(endSlice + 1).getInvertedIntensityImage(), 30);
 
-			if (detection.isBestBlobValueAboveThreshold(whiteBlobThreshold)) {
+			if (detectionNextSlice.isBestBlobValueAboveThreshold(whiteBlobThreshold)) {
 				tr.setEndedOnMitosys();
-				System.out.println("track " + i + " ended on mitosis by bright blob");
+				System.out.println("track " + i + " ended on mitosis by bright blob in the next frame");
+				continue;
+			}
+
+			WhiteBlobsDetection detectionNextNextSlice = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 2, 30,
+					tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0, null);
+			detectionNextNextSlice.fillWithBlobCandidates(componentsList.get(endSlice + 2).getInvertedIntensityImage(), 30);
+			
+			if (detectionNextNextSlice.isBestBlobValueAboveThreshold(whiteBlobThreshold)) {
+				tr.setEndedOnMitosys();
+				System.out.println("track " + i + " ended on mitosis by bright blob in the next next frame");
 			}
 		}
 	}
@@ -501,7 +511,7 @@ public class NearestNeighbourTracking {
 				// create white blob that doesn't need second detection, since its the first
 				// mitosis slice
 				WhiteBlobsDetection whiteBlob = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 1,
-						radius, tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0);
+						radius, tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0, null);
 				System.out.format("WhiteBlobDetection created in t=%d, at (%f,%f), parent adj is %d %n", endSlice + 1,
 						center.getX(), center.getY(), tr.getEndAdjIndex());
 				whiteBlobsTracking.addWhiteBlobDetection(endSlice + 1, whiteBlob);

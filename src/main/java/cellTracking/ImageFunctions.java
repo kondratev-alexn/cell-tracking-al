@@ -579,7 +579,15 @@ public class ImageFunctions {
 		double div_inner = max_inner - min_inner;
 
 //		if (div_inner < threshold) {
-//			System.out.println("printing profile for points (" + x1 + ", " + y1 + ") and (" + x2 + ", " + y2 + "), div "
+//			System.out.println("printing profile for merging points (" + x1 + ", " + y1 + ") and (" + x2 + ", " + y2 + "), div "
+//					+ div_inner);
+//			for (int i = 0; i < nPoints; i++) {
+//				System.out.print(profile[i] + ", ");
+//			}
+//			System.out.println();
+//		} else {
+//			System.out.println("***");
+//			System.out.println("printing profile for not merged points (" + x1 + ", " + y1 + ") and (" + x2 + ", " + y2 + "), div "
 //					+ div_inner);
 //			for (int i = 0; i < nPoints; i++) {
 //				System.out.print(profile[i] + ", ");

@@ -41,6 +41,8 @@ public class WhiteBlobsDetection {
 	private boolean isFirstDetected = false;
 	private boolean isSecondDetected = false;
 	private boolean isSecondDetectionNeeded = false;
+	
+	private WhiteBlobsDetection parentDetection; //parent detection
 
 	/*
 	 * Class containing information about a cell during mitosis in one slide. For
@@ -48,7 +50,7 @@ public class WhiteBlobsDetection {
 	 * (maybe stop detecting after two child-worthy blobs were detected?..)
 	 */
 	public WhiteBlobsDetection(double xCenter, double yCenter, int slice, int radius, int parentAdjIndexInTrackingGraph,
-			boolean needSecondDetection, ArrayList<Integer> previousTrackCandidateIndexes, float parentAvrgIntensity) {
+			boolean needSecondDetection, ArrayList<Integer> previousTrackCandidateIndexes, float parentAvrgIntensity, WhiteBlobsDetection parentDetection) {
 		center = new Point(xCenter, yCenter);
 		this.slice = slice;
 		// firstBlobCenter = new Point(0, 0);
@@ -60,6 +62,7 @@ public class WhiteBlobsDetection {
 		this.radius = radius;
 		parentAdjIndex = parentAdjIndexInTrackingGraph;
 		isSecondDetectionNeeded = needSecondDetection;
+		this.parentDetection = parentDetection;
 	}
 
 	// public void setFirstBlobCenter(double x, double y) {
@@ -102,6 +105,10 @@ public class WhiteBlobsDetection {
 			return blobCenters.get(secondBlobIndex);
 		else
 			return null;
+	}
+	
+	public WhiteBlobsDetection getParentDetection() {
+		return parentDetection;
 	}
 	
 	public float getParentFirstBlobAverageIntensity() {

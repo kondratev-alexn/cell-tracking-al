@@ -143,7 +143,7 @@ public class WhiteBlobsTracking {
 						if (!detection.isSecondDetectionNeeded()) {
 							nextDetection = new WhiteBlobsDetection(p.point.getX(), p.point.getY(), slice + 1,
 									detection.getRadius(), g.getNodeIndex(v), true,
-									detection.getCandidateTrackIndexes(), avrgIntensity);
+									detection.getCandidateTrackIndexes(), avrgIntensity, detection);
 							addWhiteBlobDetection(slice + 1, nextDetection);
 							System.out.println("Detection for slice " + (slice + 1)
 									+ " created, after second detection not needed");
@@ -155,7 +155,17 @@ public class WhiteBlobsTracking {
 					}
 				}
 			}
-			// here maybe do something if there was no detection
+			// here because there were no blobs added to the detections. Better just find 2 tracks
+			if (detection.getBlobCentersCount() == 0) {
+				System.out.println("White blob tracking terminated, blobs not found. Connecting parent blob with 2 tracks");
+				// look for child tracks
+				if (detection.getParentDetection() != null) {
+					connectFirstBlobToTwoTracks(detection.getParentDetection(), 40, 4, 6);
+				}
+
+				// disable search of the second blob, since its not needed anymore
+				detection.resetSecondDetectionNeeded();
+			}
 		}
 	}
 
@@ -190,7 +200,7 @@ public class WhiteBlobsTracking {
 
 				nextDetection = new WhiteBlobsDetection(x, y, slice + 1, detection.getRadius(),
 						detection.getFirstBlobNodeIndex(), true, detection.getCandidateTrackIndexes(),
-						thisFirstBlobAvrgIntensity);
+						thisFirstBlobAvrgIntensity, detection);
 
 				addWhiteBlobDetection(slice + 1, nextDetection);
 				System.out.println("Detection added during second blob fill, only 1 white blob candidate");
@@ -248,7 +258,7 @@ public class WhiteBlobsTracking {
 
 							nextDetection = new WhiteBlobsDetection(x, y, slice + 1, detection.getRadius(),
 									detection.getFirstBlobNodeIndex(), true, detection.getCandidateTrackIndexes(),
-									thisFirstBlobAvrgIntensity);
+									thisFirstBlobAvrgIntensity, detection);
 
 							System.out.format(
 									"Child not detected, creating detection with parent adj %d at (%f, %f) %n",
@@ -268,7 +278,7 @@ public class WhiteBlobsTracking {
 
 						nextDetection = new WhiteBlobsDetection(x, y, slice + 1, detection.getRadius(),
 								detection.getFirstBlobNodeIndex(), true, detection.getCandidateTrackIndexes(),
-								thisFirstBlobAvrgIntensity);
+								thisFirstBlobAvrgIntensity, detection);
 
 						System.out.format("Creating detection with parent adj %d at (%f, %f) %n",
 								detection.getFirstBlobNodeIndex(), x, y);

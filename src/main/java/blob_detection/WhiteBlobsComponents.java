@@ -62,7 +62,7 @@ public class WhiteBlobsComponents {
 		PointWithScale blob;
 		int max_index;
 		double v, max_v;
-		double sortValueThreshold = 0.4;
+		double sortValueThreshold = 0.7;
 		boolean found;
 
 		for (int i = 0; i < count && i < blobs.size(); i++) {
