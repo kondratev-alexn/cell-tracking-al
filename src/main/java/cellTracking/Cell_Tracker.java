@@ -56,14 +56,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	/* contains mask for previously segmented cells */
 	private ImageProcessor cellMask;
 
-	/* image for displaing result on stacks */
-	private ImagePlus stackImage;
-
 	/* roi manager for current slice */
 	private RoiManager roiManager;
 
 	private int currSlice = 1; // slice number for stack processing
-	private int selectedSlice; // currently selected slice
+	private int selectedSlice; // currently selected slice by slider
 
 	// sigmas for bandpass algorithm, also in UI
 	public double sigma1 = 1.40;
@@ -100,7 +97,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private boolean filterComponents = true;
 	private boolean previewing = false;
 
-	private boolean roiBrowserActive = false; // becomes true after the processing
 	private boolean startedProcessing = false; // comes true after user has selected whether to process stacks or not
 	private boolean showBlobs = false;
 
@@ -131,10 +127,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// resetPreview();
 			imagePlus.updateAndDraw();
 
-			stackImage.copyScale(imagePlus);
-			stackImage.resetDisplayRange();
-			// stackImage.show();
-
 			roiManager.selectAndMakeVisible(imagePlus, -1);
 
 			// there goes tracking
@@ -160,12 +152,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
 			ImageProcessor ip = imp.getProcessor();
 			// tracking.drawTracksIp(ip);
-			//ImagePlus trResult = tracking.drawTracksImagePlus(imp);
-			ImagePlus trResult = tracking.colorTracks(imp);
-			//System.out.println(imp.getNSlices()); = 66
-			trResult.setTitle("Tracking results");
+			// ImagePlus trResult = tracking.drawTracksImagePlus(imp);
+
 			imp.show();
-			trResult.show();
 
 			Graph cellGraph = tracking.getGraph();
 
@@ -173,10 +162,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			resultGraph.showTrackedComponentImages();
 			ImagePlus coloredTracksImage = resultGraph.drawComponentColoredByFullTracks(imp);
 			coloredTracksImage.show();
-			
+
 			resultGraph.drawColorComponents(imp);
 			// resultGraph.printTrackedGraph();
-			resultGraph.writeTracksToFile_ctc_afterAnalysis("res_track" + "_"+ imp.getShortTitle() + ".txt");
+			resultGraph.writeTracksToFile_ctc_afterAnalysis("res_track" + "_" + imp.getShortTitle() + ".txt");
 			// System.out.println(cellGraph);
 
 			// Create a new ImagePlus with the filter result
@@ -219,7 +208,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		// Normal setup
 		this.imagePlus = imp;
 		this.baseImage = imp.getProcessor().duplicate();
-		stackImage = imp.duplicate();
+
 		nChannels = imp.getProcessor().getNChannels();
 		currSlice = 1; // for when algorithm starts processing stack
 		selectedSlice = imp.getCurrentSlice();
@@ -240,6 +229,12 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 		// after the answer, the processing is started. So show roiManager and set flag
 		startedProcessing = true;
+		previewing = false;
+
+		// here reset everything like preview etc.
+		// imagePlus.setStack(stackImage.getStack().duplicate());
+		// imagePlus.setSlice(1);
+
 		currSlice = doesStacks() ? 1 : selectedSlice;
 		roiManager = RoiManager.getInstance();
 		if (roiManager == null)
@@ -253,27 +248,28 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		gd.addNumericField("Number of blobs", maximumNumberOfBlobs, 0);
 		gd.addNumericField("Gaussian Filter Sigma", gaussianSigma, 2);
 		gd.addNumericField("Rolling ball radius", rollingBallRadius, 0);
-		//gd.addNumericField("Closing radius", topHatRadius, 0);
-		//gd.addNumericField("Sigma1 (bandpass):", sigma1, 2);
-		//gd.addNumericField("Sigma2 (bandpass):", sigma2, 2);
+		// gd.addNumericField("Closing radius", topHatRadius, 0);
+		// gd.addNumericField("Sigma1 (bandpass):", sigma1, 2);
+		// gd.addNumericField("Sigma2 (bandpass):", sigma2, 2);
 		gd.addNumericField("Gradient Sigma", sigma3, 2);
 		// gd.addNumericField("Min threshold", minThreshold, 3);
 		// gd.addNumericField("Max threshold", maxThreshold, 3);
-		//gd.addNumericField("Laplacian tolerance (dark blobs)", heightTolerance, 2);
-		//gd.addNumericField("Laplacian tolerance (bright blobs)", heightToleranceBright, 2);
+		// gd.addNumericField("Laplacian tolerance (dark blobs)", heightTolerance, 2);
+		// gd.addNumericField("Laplacian tolerance (bright blobs)",
+		// heightToleranceBright, 2);
 		gd.addNumericField("Min area", minArea, 0);
 		gd.addNumericField("Max area", maxArea, 0);
 		gd.addNumericField("Min circularity", minCircularity, 3);
 		gd.addNumericField("Max circularity", maxCircularity, 3);
-		//gd.addNumericField("Dilation Radius (postprocessing)", dilationRadius, 0);
+		// gd.addNumericField("Dilation Radius (postprocessing)", dilationRadius, 0);
 		gd.addNumericField("Blob merge threshold", blobMergeThreshold, 3);
 		gd.addNumericField("Bright blob childs threshold", childPenaltyThreshold, 3);
 		gd.addNumericField("Intensity change coefficient (mitosis)", mitosisStartIntensityCoefficient, 3);
-		//gd.addCheckbox("test mode", isTestMode);
-		//gd.addCheckbox("Use Gaussian Filter", useGaussian);
-		//gd.addCheckbox("Bandpass", isBandpass);
-		//gd.addCheckbox("Use Auto Otsu threshold", useOtsuThreshold);
-		//gd.addCheckbox("Show Image before Watershedding", showImageForWatershedding);
+		// gd.addCheckbox("test mode", isTestMode);
+		// gd.addCheckbox("Use Gaussian Filter", useGaussian);
+		// gd.addCheckbox("Bandpass", isBandpass);
+		// gd.addCheckbox("Use Auto Otsu threshold", useOtsuThreshold);
+		// gd.addCheckbox("Show Image before Watershedding", showImageForWatershedding);
 		gd.addCheckbox("Show blobs", showBlobs);
 		gd.addCheckbox("Filter components", filterComponents);
 		gd.addPreviewCheckbox(pfr);
@@ -283,17 +279,17 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	@Override
 	public boolean dialogItemChanged(GenericDialog gd, AWTEvent e) {
-		if (roiBrowserActive) { // for listening to roi browser dialog
-			Vector sliders = gd.getSliders();
-			selectedSlice = ((Scrollbar) sliders.get(0)).getValue();
-			// resetPreview();
-			imagePlus.setSlice(selectedSlice);
-
-			return true;
-		}
 		boolean wasPreview = this.previewing;
+		System.out.println(
+				"DialogItemChanged, selected slice before parsing " + selectedSlice + " currSlice " + currSlice);
 		parseDialogParameters(gd);
-		
+
+		System.out.println(
+				"DialogItemChanged, selected slice after parsing " + selectedSlice + " currSlice " + currSlice);
+		resetPreview();
+		imagePlus.setSlice(selectedSlice);
+		baseImage = imagePlus.getStack().getProcessor(selectedSlice).duplicate();
+
 		if (sigma1 < 0 || sigma2 < 0 || sigma3 < 0 || gd.invalidNumber())
 			return false;
 
@@ -305,45 +301,41 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		return true;
 	}
 
+	// extract chosen parameters
 	private void parseDialogParameters(GenericDialog gd) {
-		// extract chosen parameters
 		maximumNumberOfBlobs = (int) gd.getNextNumber();
 		gaussianSigma = gd.getNextNumber();
 		rollingBallRadius = (int) gd.getNextNumber();
-		//topHatRadius = (int) gd.getNextNumber();
-		//sigma1 = gd.getNextNumber();
-		//sigma2 = gd.getNextNumber();
+		// topHatRadius = (int) gd.getNextNumber();
+		// sigma1 = gd.getNextNumber();
+		// sigma2 = gd.getNextNumber();
 		sigma3 = gd.getNextNumber();
 		// minThreshold = gd.getNextNumber();
 		// maxThreshold = gd.getNextNumber();
-		//heightTolerance = gd.getNextNumber();
-		//heightToleranceBright = gd.getNextNumber();
+		// heightTolerance = gd.getNextNumber();
+		// heightToleranceBright = gd.getNextNumber();
 		minArea = (int) gd.getNextNumber();
 		maxArea = (int) gd.getNextNumber();
 		minCircularity = (float) gd.getNextNumber();
 		maxCircularity = (float) gd.getNextNumber();
-		//dilationRadius = (int) gd.getNextNumber();
+		// dilationRadius = (int) gd.getNextNumber();
 		blobMergeThreshold = (float) gd.getNextNumber();
 		childPenaltyThreshold = (float) gd.getNextNumber();
 		mitosisStartIntensityCoefficient = (float) gd.getNextNumber();
 
-		//isTestMode = gd.getNextBoolean();
-		//useGaussian = gd.getNextBoolean();
-		//isBandpass = gd.getNextBoolean();
+		// isTestMode = gd.getNextBoolean();
+		// useGaussian = gd.getNextBoolean();
+		// isBandpass = gd.getNextBoolean();
 		// useOtsuThreshold = gd.getNextBoolean();
 		// showImageForWatershedding = gd.getNextBoolean();
 		showBlobs = gd.getNextBoolean();
 		filterComponents = gd.getNextBoolean();
-		
+
 		previewing = gd.getPreviewCheckbox().getState();
 
 		// change image if current slice changed
 		Vector sliders = gd.getSliders();
 		selectedSlice = ((Scrollbar) sliders.get(0)).getValue();
-		resetPreview();
-		imagePlus.setSlice(selectedSlice);
-		stackImage.setSliceWithoutUpdate(selectedSlice);
-		baseImage = imagePlus.getStack().getProcessor(selectedSlice).duplicate();
 
 		if (sigma1 > sigmaMax)
 			sigma1 = sigmaMax;
@@ -377,7 +369,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// rankFilters.rank(result, medianRadius, RankFilters.MEDIAN);
 			gaussian.GaussianBlur(result, (float) gaussianSigma);
 		}
-		
+
 		cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
 
 		if (rollingBallRadius > 0)
@@ -397,17 +389,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			return;
 		}
 
-		// segmentation(result);
 		result = maximaWatershedSegmentation(result, ip, sigma3, minThreshold, maxThreshold);
 
 		result = result.convertToFloatProcessor();
 		result.resetMinAndMax();
-		// }
-
-		if (nSlices == 1)
-			stackImage.setProcessor(result);
-		else
-			stackImage.getImageStack().setProcessor(result, currSlice);
 
 		if (startedProcessing) { // process stacks
 			currSlice++;
@@ -522,11 +507,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// marksDarkBinary = ImageFunctions.operationMorph(marksDarkBinary,
 			// Operation.DILATION, Strel.Shape.DISK, 2);
 			ip = original;
-			//ImageFunctions.colorCirclesBySigmaMarkers(ip, marksSigma, true, false);
-//			ImageFunctions.colorCirclesBySigmaMarkers(ip, marksDarkBinary, false, false);
+			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksSigma, true, false);
+			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksDarkBinary, false, false);
 			ImageFunctions.drawCirclesBySigmaMarkerks(ip, marksDarkBinary, true, false);
 			ImagePlus imp = new ImagePlus("markers", ip);
-			//imp.show();
+			// imp.show();
 			return ip;
 		}
 
@@ -559,9 +544,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			if (startedProcessing) // add roi only if we started processing
 				compAnalisys.addRoisToManager(roiManager, imagePlus, currSlice);
 
-			if (startedProcessing || doesStacks())
+			if (startedProcessing || doesStacks()) {
 				prevComponentsAnalysis = compAnalisys;
-			tracking.addComponentsAnalysis(compAnalisys);
+				tracking.addComponentsAnalysis(compAnalisys);
+			}
 		}
 
 		return ip;
@@ -585,6 +571,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	 *            the image (possible multi-dimensional)
 	 */
 	public void process(ImagePlus image) {
+		System.out.println("is process for imp called");
 		// slice numbers start with 1 for historical reasons
 		for (int i = 1; i <= image.getStackSize(); i++)
 			process(image.getStack().getProcessor(i));
@@ -606,8 +593,13 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	}
 
 	private void resetPreview() {
-		int slice = startedProcessing ? currSlice : selectedSlice;
-		ImageProcessor image = this.imagePlus.getImageStack().getProcessor(slice);
+		ImageProcessor image;
+		if (startedProcessing)
+			image = this.imagePlus.getStack().getProcessor(currSlice);
+		else
+			image = this.imagePlus.getStack().getProcessor(selectedSlice);
+		image = imagePlus.getProcessor();
+		System.out.println("current stack in resetPreview: " + imagePlus.getCurrentSlice());
 		if (image instanceof FloatProcessor) {
 			for (int i = 0; i < image.getPixelCount(); i++)
 				image.setf(i, this.baseImage.getf(i));
@@ -698,14 +690,14 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			String imageFilePath = "C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif";
 
 			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010907_easy_ex-matchedROI.zip";
-			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif";			
+			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif";
 
 			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010906_medium_double_nuclei_ex-matchedROI.zip";
 			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif";
-			
+
 			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010913_hard_ex-matchedROI.zip";
 			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif";
-			
+
 			eval.convertToTRAformat(roiFilePath, imageFilePath);
 			return;
 		}
@@ -729,23 +721,23 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_stack3 = IJ.openImage("C:\\Tokyo\\\\movement_3images.tif");
 			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
 			ImagePlus image_shorter_bright_blobs = IJ.openImage("C:\\Tokyo\\Short_c1_ex.tif");
-			
+
 			ImagePlus image_ex_01 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
 			ImagePlus image_ex_06 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
 			ImagePlus image_ex_07 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
 			ImagePlus image_ex_13 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
 
 			image = image_ex_01;
-			//image = image_ex_07;
-			//image = image_stack20;
+			// image = image_ex_07;
+			// image = image_stack20;
 			// image = image_stack10;
 			image = image_stack3;
 			// image = image_c10;
 			// image = image_ez_division;
 			// image = image_test_tracking;
 			// image = image_shorter_bright_blobs;
-			//image = image_ex_06;
-			//image = image_ex_13;
+			// image = image_ex_06;
+			// image = image_ex_13;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();
 			image.show();

@@ -8,6 +8,7 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 
 import cellTracking.ImageComponentsAnalysis;
+import cellTracking.ImageFunctions;
 import cellTracking.NearestNeighbourTracking;
 import colorPicking.ColorPicker;
 import ij.ImagePlus;
@@ -185,7 +186,7 @@ public class CellTrackingGraph {
 			return;
 		}
 		int childIndex = -1, t1, t2, ci1, ci2, i1, i2;
-		int startSlice, endSlice, count = 0;
+		int startSlice, endSlice, count = 0, prevAdjIndex = startIndexAdj;
 		int trackNumber = startingTrackNumber;
 		Roi roi;
 
@@ -198,7 +199,9 @@ public class CellTrackingGraph {
 			childIndex = childs.get(0);
 
 			drawComponentOnStackColored(stack, childIndex, trackNumber);
+			drawTrackLineBetweenComponent(stack, prevAdjIndex, childIndex, trackNumber);
 
+			prevAdjIndex = childIndex;
 			childs.clear(); // clear to mark component as tracked in parent node
 			childs = adj.get(childIndex); // go to child component
 		}
@@ -206,9 +209,11 @@ public class CellTrackingGraph {
 
 			ci1 = getNewIndex(); // get next index and increment it
 			drawColorTrack(stack, adj, childs.get(0), ci1);
+			drawTrackLineBetweenComponent(stack, prevAdjIndex, childs.get(0), ci1);
 
 			ci2 = getNewIndex(); // get new index and increment it
 			drawColorTrack(stack, adj, childs.get(1), ci2);
+			drawTrackLineBetweenComponent(stack, prevAdjIndex, childs.get(1), ci2);
 
 //			childs.clear();
 			childs.remove(0);
@@ -290,6 +295,8 @@ public class CellTrackingGraph {
 			// the component was re-tracked.
 			// Because we also skip "sole" components which shoudln't be in the track
 			if (childs.isEmpty()) {
+				// here is small hack: we think that track's last component can't start earlier than the first component...
+				// in common case this is wrong
 				continue;
 			}
 			if (childs.size() == 2) { // if track ended on division
@@ -532,7 +539,7 @@ public class CellTrackingGraph {
 			stack.setProcessor(images.get(i), i + 1);
 		}
 
-		ImagePlus imp = new ImagePlus("Tracked components", stack);
+		ImagePlus imp = new ImagePlus("Components for TRA", stack);
 		imp.show();
 	}
 
@@ -555,6 +562,8 @@ public class CellTrackingGraph {
 
 	/* draw components in colorProcessor */
 	public void drawComponentsColored(ColorProcessor cp, int slice) {
+		if (images.isEmpty())
+			return;
 		int i0, i1, t0, t1;
 		Node n0, n1;
 		Point p0, p1;
@@ -581,11 +590,33 @@ public class CellTrackingGraph {
 		drawComponentColoredByRoi(cp, roi, ColorPicker.color(trackNumber));
 	}
 	
+	public void drawTrackLineBetweenComponent(ImageStack stack, int adjIndexStart, int adjIndexEnd, int trackNumber) {
+		int t1 = trGraph.getNodeSliceByGlobalIndex(adjIndexStart);
+		int i1 = trGraph.getNodeIndexByGlobalIndex(adjIndexStart);
+		int t2 = trGraph.getNodeSliceByGlobalIndex(adjIndexEnd);
+		int i2 = trGraph.getNodeIndexByGlobalIndex(adjIndexEnd);
+		
+		int x1,y1,x2,y2;
+		x1 = (int) prevComponentsList.get(t1).getComponentMassCenter(i1).getX();
+		y1 = (int) prevComponentsList.get(t1).getComponentMassCenter(i1).getY();
+		x2 = (int) prevComponentsList.get(t2).getComponentMassCenter(i2).getX();
+		y2 = (int) prevComponentsList.get(t2).getComponentMassCenter(i2).getY();
+		
+		ColorProcessor cp = (ColorProcessor) stack.getProcessor(t2+1);
+		drawLineColor(cp, x1, y1, x2, y2, ColorPicker.color(trackNumber));
+	}
+	
 	/* draw components in colorProcessor by roi*/
 	public void drawComponentColoredByRoi(ColorProcessor cp, Roi roi, Color color) {
 		cp.setColor(color);
 		roi.setFillColor(color);
 		cp.drawRoi(roi);
+	}
+	
+	/* draw colored line */
+	public void drawLineColor(ColorProcessor cp, int x1, int y1, int x2, int y2, Color color) {
+		cp.setColor(color);
+		cp.drawLine(x1, y1, x2, y2);
 	}
 
 	public ImagePlus getTrackedComponentImages() {

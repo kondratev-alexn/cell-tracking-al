@@ -669,6 +669,7 @@ public class NearestNeighbourTracking {
 		return result;
 	}
 
+	/* doesn't work correctly */
 	ImagePlus colorTracks(ImagePlus image) {
 		ColorPicker colorPicker = new ColorPicker();
 		ImageStack stack = new ImageStack(image.getWidth(), image.getHeight(), image.getNSlices());
