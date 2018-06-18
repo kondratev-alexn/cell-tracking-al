@@ -76,13 +76,14 @@ public class CellTrackingGraph {
 		resetNewIndex();
 		System.out.println("Graph before analyzing: ");
 		System.out.println(trGraph);
-		
-//		for (int i=0; i<prevComponentsList.size(); i++) {
-//			prevComponentsList.get(i).improveComponentContours();
-//			prevComponentsList.set(i, new ImageComponentsAnalysis(images.get(i), prevComponentsList.get(i).getAvrgIntensityImage(), false));
-//		}
+
+		// for (int i=0; i<prevComponentsList.size(); i++) {
+		// prevComponentsList.get(i).improveComponentContours();
+		// prevComponentsList.set(i, new ImageComponentsAnalysis(images.get(i),
+		// prevComponentsList.get(i).getAvrgIntensityImage(), false));
+		// }
 		analyseTrackingGraph(); // new g is generated, images filled with newly labeled components
-		
+
 		// code below is useless?
 		for (int i = 0; i < componentsList.size(); i++) {
 			ImageComponentsAnalysis comps = new ImageComponentsAnalysis(images.get(i),
@@ -145,40 +146,43 @@ public class CellTrackingGraph {
 				}
 			}
 	}
-	
-	
-	/* draws components colored by full tracks, i.e. the same color even if separated by 1+ slices */
+
+	/*
+	 * draws components colored by full tracks, i.e. the same color even if
+	 * separated by 1+ slices
+	 */
 	public ImagePlus drawComponentColoredByFullTracks(ImagePlus backgroundImage) {
 		if (images.isEmpty() || backgroundImage.getNSlices() != images.size())
 			return backgroundImage;
-		
-		int w,h;
+
+		int w, h;
 		w = images.get(0).getWidth();
 		h = images.get(0).getHeight();
-		
+
 		ImageStack stack = new ImageStack(w, h);
-		for (int i=0; i<images.size(); i++) {
-			stack.addSlice(backgroundImage.getImageStack().getProcessor(i+1).convertToColorProcessor());
+		for (int i = 0; i < images.size(); i++) {
+			stack.addSlice(backgroundImage.getImageStack().getProcessor(i + 1).convertToColorProcessor());
 		}
-		
+
 		ArrayList<Integer> childs;
 		ArrayList<ArrayList<Integer>> adj = Graph.copyAdjList(trGraph.adjLists);
 
-		resetNewIndex();		
+		resetNewIndex();
 		for (int i = 0; i < adj.size(); i++) {
 			childs = adj.get(i);
 			if (childs.isEmpty())
 				continue;
-			
+
 			drawColorTrack(stack, adj, Graph.getStartingAdjIndex(adj, i), getNewIndex());
 		}
-		
+
 		ImagePlus result = new ImagePlus("Full Tracks Colorized", stack);
 		return result;
 	}
-	
+
 	// entering this function when childs size > 0
-	void drawColorTrack(ImageStack stack, ArrayList<ArrayList<Integer>> adj, int startIndexAdj, int startingTrackNumber) {
+	void drawColorTrack(ImageStack stack, ArrayList<ArrayList<Integer>> adj, int startIndexAdj,
+			int startingTrackNumber) {
 		boolean added = false;
 		ArrayList<Integer> childs = adj.get(startIndexAdj);
 		if (childs.isEmpty()) {
@@ -190,7 +194,7 @@ public class CellTrackingGraph {
 		int trackNumber = startingTrackNumber;
 		Roi roi;
 
-		drawComponentOnStackColored(stack , startIndexAdj, trackNumber);
+		drawComponentOnStackColored(stack, startIndexAdj, trackNumber);
 
 		childs = adj.get(startIndexAdj);
 		while (childs.size() == 1) { // track a component until it has no childen (disappear) or 2 children
@@ -199,7 +203,7 @@ public class CellTrackingGraph {
 			childIndex = childs.get(0);
 
 			drawComponentOnStackColored(stack, childIndex, trackNumber);
-			drawTrackLineBetweenComponent(stack, prevAdjIndex, childIndex, trackNumber);
+			drawTrackLineColorBetweenComponent(stack, prevAdjIndex, childIndex, trackNumber);
 
 			prevAdjIndex = childIndex;
 			childs.clear(); // clear to mark component as tracked in parent node
@@ -209,18 +213,18 @@ public class CellTrackingGraph {
 
 			ci1 = getNewIndex(); // get next index and increment it
 			drawColorTrack(stack, adj, childs.get(0), ci1);
-			drawTrackLineBetweenComponent(stack, prevAdjIndex, childs.get(0), ci1);
+			drawTrackLineColorBetweenComponent(stack, prevAdjIndex, childs.get(0), ci1);
 
 			ci2 = getNewIndex(); // get new index and increment it
 			drawColorTrack(stack, adj, childs.get(1), ci2);
-			drawTrackLineBetweenComponent(stack, prevAdjIndex, childs.get(1), ci2);
+			drawTrackLineColorBetweenComponent(stack, prevAdjIndex, childs.get(1), ci2);
 
-//			childs.clear();
+			// childs.clear();
 			childs.remove(0);
 			childs.remove(0);
 		}
 	}
-	
+
 	Roi getComponentsAsSimpleRoi(int sliceIndex, int intensity, int indexInPrev) {
 		ImageComponentsAnalysis prevComp = prevComponentsList.get(sliceIndex);
 		int x0 = prevComp.getComponentX0(indexInPrev);
@@ -239,10 +243,9 @@ public class CellTrackingGraph {
 
 		return roi;
 	}
-	
 
 	Roi getComponentAsRoi(int sliceIndex, int intensity, int indexInPrev, int mainTrackIndex, int labelIndex,
-			int adjIndex) {
+			int adjIndex, int parentTrackNumber) {
 		ImageComponentsAnalysis prevComp = prevComponentsList.get(sliceIndex);
 		int x0 = prevComp.getComponentX0(indexInPrev);
 		int y0 = prevComp.getComponentY0(indexInPrev);
@@ -259,8 +262,12 @@ public class CellTrackingGraph {
 			roiName = String.format("Track%04d", mainTrackIndex);
 			roiName = roiName.concat(String.format("_T%03d", sliceIndex));
 			roiName = roiName.concat(String.format("_No%03d", labelIndex));
-			roiName = roiName.concat(String.format("_Adj%06d", adjIndex));
+			// roiName = roiName.concat(String.format("_Adj%06d", adjIndex));
 			// roiName = roiName.concat(String.format("adj%06d", adjIndex));
+			
+			//add parent track number if it is not 0 (new track) or -1
+			if (parentTrackNumber != 0 && parentTrackNumber != -1)
+				roiName = roiName.concat(String.format("_ParentTrack%04d", parentTrackNumber));
 			roi.setName(roiName);
 			roi.setPosition(sliceIndex + 1);
 		}
@@ -295,7 +302,8 @@ public class CellTrackingGraph {
 			// the component was re-tracked.
 			// Because we also skip "sole" components which shoudln't be in the track
 			if (childs.isEmpty()) {
-				// here is small hack: we think that track's last component can't start earlier than the first component...
+				// here is small hack: we think that track's last component can't start earlier
+				// than the first component...
 				// in common case this is wrong
 				continue;
 			}
@@ -310,20 +318,22 @@ public class CellTrackingGraph {
 			// now only 1 child, make a track. It still would be added for sure, since only
 			// 1
 			// child. 2 children also handled in addtrack
-			addTrack(adj, Graph.getStartingAdjIndex(adj, i), getNewIndex());
+			addTrack(adj, Graph.getStartingAdjIndex(adj, i), getNewIndex(), 0);
 		}
 	}
 
 	// only called whe component has 1 child besides when in itself or when it has
 	// parent (called from division)
 	// so first cell should be drawn
-	boolean addTrack(ArrayList<ArrayList<Integer>> adj, int startIndexAdj, int startingTrackIndex) {
+	boolean addTrack(ArrayList<ArrayList<Integer>> adj, int startIndexAdj, int startingTrackIndex,
+			int parentTrackNumber) {
 		boolean added = false;
 		ArrayList<Integer> childs;
 		int childIndex = -1, t1, t2, ci1, ci2;
 		Node v1, v2;
 		int startSlice, endSlice, count = 0;
 		int trackIndex = startingTrackIndex;
+		int prevTrackNumber = parentTrackNumber;
 		Roi roi;
 
 		t1 = trGraph.getNodeSliceByGlobalIndex(startIndexAdj);
@@ -334,7 +344,7 @@ public class CellTrackingGraph {
 
 		if (roiManager != null) {
 			roi = getComponentAsRoi(t1, trackIndex, trGraph.getNodeIndexByGlobalIndex(startIndexAdj),
-					startingTrackIndex, count, startIndexAdj);
+					startingTrackIndex, count, startIndexAdj, parentTrackNumber);
 			if (roi != null) {
 				roiManager.addRoi(roi);
 			} else
@@ -361,6 +371,7 @@ public class CellTrackingGraph {
 
 			if (t2 - t1 > 1) {
 				// write this track and start another one, connected to this
+				prevTrackNumber = trackIndex;
 				trackIndex = getNewIndex();
 				startSlice = t2;
 			}
@@ -369,7 +380,7 @@ public class CellTrackingGraph {
 			drawComponentInImage(t1, trackIndex, trGraph.getNodeIndexByGlobalIndex(childIndex));
 			if (roiManager != null) {
 				roi = getComponentAsRoi(t1, trackIndex, trGraph.getNodeIndexByGlobalIndex(childIndex),
-						startingTrackIndex, ++count, childIndex);
+						startingTrackIndex, ++count, childIndex, -1);
 				if (roi != null) {
 					roiManager.addRoi(roi);
 				} else
@@ -388,7 +399,7 @@ public class CellTrackingGraph {
 			System.out.println("Added arc child 1: " + v1 + "---" + v2);
 
 			// no need to draw there because the track will be drawn in previous 'for'
-			addTrack(adj, childs.get(0), ci1);
+			addTrack(adj, childs.get(0), ci1, startingTrackIndex);
 
 			// add arc here
 			t2 = trGraph.getNodeSliceByGlobalIndex(childs.get(1));
@@ -398,9 +409,9 @@ public class CellTrackingGraph {
 			System.out.println();
 			System.out.println("Added arc child 2: " + v1 + "---" + v2);
 
-			addTrack(adj, childs.get(1), ci2);
+			addTrack(adj, childs.get(1), ci2, startingTrackIndex);
 
-			//childs.clear();
+			// childs.clear();
 			childs.remove(0);
 			childs.remove(0);
 		}
@@ -519,7 +530,7 @@ public class CellTrackingGraph {
 			ci2 = g.getNodeIndexByGlobalIndex(childs.get(1));
 			result = result.concat(getTrackString(g, adj, childs.get(1), getNewIndex(), ci2, currTrackIndex));
 
-//			childs.clear();
+			// childs.clear();
 			childs.remove(0);
 			childs.remove(0);
 		}
@@ -531,6 +542,7 @@ public class CellTrackingGraph {
 				+ String.valueOf(parentTrackIndex);
 	}
 
+	/* draws tracks in TRA but in colors */
 	public void showTrackedComponentImages() {
 		if (images.isEmpty())
 			return;
@@ -571,50 +583,55 @@ public class CellTrackingGraph {
 		Color color;
 		int intensity;
 		int x0, x1, y0, y1;
-		for (int y=0; y<cp.getHeight(); y++)
-			for (int x=0; x<cp.getWidth(); x++) {
-				intensity = images.get(slice-1).get(x, y); 
+		for (int y = 0; y < cp.getHeight(); y++)
+			for (int x = 0; x < cp.getWidth(); x++) {
+				intensity = images.get(slice - 1).get(x, y);
 				if (intensity != 0) {
 					cp.setColor(ColorPicker.color(intensity));
 					cp.drawPixel(x, y);
 				}
 			}
 	}
-	
+
 	public void drawComponentOnStackColored(ImageStack stack, int adjIndex, int trackNumber) {
 		int t = trGraph.getNodeSliceByGlobalIndex(adjIndex);
 		int i = trGraph.getNodeIndexByGlobalIndex(adjIndex);
-		
+
 		Roi roi = prevComponentsList.get(t).getComponentAsRoi(i);
-		ColorProcessor cp = (ColorProcessor) stack.getProcessor(t+1);
+		ColorProcessor cp = (ColorProcessor) stack.getProcessor(t + 1);
 		drawComponentColoredByRoi(cp, roi, ColorPicker.color(trackNumber));
 	}
-	
-	public void drawTrackLineBetweenComponent(ImageStack stack, int adjIndexStart, int adjIndexEnd, int trackNumber) {
+
+	public void drawTrackLineColorBetweenComponent(ImageStack stack, int adjIndexStart, int adjIndexEnd,
+			int trackNumber) {
 		int t1 = trGraph.getNodeSliceByGlobalIndex(adjIndexStart);
 		int i1 = trGraph.getNodeIndexByGlobalIndex(adjIndexStart);
 		int t2 = trGraph.getNodeSliceByGlobalIndex(adjIndexEnd);
 		int i2 = trGraph.getNodeIndexByGlobalIndex(adjIndexEnd);
-		
-		int x1,y1,x2,y2;
+
+		int x1, y1, x2, y2;
 		x1 = (int) prevComponentsList.get(t1).getComponentMassCenter(i1).getX();
 		y1 = (int) prevComponentsList.get(t1).getComponentMassCenter(i1).getY();
 		x2 = (int) prevComponentsList.get(t2).getComponentMassCenter(i2).getX();
 		y2 = (int) prevComponentsList.get(t2).getComponentMassCenter(i2).getY();
-		
-		ColorProcessor cp = (ColorProcessor) stack.getProcessor(t2+1);
-		drawLineColor(cp, x1, y1, x2, y2, ColorPicker.color(trackNumber));
+
+		ColorProcessor cp;
+		for (int i = t2 + 1; i <= prevComponentsList.size(); i++) {
+			cp = (ColorProcessor) stack.getProcessor(i);
+			drawLineColor(cp, x1, y1, x2, y2, ColorPicker.color(trackNumber));
+		}
 	}
-	
-	/* draw components in colorProcessor by roi*/
+
+	/* draw components in colorProcessor by roi */
 	public void drawComponentColoredByRoi(ColorProcessor cp, Roi roi, Color color) {
 		cp.setColor(color);
 		roi.setFillColor(color);
 		cp.drawRoi(roi);
 	}
-	
+
 	/* draw colored line */
 	public void drawLineColor(ColorProcessor cp, int x1, int y1, int x2, int y2, Color color) {
+		cp.setLineWidth(2);
 		cp.setColor(color);
 		cp.drawLine(x1, y1, x2, y2);
 	}

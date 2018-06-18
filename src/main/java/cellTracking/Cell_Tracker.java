@@ -159,12 +159,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			Graph cellGraph = tracking.getGraph();
 
 			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, roiManager, imp);
-			resultGraph.showTrackedComponentImages();
+			resultGraph.showTrackedComponentImages(); //TRA components show
 			ImagePlus coloredTracksImage = resultGraph.drawComponentColoredByFullTracks(imp);
 			coloredTracksImage.show();
 
-			resultGraph.drawColorComponents(imp);
-			// resultGraph.printTrackedGraph();
 			resultGraph.writeTracksToFile_ctc_afterAnalysis("res_track" + "_" + imp.getShortTitle() + ".txt");
 			// System.out.println(cellGraph);
 
@@ -280,13 +278,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	@Override
 	public boolean dialogItemChanged(GenericDialog gd, AWTEvent e) {
 		boolean wasPreview = this.previewing;
-		System.out.println(
-				"DialogItemChanged, selected slice before parsing " + selectedSlice + " currSlice " + currSlice);
-		parseDialogParameters(gd);
-
-		System.out.println(
-				"DialogItemChanged, selected slice after parsing " + selectedSlice + " currSlice " + currSlice);
 		resetPreview();
+		parseDialogParameters(gd);
 		imagePlus.setSlice(selectedSlice);
 		baseImage = imagePlus.getStack().getProcessor(selectedSlice).duplicate();
 
@@ -396,7 +389,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 		if (startedProcessing) { // process stacks
 			currSlice++;
-			// System.out.println("in curr_slice++");
 		}
 
 		if (previewing && !startedProcessing) {
@@ -510,7 +502,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksSigma, true, false);
 			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksDarkBinary, false, false);
 			ImageFunctions.drawCirclesBySigmaMarkerks(ip, marksDarkBinary, true, false);
-			ImagePlus imp = new ImagePlus("markers", ip);
+			// ImagePlus imp = new ImagePlus("markers", ip);
 			// imp.show();
 			return ip;
 		}
@@ -571,7 +563,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	 *            the image (possible multi-dimensional)
 	 */
 	public void process(ImagePlus image) {
-		System.out.println("is process for imp called");
 		// slice numbers start with 1 for historical reasons
 		for (int i = 1; i <= image.getStackSize(); i++)
 			process(image.getStack().getProcessor(i));
@@ -594,12 +585,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	private void resetPreview() {
 		ImageProcessor image;
-		if (startedProcessing)
-			image = this.imagePlus.getStack().getProcessor(currSlice);
-		else
-			image = this.imagePlus.getStack().getProcessor(selectedSlice);
 		image = imagePlus.getProcessor();
-		System.out.println("current stack in resetPreview: " + imagePlus.getCurrentSlice());
 		if (image instanceof FloatProcessor) {
 			for (int i = 0; i < image.getPixelCount(); i++)
 				image.setf(i, this.baseImage.getf(i));
@@ -728,10 +714,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_ex_13 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
 
 			image = image_ex_01;
-			// image = image_ex_07;
+			image = image_ex_07;
 			// image = image_stack20;
 			// image = image_stack10;
-			image = image_stack3;
+			// image = image_stack3;
 			// image = image_c10;
 			// image = image_ez_division;
 			// image = image_test_tracking;
