@@ -139,6 +139,10 @@ public class ImageComponentsAnalysis {
 	public State getComponentState(int index) {
 		return properties.get(index).state;
 	}
+	
+	public boolean isComponentMitosis(int index) {
+		return properties.get(index).state == State.MITOSIS;
+	}
 
 	public void setComponentState(int index, State state) {
 		properties.get(index).state = state;

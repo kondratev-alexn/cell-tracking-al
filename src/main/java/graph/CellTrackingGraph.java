@@ -6,7 +6,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
-
+import cellTracking.ComponentProperties;
 import cellTracking.ImageComponentsAnalysis;
 import cellTracking.ImageFunctions;
 import cellTracking.NearestNeighbourTracking;
@@ -251,6 +251,7 @@ public class CellTrackingGraph {
 		int y0 = prevComp.getComponentY0(indexInPrev);
 
 		ImageProcessor imageComponents = images.get(sliceIndex);
+		boolean isMitosis = prevComp.isComponentMitosis(indexInPrev);
 
 		Roi roi = null;
 		Wand w = new Wand(imageComponents);
@@ -268,6 +269,8 @@ public class CellTrackingGraph {
 			//add parent track number if it is not 0 (new track) or -1
 			if (parentTrackNumber != 0 && parentTrackNumber != -1)
 				roiName = roiName.concat(String.format("_ParentTrack%04d", parentTrackNumber));
+			if (isMitosis) 
+				roiName = roiName.concat(String.format("_Mitosis"));
 			roi.setName(roiName);
 			roi.setPosition(sliceIndex + 1);
 		}
