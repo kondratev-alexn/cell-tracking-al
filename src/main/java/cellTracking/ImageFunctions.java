@@ -5,6 +5,7 @@ import java.awt.Image;
 import java.awt.image.RGBImageFilter;
 import java.util.ArrayList;
 
+import colorPicking.ColorPicker;
 import fiji.threshold.Auto_Threshold;
 import ij.ImagePlus;
 import ij.plugin.filter.RankFilters;
@@ -677,14 +678,15 @@ public class ImageFunctions {
 	}
 
 	public static void colorCirclesBySigmaMarkers(ImageProcessor ip, ImageProcessor blobMarkers, boolean drawCentre,
-			boolean fill) {
+			boolean drawDot, int lineWidth) {
 		ImageProcessor circles = new ByteProcessor(blobMarkers.getWidth(), blobMarkers.getHeight());
-		drawCirclesBySigmaMarkerks(circles, blobMarkers, drawCentre, fill);
+		drawCirclesBySigmaMarkerks(circles, blobMarkers, drawCentre, false);
 		ColorProcessor cim = new ColorProcessor(blobMarkers.getWidth(), blobMarkers.getHeight());
 		// cim.setChannel(2, circles.convertToByteProcessor());
 		cim = ip.duplicate().convertToColorProcessor();
 		Color green = new Color(0, 255, 0);
 		cim.setColor(green);
+		cim.setLineWidth(lineWidth);
 
 		double sigma;
 		int radius;
@@ -692,14 +694,31 @@ public class ImageFunctions {
 			for (int x = 0; x < ip.getWidth(); x++) {
 				sigma = blobMarkers.getf(x, y);
 				if (sigma > 0) {
-					radius = (int) (sigma * 1.41f);
-					cim.drawOval(x - radius, y - radius, 2 * radius + 1, 2 * radius + 1);
-					cim.drawOval(x - radius + 1, y - radius + 1, 2 * radius - 1, 2 * radius - 1);
+					if (drawDot)
+						cim.drawDot(x,y);
+					else {
+						radius = (int) (sigma * 1.41f);
+						cim.drawOval(x - radius, y - radius, 2 * radius + 1, 2 * radius + 1);
+						cim.drawOval(x - radius + 1, y - radius + 1, 2 * radius - 1, 2 * radius - 1);
+					}
 				}
 				// drawCircle(ip, sigma * 1.41f, x, y, maxv, drawCentre, fill);
 			}
 
 		ImagePlus res = new ImagePlus("colored", cim);
+		res.show();
+	}
+	
+	public static void colorWatershedBasins(ImageProcessor basins) {
+		ColorProcessor cim = new ColorProcessor(basins.getWidth(), basins.getHeight());
+		for (int y = 0; y < cim.getHeight(); y++)
+			for (int x = 0; x < cim.getWidth(); x++) {
+				int intensity = (int)basins.getf(x, y);
+				Color color = ColorPicker.color(intensity);
+				cim.setColor(color);
+				cim.drawPixel(x, y);
+			}
+		ImagePlus res = new ImagePlus("basins colored", cim);
 		res.show();
 	}
 

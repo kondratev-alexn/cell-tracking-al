@@ -477,11 +477,15 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageFunctions.normalize(watershedImage, 0, 1);
 		// watershedImage = ImageProcessorCalculator.invertedImage(watershedImage);
 
+		
 		if (showImageForWatershedding) {
 			ImagePlus imp = new ImagePlus("preprocessed", watershedImage);
 			imp.show();
 			return watershedImage;
 		}
+		
+		ImageProcessor marksCopy = marksDarkBinary.duplicate();
+		ImageFunctions.addMarkers(marksCopy, marksBrightBinary);
 
 		ImageFunctions.mergeMarkers(marksDarkBinary, prevComponentsAnalysis, dilationRadius);
 		if (blobMergeThreshold > 0)
@@ -495,12 +499,15 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		}
 
 		if (showBlobs) {
-			ImageFunctions.normalize(marksDarkBinary, 0, 5);
+			ImageFunctions.normalize(marksDarkBinary, 0, 2);
 			// marksDarkBinary = ImageFunctions.operationMorph(marksDarkBinary,
 			// Operation.DILATION, Strel.Shape.DISK, 2);
 			ip = original;
 			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksSigma, true, false);
-			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksDarkBinary, false, false);
+			ImageFunctions.colorCirclesBySigmaMarkers(ip, marksCopy, true, true, 7);
+			ImageFunctions.colorCirclesBySigmaMarkers(ip, marksDarkBinary, true, true, 7);
+			ImageFunctions.normalize(watershedImage, 0, 255);
+			ImageFunctions.colorCirclesBySigmaMarkers(watershedImage, marksDarkBinary, true, true, 7);
 			ImageFunctions.drawCirclesBySigmaMarkerks(ip, marksDarkBinary, true, false);
 			// ImagePlus imp = new ImagePlus("markers", ip);
 			// imp.show();
@@ -518,6 +525,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(watershedImage,
 				marksDarkBinary, null, 4);
 		ip = watershed.applyWithPriorityQueue();
+		
+		//here draw and show colored basins
+		//ImageFunctions.colorWatershedBasins(ip);
 
 		if (filterComponents) {
 			ImageComponentsAnalysis compAnalisys;
@@ -714,7 +724,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_ex_13 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
 
 			image = image_ex_01;
-			image = image_ex_07;
+			//image = image_ex_07;
 			// image = image_stack20;
 			// image = image_stack10;
 			// image = image_stack3;
