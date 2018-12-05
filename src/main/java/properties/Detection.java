@@ -30,5 +30,14 @@ public class Detection {
 	Roi roi() {
 		return _roi;
 	}
+	
+	int displayIntensity() {
+		return _displayIntensity;
+	}
+	
+	void setRoi(Roi roi) {
+		roi.copyAttributes(_roi);
+		_roi = roi;
+	}
 
 }

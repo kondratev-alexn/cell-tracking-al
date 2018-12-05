@@ -15,19 +15,23 @@ public class StandartDeviation implements Measure {
 
 	@Override
 	public double calculate(Roi roi, ImagePlus imp) {
-		ImageProcessor ip = imp.getStack().getProcessor(roi.getPosition()+1);
+		ImageProcessor ip = imp.getStack().getProcessor(roi.getPosition() + 1);
 		double mean = 0;
 		int count = 0;
 		for (Point p : roi) {
-			mean += ip.getf(p.x, p.y);
-			++count;
+			if (Measure.isPointIn(p, ip)) {
+				mean += ip.getf(p.x, p.y);
+				++count;
+			}
 		}
 		mean /= count;
 
 		double sd = 0;
 		for (Point p : roi) {
-			int v = ip.get(p.x, p.y);
-			sd += (v - mean) * (v - mean);
+			if (Measure.isPointIn(p, ip)) {
+				int v = ip.get(p.x, p.y);
+				sd += (v - mean) * (v - mean);
+			}
 		}
 		sd = Math.sqrt(sd / count);
 
@@ -36,6 +40,6 @@ public class StandartDeviation implements Measure {
 
 	@Override
 	public String toString(double val) {
-		return String.format("%.5f", val); 
+		return String.format("%.5f", val);
 	}
 }

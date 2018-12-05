@@ -81,13 +81,15 @@ public class Properties_Measure implements PlugIn {
 			ImagePlus imp_ch1 = new ImagePlus(dir + '\\' + ch1_name);
 			ImagePlus imp_res = new ImagePlus(dir + '\\' + restif_name);
 			
-			imp_res = makeRingDetections(imp_res, 3);
+			//imp_res = makeRingDetections(imp_res, 3);
 			imp_res.show();
 			
 			// filling roi from ctc result image
 			StackDetection stackDetection = new StackDetection();
 			stackDetection.fillStack(imp_res);
-			//stackDetection.makeRingRoi(0, 9);
+			//stackDetection.makeRingRoi(0, 9, 3);
+			stackDetection.changeDetectionsToRing(3);
+			stackDetection.show();
 			
 			System.out.println("Stack filled");
 			

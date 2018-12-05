@@ -6,7 +6,7 @@ import ij.ImagePlus;
 import ij.gui.Roi;
 
 public class Area implements Measure {
-	
+
 	@Override
 	public String name() {
 		return "Area";
@@ -15,8 +15,10 @@ public class Area implements Measure {
 	@Override
 	public double calculate(Roi roi, ImagePlus imp) {
 		int count = 0;
-		for (Point p: roi) {
-			++count;
+		for (Point p : roi) {
+			if (Measure.isPointIn(p, imp.getProcessor())) {
+				++count;
+			}
 		}
 		return count;
 	}
@@ -25,6 +27,5 @@ public class Area implements Measure {
 	public String toString(double val) {
 		return String.format("%.0f", val);
 	}
-
 
 }
