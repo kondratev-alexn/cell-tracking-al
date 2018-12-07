@@ -21,7 +21,7 @@ public class CoefficientOfVariation implements Measure {
 
 	@Override
 	public String toString(double val) {
-		return String.format("%.5f", val); 
+		return String.format("%.3f", val); 
 	}
 
 

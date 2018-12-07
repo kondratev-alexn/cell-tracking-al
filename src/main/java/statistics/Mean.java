@@ -20,8 +20,11 @@ public class Mean implements Measure {
 		int count = 0;
 		for (Point p : roi) {
 			if (Measure.isPointIn(p, ip)) {
-				mean += ip.getf(p.x, p.y);
-				++count;
+				float v = ip.getf(p.x, p.y);
+				if (Float.isFinite(v)) {
+					mean += v;
+					++count;
+				}
 			}
 		}
 		mean /= count;
@@ -30,7 +33,7 @@ public class Mean implements Measure {
 
 	@Override
 	public String toString(double val) {
-		return String.format("%.5f", val);
+		return String.format("%.3f", val);
 	}
 
 }

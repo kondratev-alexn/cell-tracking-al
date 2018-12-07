@@ -20,8 +20,11 @@ public class StandartDeviation implements Measure {
 		int count = 0;
 		for (Point p : roi) {
 			if (Measure.isPointIn(p, ip)) {
-				mean += ip.getf(p.x, p.y);
-				++count;
+				float v = ip.getf(p.x, p.y);
+				if (Float.isFinite(v)) {
+					mean += v;
+					++count;
+				}
 			}
 		}
 		mean /= count;
@@ -29,8 +32,10 @@ public class StandartDeviation implements Measure {
 		double sd = 0;
 		for (Point p : roi) {
 			if (Measure.isPointIn(p, ip)) {
-				int v = ip.get(p.x, p.y);
-				sd += (v - mean) * (v - mean);
+				float v = ip.getf(p.x, p.y);
+				if (Float.isFinite(v)) {
+					sd += (v - mean) * (v - mean);
+				}
 			}
 		}
 		sd = Math.sqrt(sd / count);
@@ -40,6 +45,6 @@ public class StandartDeviation implements Measure {
 
 	@Override
 	public String toString(double val) {
-		return String.format("%.5f", val);
+		return String.format("%.3f", val);
 	}
 }

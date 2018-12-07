@@ -1,6 +1,8 @@
 package statistics;
 
 import java.awt.Point;
+import java.util.ArrayList;
+import java.util.Collections;
 
 import ij.ImagePlus;
 import ij.gui.Roi;
@@ -16,6 +18,24 @@ public class Median implements Measure {
 	@Override
 	public double calculate(Roi roi, ImagePlus imp) {
 		ImageProcessor ip = imp.getStack().getProcessor(roi.getPosition() + 1);
+		Object pixels = ip.getPixels();
+		if (pixels instanceof float[]) {
+			// use sort
+			ArrayList<Float> values = new ArrayList<Float>(100);
+			for (Point p : roi) {
+				if (Measure.isPointIn(p, ip)) {
+					values.add(ip.getf(p.x, p.y));
+				}
+			}
+			int size = values.size();
+			Collections.sort(values);
+			if (size % 2 == 0)
+			    return ((double)values.get(size/2) + (double)values.get(size/2 - 1))/2;
+			else
+			    return (double) values.get(size/2);
+		}
+
+		// otherwise, use histogram
 		int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
 		int count = 0;
 
@@ -50,6 +70,6 @@ public class Median implements Measure {
 
 	@Override
 	public String toString(double val) {
-		return String.format("%.5f", val);
+		return String.format("%.3f", val);
 	}
 }
