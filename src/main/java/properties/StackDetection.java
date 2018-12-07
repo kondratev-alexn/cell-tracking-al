@@ -35,7 +35,6 @@ public class StackDetection {
 			ImageProcessor img = imgstack.getProcessor(i + 1);
 			SliceDetections detection = new SliceDetections(img, i);
 			stack.add(detection);
-			System.out.printf("Slice %d added %n", i);
 		}
 	}
 

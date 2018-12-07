@@ -24,7 +24,10 @@ public class Median implements Measure {
 			ArrayList<Float> values = new ArrayList<Float>(100);
 			for (Point p : roi) {
 				if (Measure.isPointIn(p, ip)) {
-					values.add(ip.getf(p.x, p.y));
+					float v = ip.getf(p.x, p.y);
+					if (Float.isFinite(v)) {
+						values.add(v);
+					}
 				}
 			}
 			int size = values.size();

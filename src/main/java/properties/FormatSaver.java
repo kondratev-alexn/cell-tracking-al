@@ -30,7 +30,7 @@ import statistics.StandartDeviation;
 public class FormatSaver {
 
 	public void calculate(TrackCTCMap tracks, StackDetection stack, ImagePlus ch1, ImagePlus ch2, ImagePlus ratio,
-			String dir) throws Exception {
+			String dir, String name) throws Exception {
 		// ArrayList<Measure> statistics = new ArrayList<Measure>(5);
 		// Slice sliceMeasure = new Slice();
 		// Area area = new Area();
@@ -54,7 +54,7 @@ public class FormatSaver {
 		// create file for each track
 		for (TrackCTC track : tracks.tracksMap().values()) {
 			PrintWriter pw = new PrintWriter(
-					new File(dir + "\\" + String.format("statiscics_track_%d.txt", track.index())));
+					new File(dir + "\\" + String.format(name + "StatiscicsTrack%04d.txt", track.index())));
 			int startSlice = track.startSlice();
 			int endSlice = track.endSlice();
 			for (int slice = startSlice; slice <= endSlice; ++slice) {
@@ -119,50 +119,50 @@ public class FormatSaver {
 		/* ch1 */
 		imp = ch1; // 2
 		measure = mean;
-		name = "ch1_mean";
+		name = "c1_mean";
 		prop = new PropertiesColumn(imp, name, measure);
 		list.add(prop);
 
 		imp = ch1;
 		measure = median;
-		name = "ch1_median";
+		name = "c1_median";
 		prop = new PropertiesColumn(imp, name, measure);
 		list.add(prop);
 
 		imp = ch1;
 		measure = stdDev;
-		name = "ch1_stddev";
+		name = "c1_stddev";
 		prop = new PropertiesColumn(imp, name, measure);
 		list.add(prop);
 
 		imp = ch1;
 		measure = cv;
-		name = "ch1_coefvar";
+		name = "c1_coefvar";
 		prop = new PropertiesColumn(imp, name, measure);
 		list.add(prop);
 
 		/* ch2 */
 		imp = ch2; // 6
 		measure = mean;
-		name = "ch2_mean";
+		name = "c2_mean";
 		prop = new PropertiesColumn(imp, name, measure);
 		list.add(prop);
 
 		imp = ch2;
 		measure = median;
-		name = "ch2_median";
+		name = "c2_median";
 		prop = new PropertiesColumn(imp, name, measure);
 		list.add(prop);
 
 		imp = ch2;
 		measure = stdDev;
-		name = "ch2_stddev";
+		name = "c2_stddev";
 		prop = new PropertiesColumn(imp, name, measure);
 		list.add(prop);
 
 		imp = ch2;
 		measure = cv;
-		name = "ch2_coefvar";
+		name = "c2_coefvar";
 		prop = new PropertiesColumn(imp, name, measure);
 		list.add(prop);
 
@@ -197,27 +197,35 @@ public class FormatSaver {
 	private StringBuilder statisticsString(ArrayList<PropertiesColumn> list, Roi roi, char splitSymbol)
 			throws Exception {
 		StringBuilder result = new StringBuilder();
-		double mean1 = 1, mean2 = 1;
+		double mean1 = 1, mean2 = 1, ratio_mean = 1, ratioSD = 1;
+		int size = 0;
 		for (int i = 0; i < list.size(); ++i) {
 			Measure measure = list.get(i).measure;
 			ImagePlus imp = list.get(i).imp;
 			double v = measure.calculate(roi, imp);
+			if (i == 1 && measure.name() == "Area")
+				size = (int) v;
 			if (i == 2 && measure.name() == "Mean")
 				mean1 = v;
 			if (i == 6 && measure.name() == "Mean")
 				mean2 = v;
+			if (i == 10 && measure.name() == "Mean")
+				ratio_mean = v;
+			if (i == 12 && measure.name() == "StdDev")
+				ratioSD = v;
 			String statString = measure.toString(v);
 			result.append(statString + splitSymbol);
 		}
 
-		ImagePlus imp = list.get(list.size() - 1).imp; //ratio image here
+		ImagePlus imp = list.get(list.size() - 1).imp; // ratio image here
 		double v;
 		String statString;
 
 		/* also append 95% conf interval and mean1/mean2 value */
 
-		/* 0.95 confidence interval */
-		double[] interval = meanConfidenceInterval(imp, roi, 0.95);
+		/* 0.95 mean confidence interval */
+		//double[] interval = confidenceInterval(imp, roi, 0.95);
+		double[] interval = meanConfidenceInterval(ratio_mean, ratioSD, size, 0.95);
 		v = interval[0];
 		statString = String.format("%.3f", v);
 		result.append(statString + splitSymbol);
@@ -235,25 +243,53 @@ public class FormatSaver {
 		return result;
 	}
 
-	/* confidence in [0,1] */
-	private double[] meanConfidenceInterval(ImagePlus imp, Roi roi, double confidence) throws Exception {
+	private double[] meanConfidenceInterval(double mean, double stdDev, int size, double confidence) throws Exception {
 		if (confidence < 0 || confidence > 1) {
 			throw new Exception("Incorrect confidence value");
 		}
-		double t = confidence / 2;
+		double alpha = (1 - confidence) / 2;
+		double t_alpha = 1.65; // close for n = 200 to n=300, which is the case
+		double error = t_alpha * stdDev / Math.sqrt(size);
+		double[] res = new double[2];
+		res[0] = mean - error;
+		res[1] = mean + error;
+		return res;
+	}
+
+	/* confidence in [0,1] */
+	private double[] confidenceInterval(ImagePlus imp, Roi roi, double confidence) throws Exception {
+		if (confidence < 0 || confidence > 1) {
+			throw new Exception("Incorrect confidence value");
+		}
+		double t = (1 - confidence) / 2;
 		ImageProcessor ip = imp.getStack().getProcessor(roi.getPosition() + 1);
 		ArrayList<Double> hist = new ArrayList<Double>(100);
+		double total = 0;
 		for (Point p : roi) {
 			if (Measure.isPointIn(p, ip)) {
-				hist.add((double) ip.getf(p.x, p.y));
+				float v = ip.getf(p.x, p.y);
+				if (Float.isFinite(v)) {
+					hist.add((double) v);
+					total += v;
+				}
 			}
 		}
+		double part = total * t;
 		Collections.sort(hist);
 
-		int lowerIndex = (int) (hist.size() * t);
-		int upperIndex = (int) (hist.size() * (1 - t)) - 1;
-		double lower = hist.get(lowerIndex);
-		double upper = hist.get(upperIndex);
+		double sum = 0;
+		int i = -1;
+		do {
+			sum += hist.get(++i);
+		} while (sum < part);
+		double lower = hist.get(i);
+
+		i = hist.size();
+		sum = 0;
+		do {
+			sum += hist.get(--i);
+		} while (sum < part);
+		double upper = hist.get(i);
 
 		double[] res = new double[2];
 		res[0] = lower;
