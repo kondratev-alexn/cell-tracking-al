@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Locale;
 import java.util.stream.Stream;
 
 import org.apache.tools.ant.DirectoryScanner;
@@ -27,7 +28,7 @@ public class Properties_Measure implements PlugIn {
 	//final ImageJ ij = new ImageJ();
 	
 	public static void main(String[] args) {
-
+		Locale.setDefault(Locale.US);
 		Class<?> clazz = Properties_Measure.class;
 		String url = clazz.getResource("/" + clazz.getName().replace('.', '/') + ".class").toString();
 		String pluginsDir = url.substring("file:".length(),
@@ -132,7 +133,7 @@ public class Properties_Measure implements PlugIn {
 			IJ.log("Track information filled");
 
 			FormatSaver format = new FormatSaver();
-			IJ.log("Calculating sttistics...");
+			IJ.log("Calculating statistics...");
 			format.calculate(tracksMap, stackDetection, imp_ch1, imp_ch2, ratioImage, dir, name);
 			IJ.log("Done!");
 

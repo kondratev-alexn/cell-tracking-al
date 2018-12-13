@@ -13,6 +13,7 @@ import ij.gui.Roi;
 import ij.process.ImageProcessor;
 import statistics.Area;
 import statistics.CoefficientOfVariation;
+import statistics.Max;
 import statistics.Mean;
 import statistics.Measure;
 import statistics.Median;
@@ -94,6 +95,7 @@ public class FormatSaver {
 		Slice sliceMeasure = new Slice();
 		Area area = new Area();
 
+		Max max = new Max();
 		Mean mean = new Mean();
 		Median median = new Median();
 		StandartDeviation stdDev = new StandartDeviation();
@@ -110,7 +112,7 @@ public class FormatSaver {
 		PropertiesColumn prop = new PropertiesColumn(imp, name, measure);
 		list.add(prop);
 
-		imp = ch1;
+		imp = ch1; // 1
 		measure = area;
 		name = "area";
 		prop = new PropertiesColumn(imp, name, measure);
@@ -118,12 +120,18 @@ public class FormatSaver {
 
 		/* ch1 */
 		imp = ch1; // 2
+		measure = max;
+		name = "c1_max";
+		prop = new PropertiesColumn(imp, name, measure);
+		list.add(prop);
+		
+		imp = ch1; // 3
 		measure = mean;
 		name = "c1_mean";
 		prop = new PropertiesColumn(imp, name, measure);
 		list.add(prop);
 
-		imp = ch1;
+		imp = ch1; // 4
 		measure = median;
 		name = "c1_median";
 		prop = new PropertiesColumn(imp, name, measure);
@@ -142,7 +150,13 @@ public class FormatSaver {
 		list.add(prop);
 
 		/* ch2 */
-		imp = ch2; // 6
+		imp = ch2; // 7
+		measure = max;
+		name = "c2_max";
+		prop = new PropertiesColumn(imp, name, measure);
+		list.add(prop);
+		
+		imp = ch2; // 8
 		measure = mean;
 		name = "c2_mean";
 		prop = new PropertiesColumn(imp, name, measure);
@@ -167,7 +181,13 @@ public class FormatSaver {
 		list.add(prop);
 
 		/* ratio */
-		imp = ratio; // 10
+		imp = ratio; // 12
+		measure = max;
+		name = "ratio_max";
+		prop = new PropertiesColumn(imp, name, measure);
+		list.add(prop);
+		
+		imp = ratio; // 13
 		measure = mean;
 		name = "ratio_mean";
 		prop = new PropertiesColumn(imp, name, measure);
@@ -179,7 +199,7 @@ public class FormatSaver {
 		prop = new PropertiesColumn(imp, name, measure);
 		list.add(prop);
 
-		imp = ratio;
+		imp = ratio; // 15
 		measure = stdDev;
 		name = "ratio_stddev";
 		prop = new PropertiesColumn(imp, name, measure);
@@ -205,13 +225,13 @@ public class FormatSaver {
 			double v = measure.calculate(roi, imp);
 			if (i == 1 && measure.name() == "Area")
 				size = (int) v;
-			if (i == 2 && measure.name() == "Mean")
+			if (i == 3 && measure.name() == "Mean")
 				mean1 = v;
-			if (i == 6 && measure.name() == "Mean")
+			if (i == 8 && measure.name() == "Mean")
 				mean2 = v;
-			if (i == 10 && measure.name() == "Mean")
+			if (i == 13 && measure.name() == "Mean")
 				ratio_mean = v;
-			if (i == 12 && measure.name() == "StdDev")
+			if (i == 15 && measure.name() == "StdDev")
 				ratioSD = v;
 			String statString = measure.toString(v);
 			result.append(statString + splitSymbol);
