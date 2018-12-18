@@ -6,9 +6,10 @@ import java.awt.image.RGBImageFilter;
 import java.util.ArrayList;
 
 import colorPicking.ColorPicker;
-import fiji.threshold.Auto_Threshold;
 import ij.ImagePlus;
 import ij.plugin.filter.RankFilters;
+import ij.process.AutoThresholder;
+import ij.process.AutoThresholder.Method;
 import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;
 import ij.process.FloatProcessor;
@@ -94,10 +95,10 @@ public class ImageFunctions {
 
 	public static ImageProcessor getWhiteObjectsMask(ImageProcessor ip, int openingRadius, int closingRadius) {
 		ImageProcessor cellMask = ip.convertToByte(true);
-		ImagePlus imp_mask = new ImagePlus("mask", cellMask);
-		Auto_Threshold threshold = new Auto_Threshold();
-		threshold.exec(imp_mask, "Otsu", false, false, true, false, false, false);
-		cellMask = imp_mask.getProcessor();
+		AutoThresholder threshold = new AutoThresholder();
+		threshold.getThreshold(Method.Otsu, cellMask.getHistogram());
+		//threshold.exec(imp_mask, "Otsu", false, false, true, false, false, false);
+		cellMask.setAutoThreshold("Otsu", true, 1);
 		cellMask = ImageFunctions.operationMorph(cellMask, Operation.OPENING, Strel.Shape.SQUARE, openingRadius);
 		cellMask = ImageFunctions.operationMorph(cellMask, Operation.CLOSING, Strel.Shape.DISK, closingRadius);
 		return cellMask;

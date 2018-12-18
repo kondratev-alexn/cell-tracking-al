@@ -7,6 +7,7 @@ import java.util.Vector;
 import graph.CellTrackingGraph;
 import graph.Graph;
 import histogram.FloatHistogram;
+
 import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
@@ -19,14 +20,12 @@ import ij.process.ImageProcessor;
 import ij.process.StackConverter;
 import ij.plugin.filter.ExtendedPlugInFilter;
 import ij.plugin.Converter;
-import ij.plugin.ImageCalculator;
 import ij.plugin.filter.BackgroundSubtracter;
 import ij.plugin.filter.RankFilters;
 import ij.plugin.frame.RoiManager;
 import inra.ijpb.morphology.Morphology.Operation;
 import inra.ijpb.morphology.Strel;
 import inra.ijpb.morphology.Strel.Shape;
-import inra.ijpb.morphology.MinimaAndMaxima;
 import inra.ijpb.watershed.MarkerControlledWatershedTransform2D;
 import evaluation.EvaluationFromRoi;
 import evaluation.TrackingEvaluation;
@@ -163,7 +162,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus coloredTracksImage = resultGraph.drawComponentColoredByFullTracks(imp);
 			coloredTracksImage.show();
 
-			resultGraph.writeTracksToFile_ctc_afterAnalysis("res_track" + "_" + imp.getShortTitle() + ".txt");
+			resultGraph.writeTracksToFile_ctc_afterAnalysis(imp.getShortTitle() + "_tracking_results.txt");
 			// System.out.println(cellGraph);
 
 			// Create a new ImagePlus with the filter result

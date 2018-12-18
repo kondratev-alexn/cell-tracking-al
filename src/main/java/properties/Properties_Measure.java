@@ -1,14 +1,6 @@
 package properties;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Locale;
-import java.util.stream.Stream;
-
-import org.apache.tools.ant.DirectoryScanner;
-
 import cellTracking.ImageFunctions;
 import ij.IJ;
 import ij.ImageJ;
@@ -51,44 +43,56 @@ public class Properties_Measure implements PlugIn {
 			dir = "C:\\Tokyo\\Data\\Properties Measure";
 
 		try {
-			DirectoryScanner scanner = new DirectoryScanner();
-			scanner.setBasedir(dir);
-			scanner.setCaseSensitive(false);
+			SimpleDirectoryScanner scanner = new SimpleDirectoryScanner();
+			scanner.setDirectory(dir);			
 
-			scanner.setIncludes(new String[] { "*c1.tif" });
-			scanner.scan();
-			String[] files_ch1 = scanner.getIncludedFiles();
-			if (files_ch1.length == 0)
+			String ch1_name = scanner.fileNameBySuffix("c1.tif");
+			if (ch1_name.isEmpty())
 				throw new Exception("No channel 1 tif image was found");
-
-			scanner.setIncludes(new String[] { "*c2.tif" });
-			scanner.scan();
-			String[] files_ch2 = scanner.getIncludedFiles();
-			if (files_ch2.length == 0)
+			String ch2_name = scanner.fileNameBySuffix("c2.tif");
+			if (ch2_name.isEmpty())
 				throw new Exception("No channel 2 tif image was found");
-
-			scanner.setIncludes(new String[] { "*results.tif" });
-			scanner.scan();
-			String[] files_restif = scanner.getIncludedFiles();
-			if (files_restif.length == 0)
+			
+			String restif_name = scanner.fileNameBySuffix("results.tif");
+			if (restif_name.isEmpty())
 				throw new Exception("No tracking result in CTC image format was found");
-
-			scanner.setIncludes(new String[] { "*results.txt" });
-			scanner.scan();
-			String[] files_restxt = scanner.getIncludedFiles();
-			if (files_restxt.length == 0)
+			String restxt_name = scanner.fileNameBySuffix("results.txt");
+			if (restxt_name.isEmpty())
 				throw new Exception("No tracking result in CTC text format was found");
-
-			IJ.log("Files found");
-			System.out.println(files_ch1[0]);
-			System.out.println(files_ch2[0]);
-			System.out.println(files_restif[0]);
-			System.out.println(files_restxt[0]);
-
-			String ch1_name = files_ch1[0];
-			String ch2_name = files_ch2[0];
-			String restif_name = files_restif[0];
-			String restxt_name = files_restxt[0];
+		
+//			DirectoryScanner scanner = new DirectoryScanner();
+//			scanner.setBasedir(dir);
+			
+//			scanner.setCaseSensitive(false);
+//
+//			scanner.setIncludes(new String[] { "*c1.tif" });
+//			scanner.scan();
+//			String[] files_ch1 = scanner.getIncludedFiles();
+//			if (files_ch1.length == 0)
+//				throw new Exception("No channel 1 tif image was found");
+//
+//			scanner.setIncludes(new String[] { "*c2.tif" });
+//			scanner.scan();
+//			String[] files_ch2 = scanner.getIncludedFiles();
+//			if (files_ch2.length == 0)
+//				throw new Exception("No channel 2 tif image was found");
+//
+//			scanner.setIncludes(new String[] { "*results.tif" });
+//			scanner.scan();
+//			String[] files_restif = scanner.getIncludedFiles();
+//			if (files_restif.length == 0)
+//				throw new Exception("No tracking result in CTC image format was found");
+//
+//			scanner.setIncludes(new String[] { "*results.txt" });
+//			scanner.scan();
+//			String[] files_restxt = scanner.getIncludedFiles();
+//			if (files_restxt.length == 0)
+//				throw new Exception("No tracking result in CTC text format was found");
+//
+//			String ch1_name = files_ch1[0];
+//			String ch2_name = files_ch2[0];
+//			String restif_name = files_restif[0];
+//			String restxt_name = files_restxt[0];
 			
 			String[] split = ch2_name.split("c2");
 			String name = split[0];
@@ -138,6 +142,7 @@ public class Properties_Measure implements PlugIn {
 			IJ.log("Done!");
 
 		} catch (Exception e) {
+			IJ.log(e.getMessage());
 			System.err.println(e.getMessage());
 			e.printStackTrace();
 		}
