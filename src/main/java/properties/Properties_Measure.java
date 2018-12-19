@@ -1,6 +1,13 @@
 package properties;
 
+import java.nio.file.CopyOption;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Locale;
+
+import cellTracking.Cell_Tracker;
 import cellTracking.ImageFunctions;
 import ij.IJ;
 import ij.ImageJ;
@@ -53,13 +60,18 @@ public class Properties_Measure implements PlugIn {
 			if (ch2_name.isEmpty())
 				throw new Exception("No channel 2 tif image was found");
 			
+			boolean startTracking = false;
 			String restif_name = scanner.fileNameBySuffix("results.tif");
-			if (restif_name.isEmpty())
-				throw new Exception("No tracking result in CTC image format was found");
+			if (restif_name.isEmpty()) {
+				IJ.log("No tracking result in CTC image format was found.");
+				startTracking = true;
+			}
 			String restxt_name = scanner.fileNameBySuffix("results.txt");
-			if (restxt_name.isEmpty())
-				throw new Exception("No tracking result in CTC text format was found");
-		
+			if (restxt_name.isEmpty()) {
+				IJ.log("No tracking result in CTC text format was found");
+				startTracking = true;
+			}
+			
 //			DirectoryScanner scanner = new DirectoryScanner();
 //			scanner.setBasedir(dir);
 			
@@ -100,8 +112,32 @@ public class Properties_Measure implements PlugIn {
 
 			ImagePlus imp_ch1 = new ImagePlus(dir + System.getProperty("file.separator") + ch1_name);
 			ImagePlus imp_ch2 = new ImagePlus(dir + System.getProperty("file.separator") + ch2_name);
+			
+			if (startTracking) {
+				IJ.log("Launching tracking plugin");
+				Cell_Tracker tracker = new Cell_Tracker();
+				imp_ch2.show();
+				Cell_Tracker o = (Cell_Tracker) IJ.runPlugIn(imp_ch2, Cell_Tracker.class.getName(), "");				
+				if (o == null)
+					IJ.log("Failed to run plugin");
+				
+				String txtPath = o.textResultsPath();
+				String tifPath = o.tifResultPath();
+				Path txt = Paths.get(txtPath);
+				Path tif = Paths.get(tifPath);
+				Path newdir = Paths.get(dir);
+				Files.move(txt, newdir.resolve(txt.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+				Files.move(tif, newdir.resolve(tif.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+				IJ.log("Result txt and tif files moved.");
+				restif_name = tif.getFileName().toString();
+				restxt_name = txt.getFileName().toString();
+				
+			} else {
+				
+			}
+			
 			ImagePlus imp_res = new ImagePlus(dir + System.getProperty("file.separator") + restif_name);
-
+			imp_res.show();
 			/* Dialog to get background values */
 			GenericDialog gd = new GenericDialog("Enter background values");
 			gd.addNumericField("Channel 1 (405ex) background", 100, 0);
@@ -132,7 +168,7 @@ public class Properties_Measure implements PlugIn {
 			IJ.log("Stack with ROIs filled");
 
 			// fill tracks mapping
-			TrackCTCMap tracksMap = new TrackCTCMap(dir + '\\' + restxt_name, stackDetection);
+			TrackCTCMap tracksMap = new TrackCTCMap(dir + System.getProperty("file.separator") + restxt_name, stackDetection);
 			System.out.println("Tracks map filled");
 			IJ.log("Track information filled");
 

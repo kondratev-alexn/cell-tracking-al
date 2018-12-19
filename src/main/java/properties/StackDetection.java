@@ -78,7 +78,8 @@ public class StackDetection {
 
 	public Roi makeRingRoi(int slice, int trackIndex, int dilationRadius) {
 		Roi roi = detectionRoi(slice, trackIndex);
-
+		System.out.format("make ring roi for slice %d track %d %n", slice, trackIndex);
+		
 //		int xbl, xbr, ybl, ybr;
 //		Rectangle box = roi.getBounds();
 //		xbl = box.x;

@@ -547,9 +547,9 @@ public class CellTrackingGraph {
 	}
 
 	/* draws tracks in TRA but in colors */
-	public void showTrackedComponentImages(String name, boolean save) {
+	public ImagePlus showTrackedComponentImages(String name, boolean save) {
 		if (images.isEmpty())
-			return;
+			return null;
 		ImageStack stack = new ImageStack(images.get(0).getWidth(), images.get(0).getHeight(), images.size());
 		for (int i = 0; i < images.size(); i++) {
 			stack.setProcessor(images.get(i), i + 1);
@@ -563,6 +563,7 @@ public class CellTrackingGraph {
 			IJ.log("Tracking result image saved at: " + System.getProperty("user.dir")
 					+ System.getProperty("file.separator") + name + ".tif");
 		}
+		return imp;
 	}
 
 	public ImagePlus drawColorComponents(ImagePlus image) {

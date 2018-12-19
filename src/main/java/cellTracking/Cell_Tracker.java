@@ -58,6 +58,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	/* roi manager for current slice */
 	private RoiManager roiManager;
 
+	/* image containing tracking results in ctc format */
+	ImagePlus ctcComponents;
+
 	private int currSlice = 1; // slice number for stack processing
 	private int selectedSlice; // currently selected slice by slider
 
@@ -98,6 +101,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	private boolean startedProcessing = false; // comes true after user has selected whether to process stacks or not
 	private boolean showBlobs = false;
+
+	String ctcTifResult, ctcTxtResult;
 
 	private ImageComponentsAnalysis prevComponentsAnalysis = null; // for getting masks of segmented cells in next
 																	// slices
@@ -165,16 +170,22 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			IJ.log("Displaying results.");
 			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, roiManager, imp);
-			resultGraph.showTrackedComponentImages(imp.getShortTitle() + "_tracking_results", true); // TRA components show and
-																							// save
 
+			// TRA components show and save
+			String nameTif = imp.getShortTitle() + "_tracking_results";
+			String tifPath = System.getProperty("user.dir") + System.getProperty("file.separator") + nameTif + ".tif";
+			ctcTifResult = tifPath;
+			ctcComponents = resultGraph.showTrackedComponentImages(nameTif, true);
+
+			// colored components
 			ImagePlus coloredTracksImage = resultGraph.drawComponentColoredByFullTracks(imp);
 			coloredTracksImage.show();
 
 			String txtResultName = imp.getShortTitle() + "_tracking_results.txt";
+			String txtPath = System.getProperty("user.dir") + System.getProperty("file.separator") + txtResultName;
+			ctcTxtResult = txtPath;
 			resultGraph.writeTracksToFile_ctc_afterAnalysis(txtResultName);
-			IJ.log("Text result file created: " + System.getProperty("user.dir") + System.getProperty("file.separator")
-					+ txtResultName);
+			IJ.log("Text result file created at: " + txtPath);
 			// System.out.println(cellGraph);
 
 			// Create a new ImagePlus with the filter result
@@ -189,6 +200,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		nSlices = imp.getStackSize();
 		tracking = new NearestNeighbourTracking();
 		cellMask = null;
+		ctcComponents = null;
+		ctcTifResult = "";
+		ctcTxtResult = "";
 
 		// convert to float if plugin just started
 		if (nSlices == 1) {
@@ -201,6 +215,14 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		instancePlugins();
 		// here maybe add flags like flags |= DOES_NOTHING
 		return flags;
+	}
+	
+	public String textResultsPath() {
+		return ctcTxtResult;
+	}
+	
+	public String tifResultPath() {
+		return ctcTifResult;
 	}
 
 	/*
