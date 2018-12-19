@@ -98,9 +98,9 @@ public class Properties_Measure implements PlugIn {
 			String name = split[0];
 			System.out.println(name);
 
-			ImagePlus imp_ch1 = new ImagePlus(dir + '\\' + ch1_name);
-			ImagePlus imp_ch2 = new ImagePlus(dir + '\\' + ch2_name);
-			ImagePlus imp_res = new ImagePlus(dir + '\\' + restif_name);
+			ImagePlus imp_ch1 = new ImagePlus(dir + System.getProperty("file.separator") + ch1_name);
+			ImagePlus imp_ch2 = new ImagePlus(dir + System.getProperty("file.separator") + ch2_name);
+			ImagePlus imp_res = new ImagePlus(dir + System.getProperty("file.separator") + restif_name);
 
 			/* Dialog to get background values */
 			GenericDialog gd = new GenericDialog("Enter background values");

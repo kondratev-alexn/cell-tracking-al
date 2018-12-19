@@ -137,13 +137,19 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// scoreThreshold);
 			// tracking.trackComponentsOneAndMultiSlice(maxRadiusDark, slices,
 			// scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
+
+			IJ.log("Tracking dark nuclei...");
 			tracking.trackComponentsOneSlice(maxRadiusDark, oneSliceScoreThreshold);
 			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient);
 			tracking.fillTracks();
+			IJ.log("Tracking dark nuclei finished.");
+
+			IJ.log("Tracking mitosis...");
 			// check for mitosis start by two ideas (intensity change / bright blob nearby)
 			tracking.analyzeTracksForMitosisByAverageIntensity(mitosisStartIntensityCoefficient);
 			tracking.analyzeTracksForMitosisByWhiteBlob(0.5f);
 			tracking.startMitosisTracking(30, childPenaltyThreshold);
+			IJ.log("Mitosis tracking finished");
 			// tracking.trackComponentsMultiSlice(maxRadiusDark, 4, scoreThreshold,
 			// timeDecayCoefficient);
 
@@ -157,12 +163,18 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			Graph cellGraph = tracking.getGraph();
 
+			IJ.log("Displaying results.");
 			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, roiManager, imp);
-			resultGraph.showTrackedComponentImages(); //TRA components show
+			resultGraph.showTrackedComponentImages(imp.getShortTitle() + "_tracking_results", true); // TRA components show and
+																							// save
+
 			ImagePlus coloredTracksImage = resultGraph.drawComponentColoredByFullTracks(imp);
 			coloredTracksImage.show();
 
-			resultGraph.writeTracksToFile_ctc_afterAnalysis(imp.getShortTitle() + "_tracking_results.txt");
+			String txtResultName = imp.getShortTitle() + "_tracking_results.txt";
+			resultGraph.writeTracksToFile_ctc_afterAnalysis(txtResultName);
+			IJ.log("Text result file created: " + System.getProperty("user.dir") + System.getProperty("file.separator")
+					+ txtResultName);
 			// System.out.println(cellGraph);
 
 			// Create a new ImagePlus with the filter result
@@ -238,6 +250,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			roiManager = new RoiManager();
 		roiManager.reset();
 
+		IJ.log("Starting segmentation.");
 		return flags;
 	}
 
@@ -476,13 +489,12 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageFunctions.normalize(watershedImage, 0, 1);
 		// watershedImage = ImageProcessorCalculator.invertedImage(watershedImage);
 
-		
 		if (showImageForWatershedding) {
 			ImagePlus imp = new ImagePlus("preprocessed", watershedImage);
 			imp.show();
 			return watershedImage;
 		}
-		
+
 		ImageProcessor marksCopy = marksDarkBinary.duplicate();
 		ImageFunctions.addMarkers(marksCopy, marksBrightBinary);
 
@@ -524,9 +536,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(watershedImage,
 				marksDarkBinary, null, 4);
 		ip = watershed.applyWithPriorityQueue();
-		
-		//here draw and show colored basins
-		//ImageFunctions.colorWatershedBasins(ip);
+
+		// here draw and show colored basins
+		// ImageFunctions.colorWatershedBasins(ip);
 
 		if (filterComponents) {
 			ImageComponentsAnalysis compAnalisys;
@@ -723,7 +735,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus image_ex_13 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
 
 			image = image_ex_01;
-			//image = image_ex_07;
+			// image = image_ex_07;
 			// image = image_stack20;
 			// image = image_stack10;
 			// image = image_stack3;

@@ -11,6 +11,7 @@ import cellTracking.ImageComponentsAnalysis;
 import cellTracking.ImageFunctions;
 import cellTracking.NearestNeighbourTracking;
 import colorPicking.ColorPicker;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.PolygonRoi;
@@ -265,11 +266,11 @@ public class CellTrackingGraph {
 			roiName = roiName.concat(String.format("_No%03d", labelIndex));
 			// roiName = roiName.concat(String.format("_Adj%06d", adjIndex));
 			// roiName = roiName.concat(String.format("adj%06d", adjIndex));
-			
-			//add parent track number if it is not 0 (new track) or -1
+
+			// add parent track number if it is not 0 (new track) or -1
 			if (parentTrackNumber != 0 && parentTrackNumber != -1)
 				roiName = roiName.concat(String.format("_ParentTrack%04d", parentTrackNumber));
-			if (isMitosis) 
+			if (isMitosis)
 				roiName = roiName.concat(String.format("_Mitosis"));
 			roi.setName(roiName);
 			roi.setPosition(sliceIndex + 1);
@@ -546,7 +547,7 @@ public class CellTrackingGraph {
 	}
 
 	/* draws tracks in TRA but in colors */
-	public void showTrackedComponentImages() {
+	public void showTrackedComponentImages(String name, boolean save) {
 		if (images.isEmpty())
 			return;
 		ImageStack stack = new ImageStack(images.get(0).getWidth(), images.get(0).getHeight(), images.size());
@@ -554,8 +555,14 @@ public class CellTrackingGraph {
 			stack.setProcessor(images.get(i), i + 1);
 		}
 
-		ImagePlus imp = new ImagePlus("Components for TRA", stack);
+		ImagePlus imp = new ImagePlus(name, stack);
 		imp.show();
+
+		if (save) {
+			IJ.saveAsTiff(imp, name);
+			IJ.log("Tracking result image saved at: " + System.getProperty("user.dir")
+					+ System.getProperty("file.separator") + name + ".tif");
+		}
 	}
 
 	public ImagePlus drawColorComponents(ImagePlus image) {
