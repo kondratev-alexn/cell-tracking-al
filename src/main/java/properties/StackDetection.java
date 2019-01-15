@@ -1,14 +1,13 @@
 package properties;
 
-import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.HashMap;
 
 import cellTracking.ImageFunctions;
-import cellTracking.ImageProcessorCalculator;
+import graph.CellTrackingGraph;
+import graph.MitosisInfo;
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.gui.FreehandRoi;
 import ij.gui.PolygonRoi;
 import ij.gui.Roi;
 import ij.gui.ShapeRoi;
@@ -17,25 +16,31 @@ import ij.plugin.frame.RoiManager;
 import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 import inra.ijpb.morphology.Strel;
-import inra.ijpb.math.ImageCalculator;
 import inra.ijpb.morphology.Morphology.Operation;
 
 public class StackDetection {
 	private ArrayList<SliceDetections> stack;
+	private TrackCTCMap tracks;
 	private ImagePlus _ctcResultImp;
 
 	public StackDetection() {
 		stack = new ArrayList<SliceDetections>(10);
+		tracks = new TrackCTCMap();
 	}
 
-	public void fillStack(ImagePlus ctcResultImp) {
+	public void fillStack(ImagePlus ctcResultImp, MitosisInfo mitosisInfo) {
 		_ctcResultImp = ctcResultImp;
+
 		ImageStack imgstack = ctcResultImp.getStack();
 		for (int i = 0; i < imgstack.getSize(); i++) {
 			ImageProcessor img = imgstack.getProcessor(i + 1);
-			SliceDetections detection = new SliceDetections(img, i);
+			SliceDetections detection = new SliceDetections(img, i + 1, mitosisInfo);
 			stack.add(detection);
 		}
+	}
+
+	public void fillTracks(String ctcResultTxt) {
+		tracks.fillTracks(ctcResultTxt, this);
 	}
 
 	public boolean checkTrackCorrectness(int trackIndex, int startSlice, int endSlice) {
@@ -44,6 +49,47 @@ public class StackDetection {
 				return false;
 		}
 		return true;
+	}
+
+	public void addToRoiManager(boolean sort) {
+		if (sort)
+			addToRoiManagerTrackSort();
+		else
+			addToRoiManagerNoSort();
+	}
+
+	public void addToRoiManagerNoSort() {
+		RoiManager manager = RoiManager.getInstance();
+		if (manager == null)
+			manager = new RoiManager();
+		manager.reset();
+
+		for (int slice = 0; slice < stack.size(); ++slice) {
+			HashMap<Integer, Detection> map = stack.get(slice).detectionsMap();
+			for (int trackIndex : map.keySet()) {
+				Roi roi = detectionRoi(slice, trackIndex);
+				manager.addRoi(roi);
+			}
+		}
+	}
+
+	public void addToRoiManagerTrackSort() {
+		RoiManager manager = RoiManager.getInstance();
+		if (manager == null)
+			manager = new RoiManager();
+		manager.reset();
+
+		for (TrackCTC track : tracks.tracksMap().values()) {
+			int trackIndex = track.index();
+			for (int slice = track.startSlice(); slice <= track.endSlice(); ++slice) {
+				Roi roi = detectionRoi(slice, trackIndex);
+				manager.addRoi(roi);
+			}
+		}
+	}
+
+	public TrackCTCMap tracksCTC() {
+		return tracks;
 	}
 
 	public void show() {
@@ -65,30 +111,54 @@ public class StackDetection {
 		stack.get(slice).setRoi(roi, trackIndex);
 	}
 
+	public boolean isMitosisDetection(int trackIndex, int slice) {
+		return stack.get(slice).detectionsMap().get(trackIndex).isMitosis();
+	}
+
 	public void changeDetectionsToRing(int dilationRadius) {
 		for (int slice = 0; slice < stack.size(); ++slice) {
 			HashMap<Integer, Detection> map = stack.get(slice).detectionsMap();
 			for (int trackIndex : map.keySet()) {
-				Roi roi = makeRingRoi(slice, trackIndex, dilationRadius);
-				setRoi(roi, slice, trackIndex);
+				if (!isMitosisDetection(trackIndex, slice)) {
+					Roi roi = makeRingRoi(slice, trackIndex, dilationRadius);
+					setRoi(roi, slice, trackIndex);
+				}
 			}
 		}
+	}
 
+	/*
+	 * fill detections with information about its track i.e. its parent, number in
+	 * track
+	 */
+	public void setDetectionTrackInformation() {
+		for (TrackCTC track : tracks.tracksMap().values()) {
+			int trackIndex = track.index();
+			int label = 0;
+			for (int slice = track.startSlice(); slice <= track.endSlice(); ++slice) {
+				Roi roi = detectionRoi(slice, trackIndex);
+				int parentIndex = label == 0 ? track.parenIndex() : -1;
+				boolean isMitosis = isMitosisDetection(trackIndex, slice);
+				String name = CellTrackingGraph.roiName(trackIndex, slice, label, parentIndex, isMitosis);
+				roi.setName(name);
+				++label;
+			}
+		}
 	}
 
 	public Roi makeRingRoi(int slice, int trackIndex, int dilationRadius) {
 		Roi roi = detectionRoi(slice, trackIndex);
 		System.out.format("make ring roi for slice %d track %d %n", slice, trackIndex);
-		
-//		int xbl, xbr, ybl, ybr;
-//		Rectangle box = roi.getBounds();
-//		xbl = box.x;
-//		xbr = box.x + box.width;
-//		ybl = box.y;
-//		ybr = box.y + box.height;
-//		
-//		int pLeft, pRight, pTop, pBottom;
-		//pLeft = xbl
+
+		// int xbl, xbr, ybl, ybr;
+		// Rectangle box = roi.getBounds();
+		// xbl = box.x;
+		// xbr = box.x + box.width;
+		// ybl = box.y;
+		// ybr = box.y + box.height;
+		//
+		// int pLeft, pRight, pTop, pBottom;
+		// pLeft = xbl
 
 		ImageProcessor mask = roi.getMask();
 		ImageProcessor mask2 = new ByteProcessor(mask.getWidth() + 2 * dilationRadius,
@@ -101,7 +171,6 @@ public class StackDetection {
 
 		mask2 = ImageFunctions.operationMorph(mask2, Operation.DILATION, Strel.Shape.DISK, dilationRadius);
 
-
 		int xNew = roi.getBounds().x - dilationRadius;
 		int yNew = roi.getBounds().y - dilationRadius;
 
@@ -112,13 +181,13 @@ public class StackDetection {
 		if (w.npoints > 0) { // we have a roi from the wand...
 
 			roi = new PolygonRoi(w.xpoints, w.ypoints, w.npoints, Roi.TRACED_ROI);
-			roi.setPosition(slice);
+			roi.setPosition(slice + 1);
 			roi.setLocation(xNew, yNew);
 		}
 
 		ShapeRoi sr2 = new ShapeRoi(roi);
 		sr2 = sr2.xor(sr);
-		sr2.setPosition(slice);
+		sr2.setPosition(slice + 1);
 
 		// ImagePlus maskImp = new ImagePlus("new mask", sr2.getMask());
 		// maskImp.show();

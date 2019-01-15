@@ -40,6 +40,10 @@ public class TrackCTC {
 		return _index;
 	}
 	
+	public int parenIndex() {
+		return _parentIndex;
+	}
+	
 	public int startSlice() {
 		return _startSlice;
 	}

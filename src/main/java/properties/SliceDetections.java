@@ -3,6 +3,7 @@ package properties;
 import java.awt.Point;
 import java.util.HashMap;
 
+import graph.MitosisInfo;
 import ij.gui.PolygonRoi;
 import ij.gui.Roi;
 import ij.gui.Wand;
@@ -22,13 +23,13 @@ public class SliceDetections {
 	private HashMap<Integer, Detection> detectionsMap;
 
 	/* creates and fills slice detections, with roi */
-	public SliceDetections(ImageProcessor traDetections, int slice) {
+	public SliceDetections(ImageProcessor traDetections, int slice, MitosisInfo mitosisInfo) {
 		imageDetections = traDetections;
 		detectionsMap = new HashMap<Integer, Detection>(10);
-		fillMap(traDetections, true, slice);
+		fillMap(traDetections, true, slice, mitosisInfo);
 	}
 
-	void fillMap(ImageProcessor detections, boolean backgroundZero, int slice) {
+	void fillMap(ImageProcessor detections, boolean backgroundZero, int slice, MitosisInfo mitosisInfo) {
 		for (int y = 0; y < detections.getHeight(); y++)
 			for (int x = 0; x < detections.getWidth(); x++) {
 				int intensity = detections.get(x, y);
@@ -36,8 +37,10 @@ public class SliceDetections {
 					continue;
 				if (detectionsMap.containsKey(intensity))
 					continue;
-
-				Detection det = new Detection(intensity, slice);
+				
+				boolean isMitosis = mitosisInfo.contains(intensity, slice-1);
+				
+				Detection det = new Detection(intensity, slice, isMitosis);
 				det.fillRoi(detections, intensity, x, y, slice);
 
 				detectionsMap.put(intensity, det);

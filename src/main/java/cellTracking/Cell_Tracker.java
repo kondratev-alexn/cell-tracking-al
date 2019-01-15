@@ -102,7 +102,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private boolean startedProcessing = false; // comes true after user has selected whether to process stacks or not
 	private boolean showBlobs = false;
 
-	String ctcTifResult, ctcTxtResult;
+	String ctcTifResult, ctcTxtResult, infoFilePath;
 
 	private ImageComponentsAnalysis prevComponentsAnalysis = null; // for getting masks of segmented cells in next
 																	// slices
@@ -169,7 +169,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			Graph cellGraph = tracking.getGraph();
 
 			IJ.log("Displaying results.");
-			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, roiManager, imp);
+			
+			String mitosisInfoFileName = imp.getShortTitle() + "_mitosis_info.ser";
+			infoFilePath = System.getProperty("user.dir") + System.getProperty("file.separator") + mitosisInfoFileName;
+			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, roiManager, imp, mitosisInfoFileName);
 
 			// TRA components show and save
 			String nameTif = imp.getShortTitle() + "_tracking_results";
@@ -203,6 +206,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ctcComponents = null;
 		ctcTifResult = "";
 		ctcTxtResult = "";
+		infoFilePath = "";
 
 		// convert to float if plugin just started
 		if (nSlices == 1) {
@@ -223,6 +227,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	
 	public String tifResultPath() {
 		return ctcTifResult;
+	}
+	
+	public String mitosisInfoFilePath() {
+		return infoFilePath;
 	}
 
 	/*
@@ -537,10 +545,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// Operation.DILATION, Strel.Shape.DISK, 2);
 			ip = original;
 			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksSigma, true, false);
-			ImageFunctions.colorCirclesBySigmaMarkers(ip, marksCopy, true, true, 7);
-			ImageFunctions.colorCirclesBySigmaMarkers(ip, marksDarkBinary, true, true, 7);
+//			ImageFunctions.colorCirclesBySigmaMarkers(ip, marksCopy, true, true, 7);
+//			ImageFunctions.colorCirclesBySigmaMarkers(ip, marksDarkBinary, true, true, 7);
 			ImageFunctions.normalize(watershedImage, 0, 255);
-			ImageFunctions.colorCirclesBySigmaMarkers(watershedImage, marksDarkBinary, true, true, 7);
+//			ImageFunctions.colorCirclesBySigmaMarkers(watershedImage, marksDarkBinary, true, true, 7);
 			ImageFunctions.drawCirclesBySigmaMarkerks(ip, marksDarkBinary, true, false);
 			// ImagePlus imp = new ImagePlus("markers", ip);
 			// imp.show();

@@ -42,7 +42,7 @@ public class CellTrackingGraph {
 	 * construct a cell tracking graph based on graph after tracking algorithm. cell
 	 * tracking graph's node labels are indexes that refer to cell id. So the cell
 	 */
-	public CellTrackingGraph(NearestNeighbourTracking trackingResult, RoiManager roiManager, ImagePlus activeImage) {
+	public CellTrackingGraph(NearestNeighbourTracking trackingResult, RoiManager roiManager, ImagePlus activeImage, String infoFileName) {
 		// Graph trGraph = trackingResult.getGraph();
 		this.roiManager = roiManager;
 		if (roiManager != null)
@@ -83,7 +83,11 @@ public class CellTrackingGraph {
 		// prevComponentsList.set(i, new ImageComponentsAnalysis(images.get(i),
 		// prevComponentsList.get(i).getAvrgIntensityImage(), false));
 		// }
-		analyseTrackingGraph(); // new g is generated, images filled with newly labeled components
+		MitosisInfo info = new MitosisInfo();
+		analyseTrackingGraph(info); // new g is generated, images filled with newly labeled components
+
+		if (!infoFileName.isEmpty())
+			MitosisInfo.SerializeMitosisInfo(infoFileName, info);
 
 		// code below is useless?
 		for (int i = 0; i < componentsList.size(); i++) {
@@ -99,7 +103,7 @@ public class CellTrackingGraph {
 		// IN ARRAYS
 	}
 
-	/* constructor for tra metrics */
+	/* constructor for TRA metrics */
 	public CellTrackingGraph(Graph g, int imageWidth, int imageHeight, int imageCount) {
 		trGraph = g;
 		int nNodes = trGraph.nodes.size();
@@ -261,22 +265,28 @@ public class CellTrackingGraph {
 		w.autoOutline(x0, y0, intensity, intensity);
 		if (w.npoints > 0) { // we have a roi from the wand...
 			roi = new PolygonRoi(w.xpoints, w.ypoints, w.npoints, Roi.TRACED_ROI);
-			roiName = String.format("Track%04d", mainTrackIndex);
-			roiName = roiName.concat(String.format("_T%03d", sliceIndex));
-			roiName = roiName.concat(String.format("_No%03d", labelIndex));
-			// roiName = roiName.concat(String.format("_Adj%06d", adjIndex));
-			// roiName = roiName.concat(String.format("adj%06d", adjIndex));
-
-			// add parent track number if it is not 0 (new track) or -1
-			if (parentTrackNumber != 0 && parentTrackNumber != -1)
-				roiName = roiName.concat(String.format("_ParentTrack%04d", parentTrackNumber));
-			if (isMitosis)
-				roiName = roiName.concat(String.format("_Mitosis"));
+			// roiName = roiName(mainTrackIndex, sliceIndex, labelIndex, parentTrackNumber,
+			// isMitosis);
+			roiName = roiName(intensity, sliceIndex, labelIndex, parentTrackNumber, isMitosis);
 			roi.setName(roiName);
 			roi.setPosition(sliceIndex + 1);
 		}
 
 		return roi;
+	}
+
+	public static String roiName(int trackIndex, int slice, int label, int parentTrack, boolean isMitosis) {
+		String roiName;
+		roiName = String.format("Track%04d", trackIndex);
+		roiName = roiName.concat(String.format("_T%03d", slice));
+		roiName = roiName.concat(String.format("_No%03d", label));
+
+		// add parent track number if it is not 0 (new track) or -1
+		if (parentTrack != 0 && parentTrack != -1)
+			roiName = roiName.concat(String.format("_ParentTrack%04d", parentTrack));
+		if (isMitosis)
+			roiName = roiName.concat(String.format("_Mitosis"));
+		return roiName;
 	}
 
 	/* returns copy of adj list */
@@ -290,8 +300,11 @@ public class CellTrackingGraph {
 	 * result.add(currlist); } return result; }
 	 */
 
-	/* reconstruct new graph and component images according to tracking results */
-	void analyseTrackingGraph() {
+	/*
+	 * reconstruct new graph and component images according to tracking results and
+	 * fill mitosis info for future
+	 */
+	void analyseTrackingGraph(MitosisInfo info) {
 		ArrayList<Integer> childs;
 		ArrayList<ArrayList<Integer>> adj = Graph.copyAdjList(trGraph.adjLists);
 		if (adj.isEmpty()) {
@@ -322,15 +335,15 @@ public class CellTrackingGraph {
 			// now only 1 child, make a track. It still would be added for sure, since only
 			// 1
 			// child. 2 children also handled in addtrack
-			addTrack(adj, Graph.getStartingAdjIndex(adj, i), getNewIndex(), 0);
+			addTrack(adj, Graph.getStartingAdjIndex(adj, i), getNewIndex(), 0, info);
 		}
 	}
 
-	// only called whe component has 1 child besides when in itself or when it has
+	// only called when component has 1 child besides when in itself or when it has
 	// parent (called from division)
 	// so first cell should be drawn
 	boolean addTrack(ArrayList<ArrayList<Integer>> adj, int startIndexAdj, int startingTrackIndex,
-			int parentTrackNumber) {
+			int parentTrackNumber, MitosisInfo info) {
 		boolean added = false;
 		ArrayList<Integer> childs;
 		int childIndex = -1, t1, t2, ci1, ci2;
@@ -339,12 +352,24 @@ public class CellTrackingGraph {
 		int trackIndex = startingTrackIndex;
 		int prevTrackNumber = parentTrackNumber;
 		Roi roi;
+		boolean newTrack = false;
+
+		int mitosisStartSlice = -1, mitosisEndSlice = -1;
 
 		t1 = trGraph.getNodeSliceByGlobalIndex(startIndexAdj);
 		startSlice = t1;
 		endSlice = t1;
 		v1 = new Node(t1, trackIndex);
 		drawComponentInImage(t1, trackIndex, trGraph.getNodeIndexByGlobalIndex(startIndexAdj));
+
+		ImageComponentsAnalysis prevComp = prevComponentsList.get(t1);
+		int indexInPrev = trGraph.getNodeIndexByGlobalIndex(startIndexAdj);
+		boolean isMitosis = prevComp.isComponentMitosis(indexInPrev);
+
+		if (isMitosis) {
+			mitosisStartSlice = t1;
+			mitosisEndSlice = t1;
+		}
 
 		if (roiManager != null) {
 			roi = getComponentAsRoi(t1, trackIndex, trGraph.getNodeIndexByGlobalIndex(startIndexAdj),
@@ -356,10 +381,11 @@ public class CellTrackingGraph {
 		}
 
 		childs = adj.get(startIndexAdj);
-		while (childs.size() == 1) { // track a component until it has no childen (disappear) or 2 children
+		while (childs.size() == 1) { // track a component until it has no children (disappear) or 2 children
 										// (division)
 			// add arc to Graph, draw component
 			childIndex = childs.get(0);
+			newTrack = false;
 
 			t2 = trGraph.getNodeSliceByGlobalIndex(childIndex);
 			v2 = new Node(t2, trackIndex);
@@ -378,13 +404,40 @@ public class CellTrackingGraph {
 				prevTrackNumber = trackIndex;
 				trackIndex = getNewIndex();
 				startSlice = t2;
+
+				newTrack = true;
+				count = 0;
 			}
 			t1 = t2; // t1 is for previous slice
 			endSlice = t2;
 			drawComponentInImage(t1, trackIndex, trGraph.getNodeIndexByGlobalIndex(childIndex));
+
+			prevComp = prevComponentsList.get(t1);
+			indexInPrev = trGraph.getNodeIndexByGlobalIndex(childIndex);
+			isMitosis = prevComp.isComponentMitosis(indexInPrev);
+
+			/* for saving info about mitosis */
+			if (isMitosis) {
+				if (mitosisStartSlice == -1)
+					mitosisStartSlice = t1;
+				mitosisEndSlice = t1;
+			}
+
+			System.out.format("1 child: track index %d, mit start %d, mit end %d prevTrack %d %n", trackIndex,
+					mitosisStartSlice, mitosisEndSlice, prevTrackNumber);
+
+			if (newTrack) {
+				if (mitosisStartSlice != -1)
+					info.addMitosisInfo(prevTrackNumber, mitosisStartSlice, mitosisEndSlice);
+
+				mitosisStartSlice = -1;
+				mitosisEndSlice = -1;
+			}
+
 			if (roiManager != null) {
-				roi = getComponentAsRoi(t1, trackIndex, trGraph.getNodeIndexByGlobalIndex(childIndex),
-						startingTrackIndex, ++count, childIndex, -1);
+				int roiParentIndex = t1 == startSlice ? prevTrackNumber : -1;
+				roi = getComponentAsRoi(t1, trackIndex, indexInPrev, trackIndex, count, childIndex, roiParentIndex);
+				++count;
 				if (roi != null) {
 					roiManager.addRoi(roi);
 				} else
@@ -392,6 +445,15 @@ public class CellTrackingGraph {
 			}
 		}
 		if (childs.size() >= 2) { // create division in graph
+			System.out.format("2 children: track index %d, mit start %d, mit end %d prevTrack %d %n", trackIndex,
+					mitosisStartSlice, mitosisEndSlice, prevTrackNumber);
+
+			if (mitosisStartSlice != -1) {
+				info.addMitosisInfo(trackIndex, mitosisStartSlice, mitosisEndSlice);
+				mitosisStartSlice = -1;
+				mitosisEndSlice = -1;
+			}
+
 			// add needed arcs from v1 to its children and add 2
 			t2 = trGraph.getNodeSliceByGlobalIndex(childs.get(0));
 			// SO THERE ARE SOME PROBLMES INVOLVING NEW INDEXES OF PARENT NODES WHEN
@@ -403,7 +465,7 @@ public class CellTrackingGraph {
 			System.out.println("Added arc child 1: " + v1 + "---" + v2);
 
 			// no need to draw there because the track will be drawn in previous 'for'
-			addTrack(adj, childs.get(0), ci1, startingTrackIndex);
+			addTrack(adj, childs.get(0), ci1, startingTrackIndex, info);
 
 			// add arc here
 			t2 = trGraph.getNodeSliceByGlobalIndex(childs.get(1));
@@ -413,11 +475,19 @@ public class CellTrackingGraph {
 			System.out.println();
 			System.out.println("Added arc child 2: " + v1 + "---" + v2);
 
-			addTrack(adj, childs.get(1), ci2, startingTrackIndex);
+			addTrack(adj, childs.get(1), ci2, startingTrackIndex, info);
 
 			// childs.clear();
 			childs.remove(0);
 			childs.remove(0);
+		}
+		System.out.format("f end: track index %d, mit start %d, mit end %d prevTrack %d %n", trackIndex,
+				mitosisStartSlice, mitosisEndSlice, prevTrackNumber);
+
+		if (mitosisStartSlice != -1) {
+			info.addMitosisInfo(trackIndex, mitosisStartSlice, mitosisEndSlice);
+			mitosisStartSlice = -1;
+			mitosisEndSlice = -1;
 		}
 		// better add division events here, because we have index
 		return added;
@@ -427,17 +497,24 @@ public class CellTrackingGraph {
 		writeTracksToFile_ctc_general(filename, g);
 	}
 
+	public static void writeMitosisInformation(String filename, Graph g_analysed) {
+		// ImageComponentsAnalysis prevComp = prevComponentsList.get(sliceIndex);
+	}
+
 	/*
 	 * generated txt file for TRA evaluation in CTC format algorithm should be
 	 * changed so that track of one cell that interrupts for 1+ slices is divided
 	 * into several tracks
 	 */
-	public static void writeTracksToFile_ctc_general(String filename, Graph g_analysed) {
-		BufferedWriter writer = null;
+	public void writeTracksToFile_ctc_general(String filename, Graph g_analysed) {
+		BufferedWriter writer = null, writerMit = null;
 		resetNewIndex();
 		ArrayList<ArrayList<Integer>> adj = Graph.copyAdjList(g_analysed.getAdjList());
 		try {
 			File logFile = new File(filename);
+
+			String mitosisInfoFileName = "mitosis_info.txt";
+			File mitosisInfo = new File(mitosisInfoFileName);
 
 			// This will output the full path where the file will be written to...
 			System.out.println(logFile.getCanonicalPath());

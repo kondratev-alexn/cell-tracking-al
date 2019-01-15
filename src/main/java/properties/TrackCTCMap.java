@@ -11,20 +11,16 @@ import ij.gui.Roi;
 public class TrackCTCMap {
 	/* mapping between track indexes (intensity) and track structure */
 	private HashMap<Integer, TrackCTC> _tracks;
-	/* filled stack to retrieve actual detections */
-	StackDetection filledStack;
 	
-	public TrackCTCMap(String ctcResultTxt, StackDetection filledStack) {
-		this.filledStack = filledStack;
-		_tracks = new HashMap<Integer, TrackCTC>(10);
-		fillTracks(ctcResultTxt, filledStack);
+	public TrackCTCMap() {
+		_tracks = new HashMap<Integer, TrackCTC>(10);		
 	}
 	
 	/* create tracks and fill map while checking for correctness. Stack must be filled beforehand */
-	private void fillTracks(String ctcResultTxt, StackDetection filledStack) {
+	public void fillTracks(String ctcResultTxt, StackDetection filledStack) {
 		try(BufferedReader br = new BufferedReader(new FileReader(ctcResultTxt))) {
 		    for(String line; (line = br.readLine()) != null; ) {
-		        // process the line.
+		        // process the line
 				TrackCTC track = new TrackCTC(line, filledStack);
 				
 				if (_tracks.containsKey(track.index())) 
@@ -45,8 +41,14 @@ public class TrackCTCMap {
 		}
 	}
 	
-	public Roi getDetectionRoi(int trackIndex, int slice) {
-		return filledStack.detectionRoi(slice, trackIndex);
+	public int trackStartSlice(int trackIndex) {
+		TrackCTC track = _tracks.get(trackIndex);
+		return track.startSlice();
+	}
+	
+	public int trackEndSlice(int trackIndex) {
+		TrackCTC track = _tracks.get(trackIndex);
+		return track.endSlice();
 	}
 	
 	public HashMap<Integer, TrackCTC> tracksMap() {

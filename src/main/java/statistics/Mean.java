@@ -15,7 +15,7 @@ public class Mean implements Measure {
 
 	@Override
 	public double calculate(Roi roi, ImagePlus imp) {
-		ImageProcessor ip = imp.getStack().getProcessor(roi.getPosition() + 1);
+		ImageProcessor ip = imp.getStack().getProcessor(roi.getPosition());
 		double mean = 0;
 		int count = 0;
 		for (Point p : roi) {

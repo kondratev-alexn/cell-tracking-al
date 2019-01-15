@@ -15,7 +15,7 @@ public class Max implements Measure {
 
 	@Override
 	public double calculate(Roi roi, ImagePlus imp) {
-		ImageProcessor ip = imp.getStack().getProcessor(roi.getPosition() + 1);
+		ImageProcessor ip = imp.getStack().getProcessor(roi.getPosition());
 		double max = Double.MIN_VALUE;
 		for (Point p : roi) {
 			if (Measure.isPointIn(p, ip)) {

@@ -1,5 +1,6 @@
 package properties;
 
+import java.io.IOException;
 import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,6 +10,7 @@ import java.util.Locale;
 
 import cellTracking.Cell_Tracker;
 import cellTracking.ImageFunctions;
+import graph.MitosisInfo;
 import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
@@ -23,9 +25,9 @@ import inra.ijpb.math.ImageCalculator;
 import inra.ijpb.morphology.Morphology.Operation;
 
 public class Properties_Measure implements PlugIn {
-	
-	//final ImageJ ij = new ImageJ();
-	
+
+	// final ImageJ ij = new ImageJ();
+
 	public static void main(String[] args) {
 		Locale.setDefault(Locale.US);
 		Class<?> clazz = Properties_Measure.class;
@@ -42,7 +44,7 @@ public class Properties_Measure implements PlugIn {
 	public void run(String arg) {
 		DirectoryChooser dirChoose = new DirectoryChooser("Select a folder with data");
 		String dir;
-		
+
 		boolean selectDir = true;
 		if (selectDir)
 			dir = dirChoose.getDirectory();
@@ -51,7 +53,7 @@ public class Properties_Measure implements PlugIn {
 
 		try {
 			SimpleDirectoryScanner scanner = new SimpleDirectoryScanner();
-			scanner.setDirectory(dir);			
+			scanner.setDirectory(dir);
 
 			String ch1_name = scanner.fileNameBySuffix("c1.tif");
 			if (ch1_name.isEmpty())
@@ -59,7 +61,7 @@ public class Properties_Measure implements PlugIn {
 			String ch2_name = scanner.fileNameBySuffix("c2.tif");
 			if (ch2_name.isEmpty())
 				throw new Exception("No channel 2 tif image was found");
-			
+
 			boolean startTracking = false;
 			String restif_name = scanner.fileNameBySuffix("results.tif");
 			if (restif_name.isEmpty()) {
@@ -71,56 +73,62 @@ public class Properties_Measure implements PlugIn {
 				IJ.log("No tracking result in CTC text format was found");
 				startTracking = true;
 			}
-			
-//			DirectoryScanner scanner = new DirectoryScanner();
-//			scanner.setBasedir(dir);
-			
-//			scanner.setCaseSensitive(false);
-//
-//			scanner.setIncludes(new String[] { "*c1.tif" });
-//			scanner.scan();
-//			String[] files_ch1 = scanner.getIncludedFiles();
-//			if (files_ch1.length == 0)
-//				throw new Exception("No channel 1 tif image was found");
-//
-//			scanner.setIncludes(new String[] { "*c2.tif" });
-//			scanner.scan();
-//			String[] files_ch2 = scanner.getIncludedFiles();
-//			if (files_ch2.length == 0)
-//				throw new Exception("No channel 2 tif image was found");
-//
-//			scanner.setIncludes(new String[] { "*results.tif" });
-//			scanner.scan();
-//			String[] files_restif = scanner.getIncludedFiles();
-//			if (files_restif.length == 0)
-//				throw new Exception("No tracking result in CTC image format was found");
-//
-//			scanner.setIncludes(new String[] { "*results.txt" });
-//			scanner.scan();
-//			String[] files_restxt = scanner.getIncludedFiles();
-//			if (files_restxt.length == 0)
-//				throw new Exception("No tracking result in CTC text format was found");
-//
-//			String ch1_name = files_ch1[0];
-//			String ch2_name = files_ch2[0];
-//			String restif_name = files_restif[0];
-//			String restxt_name = files_restxt[0];
-			
+
+			String mitosisInfoName = scanner.fileNameBySuffix("mitosis_info.ser");
+			if (mitosisInfoName.isEmpty()) {
+				IJ.log("No mitosis information file was found");
+				startTracking = true;
+			}
+
+			// DirectoryScanner scanner = new DirectoryScanner();
+			// scanner.setBasedir(dir);
+
+			// scanner.setCaseSensitive(false);
+			//
+			// scanner.setIncludes(new String[] { "*c1.tif" });
+			// scanner.scan();
+			// String[] files_ch1 = scanner.getIncludedFiles();
+			// if (files_ch1.length == 0)
+			// throw new Exception("No channel 1 tif image was found");
+			//
+			// scanner.setIncludes(new String[] { "*c2.tif" });
+			// scanner.scan();
+			// String[] files_ch2 = scanner.getIncludedFiles();
+			// if (files_ch2.length == 0)
+			// throw new Exception("No channel 2 tif image was found");
+			//
+			// scanner.setIncludes(new String[] { "*results.tif" });
+			// scanner.scan();
+			// String[] files_restif = scanner.getIncludedFiles();
+			// if (files_restif.length == 0)
+			// throw new Exception("No tracking result in CTC image format was found");
+			//
+			// scanner.setIncludes(new String[] { "*results.txt" });
+			// scanner.scan();
+			// String[] files_restxt = scanner.getIncludedFiles();
+			// if (files_restxt.length == 0)
+			// throw new Exception("No tracking result in CTC text format was found");
+			//
+			// String ch1_name = files_ch1[0];
+			// String ch2_name = files_ch2[0];
+			// String restif_name = files_restif[0];
+			// String restxt_name = files_restxt[0];
+
 			String[] split = ch2_name.split("c2");
 			String name = split[0];
 			System.out.println(name);
 
 			ImagePlus imp_ch1 = new ImagePlus(dir + System.getProperty("file.separator") + ch1_name);
 			ImagePlus imp_ch2 = new ImagePlus(dir + System.getProperty("file.separator") + ch2_name);
-			
+
 			if (startTracking) {
 				IJ.log("Launching tracking plugin");
-				Cell_Tracker tracker = new Cell_Tracker();
+
 				imp_ch2.show();
-				Cell_Tracker o = (Cell_Tracker) IJ.runPlugIn(imp_ch2, Cell_Tracker.class.getName(), "");				
+				Cell_Tracker o = (Cell_Tracker) IJ.runPlugIn(imp_ch2, Cell_Tracker.class.getName(), "");
 				if (o == null)
 					IJ.log("Failed to run plugin");
-				
+
 				String txtPath = o.textResultsPath();
 				String tifPath = o.tifResultPath();
 				Path txt = Paths.get(txtPath);
@@ -131,50 +139,67 @@ public class Properties_Measure implements PlugIn {
 				IJ.log("Result txt and tif files moved.");
 				restif_name = tif.getFileName().toString();
 				restxt_name = txt.getFileName().toString();
-				
+
+				String infoFilePath = o.mitosisInfoFilePath();
+				Path infoPath = Paths.get(infoFilePath);
+				Files.move(infoPath, newdir.resolve(infoPath.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+				IJ.log("Mitosis information file moved.");
+				mitosisInfoName = infoPath.getFileName().toString();
+
 			} else {
-				
+
 			}
-			
+
 			ImagePlus imp_res = new ImagePlus(dir + System.getProperty("file.separator") + restif_name);
 			imp_res.show();
 			/* Dialog to get background values */
 			GenericDialog gd = new GenericDialog("Enter background values");
 			gd.addNumericField("Channel 1 (405ex) background", 100, 0);
 			gd.addNumericField("Channel 2 (480ex) background", 140, 0);
+			gd.addNumericField("Ring radius (pixels)", 3, 0);
 			gd.showDialog();
 			double background0 = gd.getNextNumber();
-			double background1 = gd.getNextNumber();			
+			double background1 = gd.getNextNumber();
+			int radius = (int) gd.getNextNumber();
 
 			/* Subtract background values from channels */
-			subtrackBackground(imp_ch1, (int) background0);
-			subtrackBackground(imp_ch2, (int) background1);
-//			imp_ch1.show();
-//			imp_ch2.show();
+			subtractBackground(imp_ch1, (int) background0);
+			subtractBackground(imp_ch2, (int) background1);
+			// imp_ch1.show();
+			// imp_ch2.show();
 
 			ImagePlus ratioImage = ratioImage(imp_ch1, imp_ch2);
-//			ratioImage.show();
+			// ratioImage.show();
 
-//			imp_res.show();
+			// imp_res.show();
+			String ctcResultTxt = dir + System.getProperty("file.separator") + restxt_name;
 
+			// getting mitosis info
+			MitosisInfo mitosisInfo = MitosisInfo.DeserializeMitosisInfo(dir + System.getProperty("file.separator") + mitosisInfoName);
+			if (mitosisInfo == null)
+				mitosisInfo = new MitosisInfo();
+			
 			// filling roi from ctc result image
 			StackDetection stackDetection = new StackDetection();
-			stackDetection.fillStack(imp_res);
-			// stackDetection.makeRingRoi(0, 9, 3);
-			stackDetection.changeDetectionsToRing(3);
-//			stackDetection.show();
-
+			stackDetection.fillStack(imp_res, mitosisInfo);
 			System.out.println("Stack filled");
 			IJ.log("Stack with ROIs filled");
 
-			// fill tracks mapping
-			TrackCTCMap tracksMap = new TrackCTCMap(dir + System.getProperty("file.separator") + restxt_name, stackDetection);
+			stackDetection.fillTracks(ctcResultTxt);
 			System.out.println("Tracks map filled");
 			IJ.log("Track information filled");
+			
+			System.out.println("");
+			System.out.println(mitosisInfo.toString());
+			stackDetection.changeDetectionsToRing(radius);
+			stackDetection.setDetectionTrackInformation();
+
+			boolean sort = true;
+			stackDetection.addToRoiManager(sort);
 
 			FormatSaver format = new FormatSaver();
 			IJ.log("Calculating statistics...");
-			format.calculate(tracksMap, stackDetection, imp_ch1, imp_ch2, ratioImage, dir, name);
+			format.calculate(stackDetection, imp_ch1, imp_ch2, ratioImage, dir, name);
 			IJ.log("Done!");
 
 		} catch (Exception e) {
@@ -184,7 +209,7 @@ public class Properties_Measure implements PlugIn {
 		}
 	}
 
-	private void subtrackBackground(ImagePlus imp, int bg) {
+	private void subtractBackground(ImagePlus imp, int bg) {
 		ImageStack stack = imp.getStack();
 		for (int i = 0; i < stack.size(); ++i) {
 			ImageProcessor ip = stack.getProcessor(i + 1);

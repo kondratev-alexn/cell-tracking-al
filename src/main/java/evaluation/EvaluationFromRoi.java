@@ -49,7 +49,7 @@ public class EvaluationFromRoi {
 
 		tracking.trackComponentsTRAresults(5);
 
-		CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, null, null);
+		CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, null, null, "");
 		ImagePlus imp = resultGraph.getTrackedComponentImages();
 		IJ.save(imp, "tracked_components");
 		// resultGraph.printTrackedGraph();

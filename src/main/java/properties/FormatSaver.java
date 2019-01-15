@@ -30,7 +30,7 @@ import statistics.StandartDeviation;
 
 public class FormatSaver {
 
-	public void calculate(TrackCTCMap tracks, StackDetection stack, ImagePlus ch1, ImagePlus ch2, ImagePlus ratio,
+	public void calculate(StackDetection stack, ImagePlus ch1, ImagePlus ch2, ImagePlus ratio,
 			String dir, String name) throws Exception {
 		// ArrayList<Measure> statistics = new ArrayList<Measure>(5);
 		// Slice sliceMeasure = new Slice();
@@ -53,7 +53,7 @@ public class FormatSaver {
 		makeHeaderFile(dir + '\\' + "header.txt", columns, ';');
 
 		// create file for each track
-		for (TrackCTC track : tracks.tracksMap().values()) {
+		for (TrackCTC track : stack.tracksCTC().tracksMap().values()) {
 			PrintWriter pw = new PrintWriter(
 					new File(dir + "\\" + String.format(name + "StatiscicsTrack%04d.txt", track.index())));
 			int startSlice = track.startSlice();

@@ -12,7 +12,7 @@ public class Slice implements Measure {
 
 	@Override
 	public double calculate(Roi roi, ImagePlus imp) {
-		return roi.getPosition();
+		return roi.getPosition() - 1;
 	}
 	
 

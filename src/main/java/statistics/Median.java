@@ -17,7 +17,7 @@ public class Median implements Measure {
 
 	@Override
 	public double calculate(Roi roi, ImagePlus imp) {
-		ImageProcessor ip = imp.getStack().getProcessor(roi.getPosition() + 1);
+		ImageProcessor ip = imp.getStack().getProcessor(roi.getPosition());
 		Object pixels = ip.getPixels();
 		if (pixels instanceof float[]) {
 			// use sort
