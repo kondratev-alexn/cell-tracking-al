@@ -539,7 +539,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImageFunctions.addMarkers(marksDarkBinary, marksBrightBinary);
 		}
 
-		if (showBlobs) {
+		if (showBlobs && previewing && !startedProcessing) {
 			ImageFunctions.normalize(marksDarkBinary, 0, 2);
 			// marksDarkBinary = ImageFunctions.operationMorph(marksDarkBinary,
 			// Operation.DILATION, Strel.Shape.DISK, 2);
@@ -573,7 +573,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		if (filterComponents) {
 			ImageComponentsAnalysis compAnalisys;
 
-			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg, true); // get labelled component image and fill
+			compAnalisys = new ImageComponentsAnalysis(ip, intensityImg, true); // get labeled component image and fill
 
 			compAnalisys.setComponentsBrightBlobStateByMarks(marksBrightBinary);
 
