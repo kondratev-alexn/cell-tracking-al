@@ -132,6 +132,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			imagePlus.updateAndDraw();
 
 			roiManager.selectAndMakeVisible(imagePlus, -1);
+			
+			if (!doesStacks()) {
+				
+				return DONE;
+			}
 
 			// there goes tracking
 			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 3;
