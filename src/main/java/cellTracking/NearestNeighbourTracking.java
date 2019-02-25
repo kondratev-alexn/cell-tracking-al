@@ -12,6 +12,7 @@ import histogram.FloatHistogram;
 import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 
@@ -251,6 +252,8 @@ public class NearestNeighbourTracking {
 	// times (i.e. after mitosis detection)
 	public void trackComponentsOneSlice(double maxRadius, double oneSliceScoreThreshold) {
 		for (int t = 0; t < componentsList.size() - 1; t++) {
+			String log = String.format("One-slice tracking, slice %d %n", t);
+			IJ.log(log);
 			findBestScoringComponents(componentsList.get(t), t, componentsList, 1, maxRadius, oneSliceScoreThreshold,
 					1);
 		}
@@ -259,6 +262,8 @@ public class NearestNeighbourTracking {
 	public void trackComponentsMultiSlice(double maxRadius, int nSlices, double scoreThreshold,
 			double timeDecayCoefficient) {
 		for (int t = 0; t < componentsList.size() - 1; t++) {
+			String log = String.format("Multi-slice tracking, slice %d %n", t);
+			IJ.log(log);
 			findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices, maxRadius, scoreThreshold,
 					timeDecayCoefficient);
 		}
@@ -533,6 +538,8 @@ public class NearestNeighbourTracking {
 
 		// add first white blobs
 		for (int slice = 0; slice < whiteBlobsTracking.getSlicesCount() - 1; slice++) {
+			String log = String.format("Mitosis tracking, slice %d %n", slice);
+			IJ.log(log);
 			System.out.println();
 			System.out.println("--- Mitosis tracking: slice " + slice);
 			whiteBlobsTracking.fillSliceDetectionsWithUniqueCandidates(slice,

@@ -42,18 +42,21 @@ public class Properties_Measure implements PlugIn {
 
 	@Override
 	public void run(String arg) {
-		DirectoryChooser dirChoose = new DirectoryChooser("Select a folder with data");
-		String dir;
+		DirectoryChooser dirChoose = new DirectoryChooser("Select a folder with data (c1 and c2 tif images)");
+
+		String dataDir;
 
 		boolean selectDir = true;
 		if (selectDir)
-			dir = dirChoose.getDirectory();
+			dataDir = dirChoose.getDirectory();
 		else
-			dir = "C:\\Tokyo\\Data\\Properties Measure";
+			dataDir = "C:\\Tokyo\\Data\\Properties Measure\\";
+		if (dataDir == null)
+			return;
 
 		try {
 			SimpleDirectoryScanner scanner = new SimpleDirectoryScanner();
-			scanner.setDirectory(dir);
+			scanner.setDirectory(dataDir);
 
 			String ch1_name = scanner.fileNameBySuffix("c1.tif");
 			if (ch1_name.isEmpty())
@@ -62,22 +65,23 @@ public class Properties_Measure implements PlugIn {
 			if (ch2_name.isEmpty())
 				throw new Exception("No channel 2 tif image was found");
 
-			boolean startTracking = false;
+			// if you need behavior that asks tracking folder anyway, just comment lines below
+			boolean askTrackingResultsFolder = false;
 			String restif_name = scanner.fileNameBySuffix("results.tif");
 			if (restif_name.isEmpty()) {
 				IJ.log("No tracking result in CTC image format was found.");
-				startTracking = true;
+				askTrackingResultsFolder = true;
 			}
 			String restxt_name = scanner.fileNameBySuffix("results.txt");
 			if (restxt_name.isEmpty()) {
 				IJ.log("No tracking result in CTC text format was found");
-				startTracking = true;
+				askTrackingResultsFolder = true;
 			}
 
 			String mitosisInfoName = scanner.fileNameBySuffix("mitosis_info.ser");
 			if (mitosisInfoName.isEmpty()) {
 				IJ.log("No mitosis information file was found");
-				startTracking = true;
+				askTrackingResultsFolder = true;
 			}
 
 			// DirectoryScanner scanner = new DirectoryScanner();
@@ -118,39 +122,91 @@ public class Properties_Measure implements PlugIn {
 			String name = split[0];
 			System.out.println(name);
 
-			ImagePlus imp_ch1 = new ImagePlus(dir + System.getProperty("file.separator") + ch1_name);
-			ImagePlus imp_ch2 = new ImagePlus(dir + System.getProperty("file.separator") + ch2_name);
+			ImagePlus imp_ch1 = new ImagePlus(dataDir + System.getProperty("file.separator") + ch1_name);
+			ImagePlus imp_ch2 = new ImagePlus(dataDir + System.getProperty("file.separator") + ch2_name);
 
-			if (startTracking) {
-				IJ.log("Launching tracking plugin");
+			String txtPath = dataDir + restxt_name;
+			String tifPath = dataDir + restif_name;
+			String infoFilePath = dataDir + mitosisInfoName;
 
-				imp_ch2.show();
-				Cell_Tracker o = (Cell_Tracker) IJ.runPlugIn(imp_ch2, Cell_Tracker.class.getName(), "");
-				if (o == null)
-					IJ.log("Failed to run plugin");
+			if (askTrackingResultsFolder) {
+				/*
+				 * if some of tracking results was not find with data, ask for tracking results
+				 * directory, and launch the tracking plugin if cancelled or wrong directory is
+				 * chosen
+				 */
 
-				String txtPath = o.textResultsPath();
-				String tifPath = o.tifResultPath();
-				Path txt = Paths.get(txtPath);
-				Path tif = Paths.get(tifPath);
-				Path newdir = Paths.get(dir);
-				Files.move(txt, newdir.resolve(txt.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-				Files.move(tif, newdir.resolve(tif.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-				IJ.log("Result txt and tif files moved.");
-				restif_name = tif.getFileName().toString();
-				restxt_name = txt.getFileName().toString();
+				DirectoryChooser dirChooseTrackingResults = new DirectoryChooser("Select a folder with tracking results");
+				String trackingResultsDir = null;
 
-				String infoFilePath = o.mitosisInfoFilePath();
-				Path infoPath = Paths.get(infoFilePath);
-				Files.move(infoPath, newdir.resolve(infoPath.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-				IJ.log("Mitosis information file moved.");
-				mitosisInfoName = infoPath.getFileName().toString();
+				trackingResultsDir = dirChooseTrackingResults.getDirectory();
+				scanner.setDirectory(trackingResultsDir);
+
+				boolean launchTracking = false;
+				if (trackingResultsDir == null) { // cancelled, launch
+					launchTracking = true;
+				}
+
+				if (!launchTracking) {
+					restif_name = scanner.fileNameBySuffix("results.tif");
+					if (restif_name.isEmpty()) {
+						IJ.log("No tracking result in CTC image format was found.");
+						launchTracking = true;
+					}
+					restxt_name = scanner.fileNameBySuffix("results.txt");
+					if (restxt_name.isEmpty()) {
+						IJ.log("No tracking result in CTC text format was found");
+						launchTracking = true;
+					}
+
+					mitosisInfoName = scanner.fileNameBySuffix("mitosis_info.ser");
+					if (mitosisInfoName.isEmpty()) {
+						IJ.log("No mitosis information file was found");
+						launchTracking = true;
+					}
+
+					txtPath = trackingResultsDir + restxt_name;
+					tifPath = trackingResultsDir + restif_name;
+					infoFilePath = trackingResultsDir + mitosisInfoName;
+				}
+				if (launchTracking) {
+
+					IJ.log("Launching tracking plugin");
+
+					imp_ch2.show();
+					Cell_Tracker o = (Cell_Tracker) IJ.runPlugIn(imp_ch2, Cell_Tracker.class.getName(), "no save");
+					if (o == null) {
+						IJ.log("Failed to run plugin");
+						return;
+					}
+
+					txtPath = o.textResultsPath();
+					tifPath = o.tifResultPath();
+					infoFilePath = o.mitosisInfoFilePath();
+					System.out.println(txtPath);
+					System.out.println(tifPath);
+					System.out.println(infoFilePath);
+					Path txt = Paths.get(txtPath);
+					Path tif = Paths.get(tifPath);
+					Path infoPath = Paths.get(infoFilePath);
+					Path newdir = Paths.get(dataDir);
+					// Files.move(txt, newdir.resolve(txt.getFileName()),
+					// StandardCopyOption.REPLACE_EXISTING);
+					// Files.move(tif, newdir.resolve(tif.getFileName()),
+					// StandardCopyOption.REPLACE_EXISTING);
+					// Files.move(infoPath, newdir.resolve(infoPath.getFileName()),
+					// StandardCopyOption.REPLACE_EXISTING);
+					// IJ.log("Result txt, tif and mitosis info files moved.");
+					restif_name = tif.getFileName().toString();
+					restxt_name = txt.getFileName().toString();
+					mitosisInfoName = infoPath.getFileName().toString();
+				}
 
 			} else {
 
 			}
 
-			ImagePlus imp_res = new ImagePlus(dir + System.getProperty("file.separator") + restif_name);
+			ImagePlus imp_res = new ImagePlus(tifPath);
 			imp_res.show();
 			/* Dialog to get background values */
 			GenericDialog gd = new GenericDialog("Enter background values");
@@ -172,23 +228,26 @@ public class Properties_Measure implements PlugIn {
 			// ratioImage.show();
 
 			// imp_res.show();
-			String ctcResultTxt = dir + System.getProperty("file.separator") + restxt_name;
+			String ctcResultTxt = dataDir + System.getProperty("file.separator") + restxt_name;
 
 			// getting mitosis info
-			MitosisInfo mitosisInfo = MitosisInfo.DeserializeMitosisInfo(dir + System.getProperty("file.separator") + mitosisInfoName);
+			// MitosisInfo mitosisInfo = MitosisInfo.DeserializeMitosisInfo(dataDir +
+			// System.getProperty("file.separator") + mitosisInfoName);
+			System.out.println("mitosis info file" + infoFilePath);
+			MitosisInfo mitosisInfo = MitosisInfo.DeserializeMitosisInfo(infoFilePath);
 			if (mitosisInfo == null)
 				mitosisInfo = new MitosisInfo();
-			
+
 			// filling roi from ctc result image
 			StackDetection stackDetection = new StackDetection();
 			stackDetection.fillStack(imp_res, mitosisInfo);
 			System.out.println("Stack filled");
 			IJ.log("Stack with ROIs filled");
 
-			stackDetection.fillTracks(ctcResultTxt);
+			stackDetection.fillTracks(txtPath);
 			System.out.println("Tracks map filled");
 			IJ.log("Track information filled");
-			
+
 			System.out.println("");
 			System.out.println(mitosisInfo.toString());
 			stackDetection.changeDetectionsToRing(radius);
@@ -197,9 +256,16 @@ public class Properties_Measure implements PlugIn {
 			boolean sort = true;
 			stackDetection.addToRoiManager(sort);
 
+			// prompt a folder selector to save results
+			DirectoryChooser dirChooseSave = new DirectoryChooser("Select a folder to save measurements.");
+			String dirCalculatedStatisticsSave = dirChooseSave.getDirectory();
+
+			if (dirCalculatedStatisticsSave == null)
+				dirCalculatedStatisticsSave = "";
+
 			FormatSaver format = new FormatSaver();
 			IJ.log("Calculating statistics...");
-			format.calculate(stackDetection, imp_ch1, imp_ch2, ratioImage, dir, name);
+			format.calculate(stackDetection, imp_ch1, imp_ch2, ratioImage, dirCalculatedStatisticsSave, name);
 			IJ.log("Done!");
 
 		} catch (Exception e) {

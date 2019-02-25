@@ -18,6 +18,7 @@ public class TrackCTCMap {
 	
 	/* create tracks and fill map while checking for correctness. Stack must be filled beforehand */
 	public void fillTracks(String ctcResultTxt, StackDetection filledStack) {
+		System.out.println("Filling tracks from " + ctcResultTxt);
 		try(BufferedReader br = new BufferedReader(new FileReader(ctcResultTxt))) {
 		    for(String line; (line = br.readLine()) != null; ) {
 		        // process the line

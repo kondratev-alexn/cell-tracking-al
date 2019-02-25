@@ -31,6 +31,9 @@ public class TrackCTC {
 		if (_startSlice >_endSlice)
 			throw new Exception(String.format("Incorrect slice interval for track %d", _index));
 		
+		System.out.println(trackTxtLine);
+		System.out.format("index %d start%d end %d %n", _index, _startSlice, _endSlice);
+		
 		if (!filledStack.checkTrackCorrectness(_index, _startSlice, _endSlice))
 			throw new Exception(String.format("Track %d is incorrect: detection is missing from one or more slices", _index));
 		

@@ -50,12 +50,12 @@ public class FormatSaver {
 		ArrayList<PropertiesColumn> columns = statisticColumns(ch1, ch2, ratio);
 
 		// write header file
-		makeHeaderFile(dir + '\\' + "header.txt", columns, ';');
+		makeHeaderFile(dir + "header.txt", columns, ';');
 
 		// create file for each track
 		for (TrackCTC track : stack.tracksCTC().tracksMap().values()) {
 			PrintWriter pw = new PrintWriter(
-					new File(dir + "\\" + String.format(name + "StatiscicsTrack%04d.txt", track.index())));
+					new File(dir + String.format(name + "StatisticsTrack%04d.txt", track.index())));
 			int startSlice = track.startSlice();
 			int endSlice = track.endSlice();
 			for (int slice = startSlice; slice <= endSlice; ++slice) {

@@ -636,9 +636,9 @@ public class CellTrackingGraph {
 		imp.show();
 
 		if (save) {
-			IJ.saveAsTiff(imp, name);
-			IJ.log("Tracking result image saved at: " + System.getProperty("user.dir")
-					+ System.getProperty("file.separator") + name + ".tif");
+			IJ.saveAsTiff(imp, name);	
+			
+			IJ.log("Tracking result image saved at: " + name);
 		}
 		return imp;
 	}

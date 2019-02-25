@@ -13,6 +13,7 @@ import ij.ImageJ;
 import ij.ImagePlus;
 import ij.gui.DialogListener;
 import ij.gui.GenericDialog;
+import ij.io.DirectoryChooser;
 import ij.plugin.filter.PlugInFilterRunner;
 import ij.process.FloatProcessor;
 import ij.process.ImageConverter;
@@ -103,6 +104,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private boolean showBlobs = false;
 
 	String ctcTifResult, ctcTxtResult, infoFilePath;
+	
+	private boolean saveResultsInFolder = false;
 
 	private ImageComponentsAnalysis prevComponentsAnalysis = null; // for getting masks of segmented cells in next
 																	// slices
@@ -124,6 +127,12 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		if (arg.equals("about")) {
 			showAbout();
 			return DONE;
+		}
+		
+		saveResultsInFolder = !arg.equals("no save");
+		
+		if (saveResultsInFolder) {
+			System.out.println("Saving in folder");
 		}
 
 		if (arg.equals("final")) {
@@ -175,25 +184,40 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			IJ.log("Displaying results.");
 			
+			// prompt a folder to save results					
+			String trackingResultsDir = null;
+			
+			if (saveResultsInFolder) {
+				DirectoryChooser dirChoose = new DirectoryChooser("Select a folder to save tracking results.");	
+				trackingResultsDir = dirChoose.getDirectory();
+			}
+			if (trackingResultsDir == null)
+				trackingResultsDir = System.getProperty("user.dir") + '\\';
+			
+			final String separator = System.getProperty("file.separator");
+			
 			String mitosisInfoFileName = imp.getShortTitle() + "_mitosis_info.ser";
-			infoFilePath = System.getProperty("user.dir") + System.getProperty("file.separator") + mitosisInfoFileName;
-			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, roiManager, imp, mitosisInfoFileName);
+			infoFilePath = trackingResultsDir + mitosisInfoFileName;
+			
+			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, roiManager, imp, infoFilePath);
 
 			// TRA components show and save
 			String nameTif = imp.getShortTitle() + "_tracking_results";
-			String tifPath = System.getProperty("user.dir") + System.getProperty("file.separator") + nameTif + ".tif";
+			String tifPath = trackingResultsDir + nameTif + ".tif";
 			ctcTifResult = tifPath;
-			ctcComponents = resultGraph.showTrackedComponentImages(nameTif, true);
+			//ctcComponents = resultGraph.showTrackedComponentImages(nameTif, true);
+			ctcComponents = resultGraph.showTrackedComponentImages(ctcTifResult, true);
 
 			// colored components
 			ImagePlus coloredTracksImage = resultGraph.drawComponentColoredByFullTracks(imp);
 			coloredTracksImage.show();
 
 			String txtResultName = imp.getShortTitle() + "_tracking_results.txt";
-			String txtPath = System.getProperty("user.dir") + System.getProperty("file.separator") + txtResultName;
+			String txtPath = trackingResultsDir + txtResultName;
 			ctcTxtResult = txtPath;
-			resultGraph.writeTracksToFile_ctc_afterAnalysis(txtResultName);
-			IJ.log("Text result file created at: " + txtPath);
+			//resultGraph.writeTracksToFile_ctc_afterAnalysis(txtResultName);
+			resultGraph.writeTracksToFile_ctc_afterAnalysis(ctcTxtResult);
+			IJ.log("Text result file created at: " + ctcTxtResult);
 			// System.out.println(cellGraph);
 
 			// Create a new ImagePlus with the filter result
@@ -202,6 +226,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			 * ImagePlus(newName, result); resPlus.copyScale(imagePlus);
 			 * resPlus.resetDisplayRange(); resPlus.show();
 			 */
+			
 			return DONE;
 		}
 
