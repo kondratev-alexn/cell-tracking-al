@@ -17,8 +17,8 @@ import ij.ImagePlus;
 import ij.ImageStack;
 
 import point.Point;
-import tracks.Track;
-import tracks.Tracks;
+import tracks.TrackAdj;
+import tracks.TracksAdj;
 
 import cellTracking.PenaltyFunction;
 import colorPicking.ColorPicker;
@@ -29,7 +29,7 @@ public class NearestNeighbourTracking {
 	private int currSlice;
 	private int slicesCount;
 
-	private Tracks tracks;
+	private TracksAdj tracks;
 
 	/*
 	 * List of components classes, containing image with labels and information
@@ -60,9 +60,9 @@ public class NearestNeighbourTracking {
 	}
 
 	// fill tracks using cellGraph, should be called after the nnr tracking
-	public void fillTracks() {
+	public void fillTracks(int minTrackLength) {
 		try {
-			tracks = new Tracks(cellGraph);
+			tracks = new TracksAdj(cellGraph, minTrackLength);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -345,7 +345,7 @@ public class NearestNeighbourTracking {
 	}
 
 	public void analyzeTracksForMitosisByWhiteBlob(float whiteBlobThreshold) {
-		Track tr;
+		TrackAdj tr;
 		int startAdjIndex, endAdjIndex;
 		int startSlice, endSlice;
 		int currAdjIndex, currSlice, currNode, endComponentIndex;
@@ -399,7 +399,7 @@ public class NearestNeighbourTracking {
 	}
 
 	public void analyzeTracksForMitosisByAverageIntensity(double mitosisStartIntensityCoefficient) {
-		Track tr;
+		TrackAdj tr;
 		int startAdjIndex, endIndex;
 		int startSlice, endSlice;
 		int currAdjIndex, currSlice, currNode;
@@ -501,7 +501,7 @@ public class NearestNeighbourTracking {
 		Point center;
 		WhiteBlobsTracking whiteBlobsTracking = new WhiteBlobsTracking(componentsList, cellGraph, tracks);
 
-		Track tr;
+		TrackAdj tr;
 		for (int i = 0; i < tracks.tracksCount(); i++) {
 			tr = tracks.getTrack(i);
 			if (tr.isEndedOnMitosis()) {

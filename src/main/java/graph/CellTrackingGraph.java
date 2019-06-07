@@ -22,7 +22,7 @@ import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import ij.process.ShortProcessor;
 import ij.process.StackProcessor;
-import tracks.Tracks;
+import tracks.TracksAdj;
 
 /* class representing graph used for cell tracking */
 public class CellTrackingGraph {
@@ -42,7 +42,7 @@ public class CellTrackingGraph {
 	 * construct a cell tracking graph based on graph after tracking algorithm. cell
 	 * tracking graph's node labels are indexes that refer to cell id. So the cell
 	 */
-	public CellTrackingGraph(NearestNeighbourTracking trackingResult, RoiManager roiManager, ImagePlus activeImage, String infoFileName) {
+	public CellTrackingGraph(NearestNeighbourTracking trackingResult, RoiManager roiManager, ImagePlus activeImage, String infoFileName, int minTrackLength) {
 		// Graph trGraph = trackingResult.getGraph();
 		this.roiManager = roiManager;
 		if (roiManager != null)
@@ -84,7 +84,10 @@ public class CellTrackingGraph {
 		// prevComponentsList.get(i).getAvrgIntensityImage(), false));
 		// }
 		MitosisInfo info = new MitosisInfo();
-		analyseTrackingGraph(info); // new g is generated, images filled with newly labeled components
+		analyseTrackingGraph(info, minTrackLength); // new g is generated, images filled with newly labeled components
+
+		System.out.println("Graph after analyzing: ");
+		System.out.println(trGraph);
 
 		if (!infoFileName.isEmpty())
 			MitosisInfo.SerializeMitosisInfo(infoFileName, info);
@@ -304,7 +307,7 @@ public class CellTrackingGraph {
 	 * reconstruct new graph and component images according to tracking results and
 	 * fill mitosis info for future
 	 */
-	void analyseTrackingGraph(MitosisInfo info) {
+	void analyseTrackingGraph(MitosisInfo info, int minTrackLength) {
 		ArrayList<Integer> childs;
 		ArrayList<ArrayList<Integer>> adj = Graph.copyAdjList(trGraph.adjLists);
 		if (adj.isEmpty()) {
@@ -320,7 +323,7 @@ public class CellTrackingGraph {
 			// Because we also skip "sole" components which shoudln't be in the track
 			if (childs.isEmpty()) {
 				// here is small hack: we think that track's last component can't start earlier
-				// than the first component...
+				// than the first component... (in the adj list, since we fill it that way)
 				// in common case this is wrong
 				continue;
 			}
@@ -335,7 +338,7 @@ public class CellTrackingGraph {
 			// now only 1 child, make a track. It still would be added for sure, since only
 			// 1
 			// child. 2 children also handled in addtrack
-			addTrack(adj, Graph.getStartingAdjIndex(adj, i), getNewIndex(), 0, info);
+			addTrack(adj, Graph.getStartingAdjIndex(adj, i), getNewIndex(), 0, info, minTrackLength);
 		}
 	}
 
@@ -343,7 +346,13 @@ public class CellTrackingGraph {
 	// parent (called from division)
 	// so first cell should be drawn
 	boolean addTrack(ArrayList<ArrayList<Integer>> adj, int startIndexAdj, int startingTrackIndex,
-			int parentTrackNumber, MitosisInfo info) {
+			int parentTrackNumber, MitosisInfo info, int minTrackLength) {
+		// "filter" tracks here by length. 
+//		if (Graph.pathLength(adj, startIndexAdj) < minTrackLength) {
+//			Graph.removePath(adj, startIndexAdj);
+//			System.out.format("track %d removed %n", startingTrackIndex);
+//			return false;
+//		}
 		boolean added = false;
 		ArrayList<Integer> childs;
 		int childIndex = -1, t1, t2, ci1, ci2;
@@ -465,7 +474,7 @@ public class CellTrackingGraph {
 			System.out.println("Added arc child 1: " + v1 + "---" + v2);
 
 			// no need to draw there because the track will be drawn in previous 'for'
-			addTrack(adj, childs.get(0), ci1, startingTrackIndex, info);
+			addTrack(adj, childs.get(0), ci1, startingTrackIndex, info, minTrackLength);
 
 			// add arc here
 			t2 = trGraph.getNodeSliceByGlobalIndex(childs.get(1));
@@ -475,7 +484,7 @@ public class CellTrackingGraph {
 			System.out.println();
 			System.out.println("Added arc child 2: " + v1 + "---" + v2);
 
-			addTrack(adj, childs.get(1), ci2, startingTrackIndex, info);
+			addTrack(adj, childs.get(1), ci2, startingTrackIndex, info, minTrackLength);
 
 			// childs.clear();
 			childs.remove(0);

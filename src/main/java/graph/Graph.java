@@ -176,6 +176,33 @@ public class Graph {
 	private void clearChildsByAdjIndex(int adjIndex) {
 		adjLists.get(adjIndex).clear();
 	}
+	
+	/** Return length of the path starting from adjIndex to childs != 1 
+	 * 
+	 * @param adjIndex
+	 * @return
+	 */
+	public static int pathLength(ArrayList<ArrayList<Integer>> adj, int adjIndex) {
+		int length = 1;
+		ArrayList<Integer> childs = adj.get(adjIndex);
+		while (childs.size() == 1) {
+			++length;
+			childs = adj.get(childs.get(0));
+		}
+		System.out.format("track length is %d %n ", length);
+		return length;
+	}
+	
+	public static void removePath(ArrayList<ArrayList<Integer>> adj, int adjIndex) {
+		int startAdjIndex = getStartingAdjIndex(adj, adjIndex);
+		ArrayList<Integer> nextChilds = adj.get(startAdjIndex);
+		ArrayList<Integer> prevChilds;
+		while (nextChilds.size() == 1) {
+			prevChilds = nextChilds;
+			nextChilds = adj.get(nextChilds.get(0));
+			prevChilds.clear();
+		}
+	}
 
 	/* remove arcs from node with given adj index. 
 	 * Also removes its childs from adj list */

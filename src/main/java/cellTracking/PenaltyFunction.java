@@ -10,7 +10,7 @@ public class PenaltyFunction {
 	/*
 	 * calculates the penalty function between component with index=i1 in comp1 and
 	 * i2 in comp. (So the less it is, the better, the more the chance they should
-	 * be connected) Curent problem with it: only counts for slice-slice, bad for
+	 * be connected) Current problem with it: only counts for slice-slice, bad for
 	 * slice-multislice mb change distance for overlap
 	 */
 	public static double penalFunctionNN(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2, int i2,

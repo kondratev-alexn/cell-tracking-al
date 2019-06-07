@@ -12,7 +12,7 @@ import ij.process.ImageProcessor;
 import ij.process.ShortProcessor;
 import point.Point;
 import point.PointWithScale;
-import tracks.Tracks;
+import tracks.TracksAdj;
 
 /* class for mitosis tracking for the whole sequence. It is wrapping a list of list, where outer list represents each slice, and inner list contains
  * white blob detections in this slice. 
@@ -21,10 +21,10 @@ public class WhiteBlobsTracking {
 	private ArrayList<ArrayList<WhiteBlobsDetection>> detectionsLists;
 	private ArrayList<ImageComponentsAnalysis> componentsList;
 	private Graph g;
-	private Tracks tracks;
+	private TracksAdj tracks;
 
 	public WhiteBlobsTracking(ArrayList<ImageComponentsAnalysis> componentsList, Graph trackingGraph,
-			Tracks tracksWithoutMitosis) {
+			TracksAdj tracksWithoutMitosis) {
 		detectionsLists = new ArrayList<ArrayList<WhiteBlobsDetection>>(componentsList.size());
 		this.componentsList = componentsList;
 		g = trackingGraph;
