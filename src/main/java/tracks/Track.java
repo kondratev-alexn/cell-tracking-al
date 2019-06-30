@@ -5,17 +5,14 @@ import java.util.Iterator;
 
 import graph.Node;
 
-public class Track implements Iterable<Node> {
-	ArrayList<Tracklet> tracklets;
+/** 
+ * Track contains a list of tracklets in form of ids in their storage 
+ *
+ */
+public class Track extends ArrayList<Integer>{
+	
 
 	public Track() {
-		tracklets = new ArrayList<Tracklet>();
-	}
-	
-	@Override
-	public Iterator<Node> iterator() {
-		// TODO Auto-generated method stub
-		return null;
 	}
 
 }

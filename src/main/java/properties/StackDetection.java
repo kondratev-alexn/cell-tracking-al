@@ -43,6 +43,14 @@ public class StackDetection {
 	public void fillTracks(String ctcResultTxt) {
 		tracks.fillTracks(ctcResultTxt, this);
 	}
+	
+	public ArrayList<SliceDetections> detections() {
+		return stack;
+	}
+	
+	public TrackCTCMap tracks() {
+		return tracks;
+	}
 
 	public boolean checkTrackCorrectness(int trackIndex, int startSlice, int endSlice) {
 		System.out.println("Check: stack size is "+stack.size()); 
@@ -146,6 +154,12 @@ public class StackDetection {
 				++label;
 			}
 		}
+	}
+	
+	public ImagePlus colorTracks() {
+		ImagePlus imp = new ImagePlus();
+		
+		return imp;
 	}
 
 	public Roi makeRingRoi(int slice, int trackIndex, int dilationRadius) {

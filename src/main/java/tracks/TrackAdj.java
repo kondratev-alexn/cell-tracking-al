@@ -1,6 +1,5 @@
 package tracks;
 
-import graph.Graph;
 
 /* Class describing a track in cell-tracking graph, for more convenient usage */
 public class TrackAdj {

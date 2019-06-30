@@ -1,7 +1,6 @@
 package tracks;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 
 import graph.Node;
 
@@ -9,49 +8,37 @@ import graph.Node;
  * Class representing a sub-track of components from consequent slices
  *
  */
-public class Tracklet implements Iterable<Node> {
-	private ArrayList<Node> nodes;
-	private Tracklet nextTracklet;
-	
+public class Tracklet extends ArrayList<Node> {
+
+	private static final long serialVersionUID = 661926598391511906L;
+
 	public Tracklet() {
-		nodes = new ArrayList<Node>(5);	
-		nextTracklet = null;
 	}
 	
-	public Node addNode(int slice, int index) {
-		return addNode(new Node(slice, index));
-	}
-	
-	public Node addNode(Node node) {
+	@Override
+	public boolean add(Node node) {
 		if (!canAdd(node.get_t()))
-			return null;
-		nodes.add(node);
-		return node;
+			return false;
+		add(node);
+		return true;
 	}
 	
-	public Tracklet nextTracklet() {
-		return nextTracklet;
+	public boolean add(int slice, int index) {
+		return add(new Node(slice, index));
 	}
+	
 	
 	public int startSlice() {
-		return nodes.get(0).get_t();
-	}
-	
-	public int length() {
-		return nodes.size();
-	}
+		return get(0).get_t();
+	} 	
 	
 	private boolean canAdd(int slice) { 
-		if (nodes.isEmpty())
+		if (isEmpty())
 			return true;
-		int prevSlice = nodes.get(nodes.size()-1).get_t();
+		int prevSlice = this.get(size()-1).get_t();
 		if (prevSlice == slice-1)
 			return true;
 		return false;
 	}
-
-	@Override
-	public Iterator<Node> iterator() {
-		return nodes.iterator();
-	}
+	
 }

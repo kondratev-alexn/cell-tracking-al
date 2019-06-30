@@ -12,17 +12,16 @@
 		<relativePath />
 	</parent>
 
-		<groupId>noneGroupId</groupId>
-		<artifactId>Cell_Tracking</artifactId>
-		<version>1.0.0</version>
-
+	<groupId>noneGroupId</groupId>
+	<artifactId>Cell_Tracking</artifactId>
+	<version>1.1.0</version>
 	<name>Cell tracking</name>
 	<description>A project implementing imageJ plugin for cell tracking</description>
 	<url></url>
 	<inceptionYear>2017</inceptionYear>
 	<organization>
-		<name>Romashka</name>
 		<url></url>
+		<name>mmip</name>
 	</organization>
 	<licenses>
 		<license>
@@ -72,8 +71,14 @@
 		<package-name>cellTracking</package-name>
 		<main-class>cellTracking.Cell_Tracker</main-class>
 		<license.licenseName>bsd_2</license.licenseName>
-		<license.copyrightOwners>Romashka, Inc.</license.copyrightOwners>
 	</properties>
+	
+	<repositories>
+		<repository>
+			<id>imagej.public</id>
+			<url>http://maven.imagej.net/content/groups/public</url>
+		</repository>
+	</repositories>
 	
 	<dependencies>
 		<dependency>
@@ -83,22 +88,27 @@
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-simple</artifactId>
-			<version>1.6.2</version>
+			<version>1.7.25</version>
 		</dependency>
 				<dependency>      
 			<groupId>org.deeplearning4j</groupId>      
 			<artifactId>deeplearning4j-core</artifactId>
-			<version>1.0.0-beta4</version>    
-		</dependency>         
+			<version>1.0.0-beta4</version>
+				</dependency>         
 		<dependency>      
 			<groupId>org.deeplearning4j</groupId>      
 			<artifactId>deeplearning4j-modelimport</artifactId>      
-			<version>1.0.0-beta4</version>    
+			<version>1.0.0-beta4</version>
 		</dependency> 
 		<dependency>
 			<groupId>org.nd4j</groupId>
 			<artifactId>nd4j-native</artifactId>
 			<version>1.0.0-beta4</version>
+		</dependency>
+		<dependency>
+			<groupId>com.github.ijpb</groupId>
+			<artifactId>MorphoLibJ</artifactId>
+			<version>1.4.0</version>
 		</dependency>
 	</dependencies>
 </project>

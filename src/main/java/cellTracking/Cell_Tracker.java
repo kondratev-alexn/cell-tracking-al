@@ -10,6 +10,7 @@ import org.deeplearning4j.nn.modelimport.keras.exceptions.UnsupportedKerasConfig
 
 import graph.CellTrackingGraph;
 import graph.Graph;
+import graph.MitosisInfo;
 import histogram.FloatHistogram;
 
 import ij.IJ;
@@ -32,13 +33,12 @@ import ij.plugin.frame.RoiManager;
 import inra.ijpb.morphology.Morphology.Operation;
 import inra.ijpb.morphology.Strel;
 import inra.ijpb.morphology.Strel.Shape;
-import inra.ijpb.plugins.DistanceTransformWatershed;
 import inra.ijpb.watershed.ExtendedMinimaWatershed;
 import inra.ijpb.watershed.MarkerControlledWatershedTransform2D;
-import inra.ijpb.watershed.WatershedTransform2D;
 import inra.ijpb.binary.BinaryImages;
 import inra.ijpb.binary.ChamferWeights;
 import networkDeploy.UNetSegmentation;
+import properties.StackDetection;
 import evaluation.EvaluationFromRoi;
 import evaluation.TrackingEvaluation;
 
@@ -84,7 +84,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	public double sigma3 = 0.80;
 
 	/* numerical parameters for UI */
-	private double softmaxThreshold = 0.01; // now its threshold for lambda2+lambda1 in blob detection
+	private double softmaxThreshold = 0.50; // now its threshold for lambda2+lambda1 in blob detection
 	private double heightToleranceBright = 0.20;
 	private int rollingBallRadius = 20; // for background subtraction
 	private int topHatRadius = 20;
@@ -163,7 +163,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			roiManager.selectAndMakeVisible(imagePlus, -1);
 
 			if (!doesStacks()) {
-
 				return DONE;
 			}
 
@@ -180,7 +179,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			IJ.log("Tracking dark nuclei...");
 			tracking.trackComponentsOneSlice(maxRadiusDark, oneSliceScoreThreshold);
 			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient);
-			tracking.fillTracks(minTrackLength);
+			tracking.fillTracksAdj(minTrackLength);
 			IJ.log("Tracking dark nuclei finished.");
 
 			if (trackMitosis) {
@@ -228,19 +227,29 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			String nameTif = imp.getShortTitle() + "_tracking_results";
 			String tifPath = trackingResultsDir + nameTif + ".tif";
 			ctcTifResult = tifPath;
-			// ctcComponents = resultGraph.showTrackedComponentImages(nameTif, true);
-			ctcComponents = resultGraph.showTrackedComponentImages(ctcTifResult, true);
 
-			// colored components
-			ImagePlus coloredTracksImage = resultGraph.drawComponentColoredByFullTracks(imp);
-			coloredTracksImage.show();
+			ctcComponents = resultGraph.showTrackedComponentImages(ctcTifResult, true);
+			resultGraph.printTrackedGraph();
 
 			String txtResultName = imp.getShortTitle() + "_tracking_results.txt";
 			String txtPath = trackingResultsDir + txtResultName;
 			ctcTxtResult = txtPath;
-			// resultGraph.writeTracksToFile_ctc_afterAnalysis(txtResultName);
+			// resultGraph.writeTracksToFile_ctc_afterAnalysis(txtResultName);;;;
 			resultGraph.writeTracksToFile_ctc_afterAnalysis(ctcTxtResult);
 			IJ.log("Text result file created at: " + ctcTxtResult);
+			
+			
+			//reading back to display in color
+			MitosisInfo mitosisInfo = MitosisInfo.DeserializeMitosisInfo(infoFilePath);
+			if (mitosisInfo == null)
+				mitosisInfo = new MitosisInfo();
+
+			StackDetection stackDetection = new StackDetection();
+			stackDetection.fillStack(ctcComponents, mitosisInfo);
+			System.out.println("Stack filled");
+			IJ.log("Stack with ROIs filled");
+
+			stackDetection.fillTracks(txtPath);
 
 			return DONE;
 		}
@@ -289,7 +298,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		gaussian = new Gaussian();
 		backgroundSub = new BackgroundSubtracter();
 		rankFilters = new RankFilters();
-		uNetSegmentation = new UNetSegmentation("unet_model_full.h5");
+		//String model_name = "unet_model_full.h5";
+		String model_name = "unet_confocal_fluo_model_full.h5";
+		uNetSegmentation = new UNetSegmentation(model_name);
 	}
 
 	@Override

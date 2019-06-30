@@ -60,7 +60,7 @@ public class NearestNeighbourTracking {
 	}
 
 	// fill tracks using cellGraph, should be called after the nnr tracking
-	public void fillTracks(int minTrackLength) {
+	public void fillTracksAdj(int minTrackLength) {
 		try {
 			tracks = new TracksAdj(cellGraph, minTrackLength);
 		} catch (Exception e) {

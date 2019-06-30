@@ -728,6 +728,11 @@ public class ImageComponentsAnalysis {
 		// here we should recalculate all properties...or not here
 	}
 	
+	public Roi getComponentAsRoiByIntensity(int intensity) {
+		int index = findComponentIndexByDisplayIntensity(intensity);
+		return getComponentAsRoi(index);
+	}
+	
 	public Roi getComponentAsRoi(int index) {
 		Roi roi = null;
 		Wand w = new Wand(imageComponents);

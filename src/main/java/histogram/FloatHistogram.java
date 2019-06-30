@@ -1,7 +1,6 @@
 package histogram;
 
 import ij.process.ImageProcessor;
-import cellTracking.ImageFunctions;
 
 // class for float histogram
 public class FloatHistogram {

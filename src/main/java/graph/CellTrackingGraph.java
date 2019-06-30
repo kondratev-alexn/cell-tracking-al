@@ -43,7 +43,6 @@ public class CellTrackingGraph {
 	 * tracking graph's node labels are indexes that refer to cell id. So the cell
 	 */
 	public CellTrackingGraph(NearestNeighbourTracking trackingResult, RoiManager roiManager, ImagePlus activeImage, String infoFileName, int minTrackLength) {
-		// Graph trGraph = trackingResult.getGraph();
 		this.roiManager = roiManager;
 		if (roiManager != null)
 			roiManager.reset();
@@ -348,11 +347,14 @@ public class CellTrackingGraph {
 	boolean addTrack(ArrayList<ArrayList<Integer>> adj, int startIndexAdj, int startingTrackIndex,
 			int parentTrackNumber, MitosisInfo info, int minTrackLength) {
 		// "filter" tracks here by length. 
-//		if (Graph.pathLength(adj, startIndexAdj) < minTrackLength) {
-//			Graph.removePath(adj, startIndexAdj);
-//			System.out.format("track %d removed %n", startingTrackIndex);
-//			return false;
-//		}
+		if (Graph.pathLength(adj, startIndexAdj) < minTrackLength) {
+			Graph.removePath(adj, startIndexAdj);
+			System.out.format("track %d removed %n", startingTrackIndex);
+			
+			//we also need to back the global index for consistency
+			newIndex--;
+			return false;
+		}
 		boolean added = false;
 		ArrayList<Integer> childs;
 		int childIndex = -1, t1, t2, ci1, ci2;

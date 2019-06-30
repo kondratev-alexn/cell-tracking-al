@@ -15,7 +15,7 @@ public class TrackCTC {
 	private int _index;
 	private int _parentIndex;
 	
-	private int[] _childIndex;	
+	private int[] _childIndex;
 	
 	public TrackCTC(String trackTxtLine, StackDetection filledStack) throws Exception {
 		String[] split = trackTxtLine.split(" ");

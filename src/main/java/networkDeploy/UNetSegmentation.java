@@ -6,21 +6,17 @@ import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.modelimport.keras.KerasModelImport;
 import org.deeplearning4j.nn.modelimport.keras.exceptions.InvalidKerasConfigurationException;
 import org.deeplearning4j.nn.modelimport.keras.exceptions.UnsupportedKerasConfigurationException;
-import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.io.ClassPathResource;
 
 import cellTracking.ImageFunctions;
-import cellTracking.ImageProcessorCalculator;
 import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
-import ij.process.ShortProcessor;
 
 public class UNetSegmentation {
 	ComputationGraph model;
@@ -42,7 +38,7 @@ public class UNetSegmentation {
 	}
 
 	public FloatProcessor predict(ImageProcessor ip) throws IOException, InvalidKerasConfigurationException, UnsupportedKerasConfigurationException {
-		normalizeAndInvert((FloatProcessor) ip);		
+		normalize01((FloatProcessor) ip);		
 		
 		INDArray input = imageProcessor2INDArray(ip);
 		INDArray[] prediction = model.output(input);
@@ -76,6 +72,7 @@ public class UNetSegmentation {
 		return ip;
 	}
 	
+	@Deprecated
 	private ImageProcessor patch(ImageProcessor ip, int x0, int y0, int width, int height) {
 		ImageProcessor res = new FloatProcessor(width, height);
 		for (int y=y0; y<y0+height; ++y)
@@ -85,10 +82,10 @@ public class UNetSegmentation {
 		return res;
 	}
 	
-	private void normalizeAndInvert(FloatProcessor fp) {
+	private void normalize01(FloatProcessor fp) {
 		ImageFunctions.normalize(fp, 0, 1);
 		for(int i=0; i<fp.getPixelCount(); ++i) {
-			fp.setf(i, 1 - fp.getf(i));
+			fp.setf(i, fp.getf(i));
 		}
 	}
 	
