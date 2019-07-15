@@ -1,6 +1,8 @@
 package tracks;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 
 import tracks.TrackAdj;
 import graph.Graph;
@@ -16,6 +18,7 @@ public class TracksAdj {
 		tracks = new ArrayList<TrackAdj>();
 
 		fillTracks(gr, minTrackLength);
+		sortTrackByLastSlice();
 	}
 
 	public int tracksCount() {
@@ -26,6 +29,33 @@ public class TracksAdj {
 		if (index < 0 || index >= tracks.size())
 			return null;
 		return tracks.get(index);
+	}
+	
+	public void sortTrackByLastSlice() {
+		ArrayList<Integer> endSlices = new ArrayList<Integer>(tracksCount());
+		for (int i=0; i<tracksCount(); ++i) {
+			TrackAdj tr = tracks.get(i);
+			int endSlice = tr.getLastSlice();
+			endSlices.add(endSlice);
+		}
+		for (int i=0; i<tracksCount() - 1; ++i) {
+			int endSliceI = endSlices.get(i);
+			for (int j=i+1; j<tracksCount(); ++j) {
+				int endSliceJ = endSlices.get(j);
+				if (endSliceI > endSliceJ) {
+					Collections.swap(endSlices, i, j);
+					Collections.swap(tracks, i, j);
+				}
+			}
+		}
+		
+		// check sorting
+		for (int i=0; i<tracksCount(); ++i) {
+			TrackAdj tr = tracks.get(i);
+			int endSlice = tr.getLastSlice();
+			System.out.format("%d ", endSlice);
+		}
+		System.out.println();
 	}
 
 	// fills array of tracks. Graph must not have any divisions by that moment

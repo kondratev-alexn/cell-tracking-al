@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>14.0.0</version>
+		<version>26.0.0</version>
 		<relativePath />
 	</parent>
 
@@ -17,12 +17,14 @@
 	<version>1.1.0</version>
 	<name>Cell tracking</name>
 	<description>A project implementing imageJ plugin for cell tracking</description>
-	<url></url>
+	
+	<url>https://github.com/kondratev-alexn/cell-tracking-al</url>
 	<inceptionYear>2017</inceptionYear>
 	<organization>
 		<url></url>
 		<name>mmip</name>
 	</organization>
+	
 	<licenses>
 		<license>
 			<name>Simplified BSD License</name>
@@ -45,6 +47,11 @@
 			</roles>
 		</developer>
 	</developers>
+    <contributors>
+        <contributor>
+            <name>None</name>
+        </contributor>
+    </contributors>
 	
 	<mailingLists>
 		<mailingList>
@@ -59,10 +66,12 @@
 		<tag>HEAD</tag>
 		<url>https://github.com/imagej/example-legacy-plugin</url>
 	</scm>
+	
 	<issueManagement>
 		<system>GitHub Issues</system>
 		<url>https://github.com/imagej/example-legacy-plugin/issues</url>
 	</issueManagement>
+	
 	<ciManagement>
 		<system>None</system>
 	</ciManagement>
@@ -71,6 +80,7 @@
 		<package-name>cellTracking</package-name>
 		<main-class>cellTracking.Cell_Tracker</main-class>
 		<license.licenseName>bsd_2</license.licenseName>
+        <license.copyrightOwners>N/A</license.copyrightOwners>
 	</properties>
 	
 	<repositories>
@@ -80,6 +90,8 @@
 		</repository>
 	</repositories>
 	
+
+	
 	<dependencies>
 		<dependency>
 			<groupId>net.imagej</groupId>
@@ -88,13 +100,12 @@
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-simple</artifactId>
-			<version>1.7.25</version>
 		</dependency>
-				<dependency>      
+		<dependency>      
 			<groupId>org.deeplearning4j</groupId>      
 			<artifactId>deeplearning4j-core</artifactId>
 			<version>1.0.0-beta4</version>
-				</dependency>         
+		</dependency>         
 		<dependency>      
 			<groupId>org.deeplearning4j</groupId>      
 			<artifactId>deeplearning4j-modelimport</artifactId>      

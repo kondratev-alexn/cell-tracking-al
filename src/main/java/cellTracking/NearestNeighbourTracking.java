@@ -3,6 +3,7 @@ package cellTracking;
 import java.awt.Color;
 import java.awt.image.ColorModel;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Stack;
 
 import graph.Arc;
@@ -377,8 +378,8 @@ public class NearestNeighbourTracking {
 
 			center = componentsList.get(endSlice).getComponentMassCenter(endComponentIndex);
 
-			WhiteBlobsDetection detectionNextSlice = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 1, 30,
-					tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0, null);
+			WhiteBlobsDetection detectionNextSlice = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 1,
+					30, tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0, null);
 			detectionNextSlice.fillWithBlobCandidates(componentsList.get(endSlice + 1).getInvertedIntensityImage(), 30);
 
 			if (detectionNextSlice.isBestBlobValueAboveThreshold(whiteBlobThreshold)) {
@@ -387,10 +388,11 @@ public class NearestNeighbourTracking {
 				continue;
 			}
 
-			WhiteBlobsDetection detectionNextNextSlice = new WhiteBlobsDetection(center.getX(), center.getY(), endSlice + 2, 30,
-					tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0, null);
-			detectionNextNextSlice.fillWithBlobCandidates(componentsList.get(endSlice + 2).getInvertedIntensityImage(), 30);
-			
+			WhiteBlobsDetection detectionNextNextSlice = new WhiteBlobsDetection(center.getX(), center.getY(),
+					endSlice + 2, 30, tr.getEndAdjIndex(), false, new ArrayList<Integer>(), 0, null);
+			detectionNextNextSlice.fillWithBlobCandidates(componentsList.get(endSlice + 2).getInvertedIntensityImage(),
+					30);
+
 			if (detectionNextNextSlice.isBestBlobValueAboveThreshold(whiteBlobThreshold)) {
 				tr.setEndedOnMitosys();
 				System.out.println("track " + i + " ended on mitosis by bright blob in the next next frame");
@@ -494,6 +496,20 @@ public class NearestNeighbourTracking {
 		return diffs.get(diffs.size() - 1) > maxDiff * multiplierThreshold;
 	}
 
+	public void divisionTracking(int searchTrackRadius, int slicesBefore, int slicesThroughAfter) {
+		TrackAdj tr;
+		DivisionTracking division = new DivisionTracking();
+		division.setTrackingInfo(tracks, cellGraph, componentsList);
+		
+		// we should sort tracks based when their end so that tracks that ended earlier would get connected first	
+		
+		for (int i = 0; i < tracks.tracksCount(); ++i) {
+			tr = tracks.getTrack(i);
+						
+			division.simpleDivisionTracking(tr, searchTrackRadius, slicesBefore, slicesThroughAfter);
+		}
+	}
+
 	/* mitosis tracking */
 	public void startMitosisTracking(int radius, double childPenalThreshold) {
 		int endSlice;
@@ -545,12 +561,6 @@ public class NearestNeighbourTracking {
 			whiteBlobsTracking.fillSliceDetectionsWithUniqueCandidates(slice,
 					componentsList.get(slice).getInvertedIntensityImage());
 			whiteBlobsTracking.sortBlobsInDetections(slice);
-			// here output candidate components for debugging
-			// if (whiteBlobsTracking.hasDetections(slice)) {
-			// ImagePlus debugComponents = new ImagePlus(Integer.toString(slice),
-			// whiteBlobsTracking.getComponentCandidatesImage(slice));
-			// debugComponents.show();
-			// }
 			System.out.println("--- Mitosis tracking: Filling first Blobs");
 			whiteBlobsTracking.fillFirstBlobs(slice);
 			System.out.println("--- Mitosis tracking: Filling second Blobs");

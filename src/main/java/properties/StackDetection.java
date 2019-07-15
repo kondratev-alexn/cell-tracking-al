@@ -36,7 +36,7 @@ public class StackDetection {
 			ImageProcessor img = imgstack.getProcessor(i + 1);
 			SliceDetections detection = new SliceDetections(img, i + 1, mitosisInfo);
 			stack.add(detection);
-			System.out.println("Detection added " + i);
+			//System.out.println("Detection added " + i);
 		}
 	}
 
@@ -53,7 +53,7 @@ public class StackDetection {
 	}
 
 	public boolean checkTrackCorrectness(int trackIndex, int startSlice, int endSlice) {
-		System.out.println("Check: stack size is "+stack.size()); 
+//		System.out.println("Check: stack size is "+stack.size()); 
 		for (int i = startSlice; i <= endSlice; i++) {
 			if (!stack.get(i).isTrackInSlice(trackIndex))
 				return false;

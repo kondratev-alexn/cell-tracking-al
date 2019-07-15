@@ -182,17 +182,21 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			tracking.fillTracksAdj(minTrackLength);
 			IJ.log("Tracking dark nuclei finished.");
 
+			// old version
+//			if (trackMitosis) {
+//				IJ.log("Tracking mitosis...");
+//				// check for mitosis start by two ideas (intensity change / bright blob nearby)
+//				tracking.analyzeTracksForMitosisByAverageIntensity(mitosisStartIntensityCoefficient);
+//				tracking.analyzeTracksForMitosisByWhiteBlob(0.5f);				
+//				tracking.startMitosisTracking(30, childPenaltyThreshold);
+//				IJ.log("Mitosis tracking finished");
+//			}
+			
 			if (trackMitosis) {
 				IJ.log("Tracking mitosis...");
-				// check for mitosis start by two ideas (intensity change / bright blob nearby)
-				tracking.analyzeTracksForMitosisByAverageIntensity(mitosisStartIntensityCoefficient);
-				tracking.analyzeTracksForMitosisByWhiteBlob(0.5f);
-				tracking.startMitosisTracking(30, childPenaltyThreshold);
+				tracking.divisionTracking(120, 0, 10);				
 				IJ.log("Mitosis tracking finished");
-				// tracking.trackComponentsMultiSlice(maxRadiusDark, 4, scoreThreshold,
-				// timeDecayCoefficient);
-			}
-			
+			}			
 
 			// System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
@@ -788,7 +792,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			String pluginsDir = url.substring("file:".length(),
 					url.length() - clazz.getName().length() - ".class".length());
 			System.setProperty("plugins.dir", pluginsDir);
-
+			System.out.println(System.getProperty("os.arch"));
 			// start ImageJ
 			new ImageJ();
 			ImagePlus image;
@@ -801,8 +805,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// IJ.openImage("C:\\Tokyo\\Short_c1_ex.tif");
 
 			ImagePlus image_ex_01 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
-			// ImagePlus image_ex_06 =
-			// IJ.openImage("C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
+			ImagePlus image_ex_06 =
+			IJ.openImage("C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
 			// ImagePlus image_ex_07 =
 			// IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
 			// ImagePlus image_ex_13 =
@@ -820,7 +824,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// image = image_ez_division;
 			// image = image_test_tracking;
 			// image = image_shorter_bright_blobs;
-			// image = image_ex_06;
+			image = image_ex_06;
 			// image = image_ex_13;
 			//image = confocal_1;
 			ImageConverter converter = new ImageConverter(image);
