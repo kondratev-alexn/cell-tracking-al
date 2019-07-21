@@ -84,40 +84,6 @@ public class Properties_Measure implements PlugIn {
 				askTrackingResultsFolder = true;
 			}
 
-			// DirectoryScanner scanner = new DirectoryScanner();
-			// scanner.setBasedir(dir);
-
-			// scanner.setCaseSensitive(false);
-			//
-			// scanner.setIncludes(new String[] { "*c1.tif" });
-			// scanner.scan();
-			// String[] files_ch1 = scanner.getIncludedFiles();
-			// if (files_ch1.length == 0)
-			// throw new Exception("No channel 1 tif image was found");
-			//
-			// scanner.setIncludes(new String[] { "*c2.tif" });
-			// scanner.scan();
-			// String[] files_ch2 = scanner.getIncludedFiles();
-			// if (files_ch2.length == 0)
-			// throw new Exception("No channel 2 tif image was found");
-			//
-			// scanner.setIncludes(new String[] { "*results.tif" });
-			// scanner.scan();
-			// String[] files_restif = scanner.getIncludedFiles();
-			// if (files_restif.length == 0)
-			// throw new Exception("No tracking result in CTC image format was found");
-			//
-			// scanner.setIncludes(new String[] { "*results.txt" });
-			// scanner.scan();
-			// String[] files_restxt = scanner.getIncludedFiles();
-			// if (files_restxt.length == 0)
-			// throw new Exception("No tracking result in CTC text format was found");
-			//
-			// String ch1_name = files_ch1[0];
-			// String ch2_name = files_ch2[0];
-			// String restif_name = files_restif[0];
-			// String restxt_name = files_restxt[0];
-
 			String[] split = ch2_name.split("c2");
 			String name = split[0];
 			System.out.println(name);
