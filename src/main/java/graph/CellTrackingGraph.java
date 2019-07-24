@@ -635,7 +635,7 @@ public class CellTrackingGraph {
 	}
 
 	/* draws tracks in TRA but in colors */
-	public ImagePlus showTrackedComponentImages(String name, boolean save) {
+	public ImagePlus showTrackedComponentImages(String name, boolean save, boolean show) {
 		if (images.isEmpty())
 			return null;
 		ImageStack stack = new ImageStack(images.get(0).getWidth(), images.get(0).getHeight(), images.size());
@@ -644,7 +644,8 @@ public class CellTrackingGraph {
 		}
 
 		ImagePlus imp = new ImagePlus(name, stack);
-		imp.show();
+		if (show)
+			imp.show();
 
 		if (save) {
 			IJ.saveAsTiff(imp, name);	

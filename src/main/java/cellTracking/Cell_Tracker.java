@@ -16,6 +16,7 @@ import histogram.FloatHistogram;
 import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.gui.DialogListener;
 import ij.gui.GenericDialog;
 import ij.io.DirectoryChooser;
@@ -25,6 +26,7 @@ import ij.process.FloatProcessor;
 import ij.process.ImageConverter;
 import ij.process.ImageProcessor;
 import ij.process.StackConverter;
+import ij.process.StackProcessor;
 import ij.plugin.filter.ExtendedPlugInFilter;
 import ij.plugin.Converter;
 import ij.plugin.filter.BackgroundSubtracter;
@@ -40,7 +42,6 @@ import inra.ijpb.binary.ChamferWeights;
 import networkDeploy.UNetSegmentation;
 import properties.StackDetection;
 import evaluation.EvaluationFromRoi;
-import evaluation.TrackingEvaluation;
 
 import ij.plugin.filter.MaximumFinder;
 
@@ -121,6 +122,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private boolean startedProcessing = false; // comes true after user has selected whether to process stacks or not
 	private boolean showBlobs = false;
 	private boolean useMaximumFinder = false; //whether to use maxFinder plugin or blob detection
+	
+	private boolean addRois = true; //add rois to roi manager or not
+	private boolean noImageJProcessing = false;
 
 	String ctcTifResult, ctcTxtResult, infoFilePath;
 
@@ -137,6 +141,30 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private BackgroundSubtracter backgroundSub;
 	private RankFilters rankFilters;
 	private UNetSegmentation uNetSegmentation;
+	
+	public void initPlugin(ImagePlus imp) {
+		nSlices = imp.getStackSize();
+		tracking = new NearestNeighbourTracking();
+		cellMask = null;
+		ctcComponents = null;
+		ctcTifResult = "";
+		ctcTxtResult = "";
+		infoFilePath = "";
+
+		// convert to float if plugin just started
+		if (nSlices == 1) {
+			Converter conv = new Converter();
+			conv.run("32-bit");
+		} else {
+			StackConverter stackConv = new StackConverter(imp);
+			stackConv.convertToGray32();
+		}
+		try {
+			instancePlugins();
+		} catch (IOException | UnsupportedKerasConfigurationException | InvalidKerasConfigurationException e) {
+			e.printStackTrace();
+		}
+	}
 
 	@Override
 	public int setup(String arg, ImagePlus imp) {
@@ -149,21 +177,15 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			return DONE;
 		}
 
-		saveResultsInFolder = !arg.equals("no save");
-
-		if (saveResultsInFolder) {
-			System.out.println("Saving in folder");
-		}
-
 		if (arg.equals("final")) {
 			// replace the preview image by the original image
 			// resetPreview();
-			imagePlus.updateAndDraw();
-
-			roiManager.selectAndMakeVisible(imagePlus, -1);
-
-			if (!doesStacks()) {
-				return DONE;
+			if (!noImageJProcessing) {
+				imagePlus.updateAndDraw();
+				roiManager.selectAndMakeVisible(imagePlus, -1);
+				if (!doesStacks()) {
+					return DONE;
+				}
 			}
 
 			// there goes tracking
@@ -194,19 +216,19 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			
 			if (trackMitosis) {
 				IJ.log("Tracking mitosis...");
-				tracking.divisionTracking(120, 0, 10);				
+				tracking.divisionTracking(120, 1, 10);				
 				IJ.log("Mitosis tracking finished");
 			}			
 
 			// System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
-			ImageProcessor ip = imp.getProcessor();
+			// ImageProcessor ip = imp.getProcessor();
 			// tracking.drawTracksIp(ip);
 			// ImagePlus trResult = tracking.drawTracksImagePlus(imp);
 
-			imp.show();
-
-			Graph cellGraph = tracking.getGraph();
+			if (!noImageJProcessing) {
+				imp.show();
+			}
 
 			IJ.log("Displaying results.");
 
@@ -232,7 +254,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			String tifPath = trackingResultsDir + nameTif + ".tif";
 			ctcTifResult = tifPath;
 
-			ctcComponents = resultGraph.showTrackedComponentImages(ctcTifResult, true);
+			ctcComponents = resultGraph.showTrackedComponentImages(ctcTifResult, true, !noImageJProcessing);
 			resultGraph.printTrackedGraph();
 
 			String txtResultName = imp.getShortTitle() + "_tracking_results.txt";
@@ -240,8 +262,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ctcTxtResult = txtPath;
 			// resultGraph.writeTracksToFile_ctc_afterAnalysis(txtResultName);;;;
 			resultGraph.writeTracksToFile_ctc_afterAnalysis(ctcTxtResult);
-			IJ.log("Text result file created at: " + ctcTxtResult);
-			
+			IJ.log("Text result file created at: " + ctcTxtResult);			
 			
 			//reading back to display in color
 			MitosisInfo mitosisInfo = MitosisInfo.DeserializeMitosisInfo(infoFilePath);
@@ -261,10 +282,17 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		nSlices = imp.getStackSize();
 		tracking = new NearestNeighbourTracking();
 		cellMask = null;
+		addRois = true;
 		ctcComponents = null;
 		ctcTifResult = "";
 		ctcTxtResult = "";
 		infoFilePath = "";
+		
+		saveResultsInFolder = !arg.equals("no save");
+
+		if (saveResultsInFolder) {
+			System.out.println("Saving in folder");
+		}
 
 		// convert to float if plugin just started
 		if (nSlices == 1) {
@@ -306,6 +334,31 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		String model_name = "unet_confocal_fluo_model_full.h5";
 		uNetSegmentation = new UNetSegmentation(model_name);
 	}
+	
+	public void setParameters(ImagePlus imp, float softmaxThreshold, int minArea, int maxArea, float minCirc, float maxCirc,
+			int minTrackLength, boolean trackMitosis, boolean filterComponents, boolean addRois, boolean noImageJProcessing) {
+		nChannels = imp.getProcessor().getNChannels();
+		currSlice = 1; // for when algorithm starts processing stack
+		selectedSlice = 1;
+		startedProcessing = true;
+		previewing = false;
+
+		roiManager = RoiManager.getInstance();
+		if (roiManager == null)
+			roiManager = new RoiManager();
+		roiManager.reset();		
+		
+		this.softmaxThreshold = softmaxThreshold;
+		this.minArea = minArea;
+		this.maxArea = maxArea;
+		minCircularity = minCirc;
+		maxCircularity = maxCirc;
+		this.minTrackLength = minTrackLength;
+		this.trackMitosis = trackMitosis;
+		this.filterComponents = filterComponents;
+		this.addRois = addRois;
+		this.noImageJProcessing = noImageJProcessing;
+	}
 
 	@Override
 	public int showDialog(ImagePlus imp, String command, PlugInFilterRunner pfr) {
@@ -320,7 +373,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		GenericDialog gd = new GenericDialog(command);
 		fillGenericDialog(gd, pfr);
 
-		gd.showDialog(); // input by the user (or macro) happens here
+		gd.showDialog(); // input by the user (or macro) happens here		
 
 		if (gd.wasCanceled()) {
 			resetPreview();
@@ -447,7 +500,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 		
 		//result = maximaWatershedSegmentation(result, ip, sigma3, minThreshold, maxThreshold);
-		if (!isConfocal) { //we need preprocessing for epifluorescence data
+		if (!isConfocal) { //we need preprocessing for epifluorescence data (for old version of weights)
 			result = preprocessing(result, 1.4f, 60, true);
 		}
 		
@@ -467,7 +520,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		result.resetMinAndMax();
 
 		if (startedProcessing) { // process stacks
-			currSlice++;
+			++currSlice;
 		}
 
 		if (previewing && !startedProcessing) {
@@ -476,6 +529,14 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 				ip.setf(i, result.getf(i));
 			}
 			ip.resetMinAndMax();
+		}
+	}
+	
+	public void runOnImagePlus(ImagePlus imp) {
+		ImageStack stack = imp.getStack();
+		for (int i=1; i<=stack.getSize(); ++i) {
+			ImageProcessor ip = stack.getProcessor(i);
+			run(ip);
 		}
 	}
 	
@@ -655,7 +716,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 					discardWhiteBlobs);
 			
 			// here set component's state by marks image (indicate bright blobs)
-			if (startedProcessing) // add roi only if we started processing
+			if (startedProcessing && addRois) // add roi only if we started processing
 				compAnalisys.addRoisToManager(roiManager, imagePlus, currSlice);
 
 			if (startedProcessing || doesStacks()) {
@@ -783,7 +844,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		}
 		if (!testImageJ) {
 			System.out.println("Test");
-			TrackingEvaluation tra = new TrackingEvaluation();
 			// tra.writeTracksToFile_ctc("tracks.txt", null);
 		} else {
 			// set the plugins.dir property to make the plugin appear in the Plugins menu
