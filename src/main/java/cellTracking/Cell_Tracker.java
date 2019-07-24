@@ -42,7 +42,7 @@ import inra.ijpb.binary.ChamferWeights;
 import networkDeploy.UNetSegmentation;
 import properties.StackDetection;
 import evaluation.EvaluationFromRoi;
-
+import evaluation.PluginParameters;
 import ij.plugin.filter.MaximumFinder;
 
 public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
@@ -125,6 +125,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	
 	private boolean addRois = true; //add rois to roi manager or not
 	private boolean noImageJProcessing = false;
+	private boolean useWatershedPostProcessing = true;
 
 	String ctcTifResult, ctcTxtResult, infoFilePath;
 
@@ -335,8 +336,22 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		uNetSegmentation = new UNetSegmentation(model_name);
 	}
 	
+	public void setParameters(ImagePlus imp, PluginParameters parameters) {
+		setParameters(imp, parameters.softmaxThreshold, 
+				parameters.minArea, 
+				parameters.maxArea, 
+				parameters.minCirc, 
+				parameters.maxCirc, 
+				parameters.minTrackLength, 
+				parameters.trackMitosis,
+				parameters.filterComponents, 
+				parameters.useWatershedPostProcessing,
+				parameters.addRois, 
+				parameters.noImageJProcessing);
+	}
+	
 	public void setParameters(ImagePlus imp, float softmaxThreshold, int minArea, int maxArea, float minCirc, float maxCirc,
-			int minTrackLength, boolean trackMitosis, boolean filterComponents, boolean addRois, boolean noImageJProcessing) {
+			int minTrackLength, boolean trackMitosis, boolean filterComponents, boolean useWatershedPostProcessing, boolean addRois, boolean noImageJProcessing) {
 		nChannels = imp.getProcessor().getNChannels();
 		currSlice = 1; // for when algorithm starts processing stack
 		selectedSlice = 1;
@@ -356,6 +371,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		this.minTrackLength = minTrackLength;
 		this.trackMitosis = trackMitosis;
 		this.filterComponents = filterComponents;
+		this.useWatershedPostProcessing = useWatershedPostProcessing;
 		this.addRois = addRois;
 		this.noImageJProcessing = noImageJProcessing;
 	}
@@ -506,12 +522,15 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		
 		try {
 			ImageProcessor binary = uNetSegmentation.binarySegmentation(result, (float) softmaxThreshold);
-			//make distance-based watershed transform here to separate touching cells
-			ChamferWeights weights = ChamferWeights.BORGEFORS;
-			final ImageProcessor dist = BinaryImages.distanceMap(binary, weights.getFloatWeights(), true);
-			dist.invert();
-			ImageProcessor watershedded = ExtendedMinimaWatershed.extendedMinimaWatershed(dist, binary, 1, 4, 32, false);
-			result = fillComponentProperties(watershedded, ip, false, null);
+			if (useWatershedPostProcessing) {
+				//make distance-based watershed transform here to separate touching cells
+				ChamferWeights weights = ChamferWeights.BORGEFORS;
+				final ImageProcessor dist = BinaryImages.distanceMap(binary, weights.getFloatWeights(), true);
+				dist.invert();
+				ImageProcessor watershedded = ExtendedMinimaWatershed.extendedMinimaWatershed(dist, binary, 1, 4, 32, false);
+				result = fillComponentProperties(watershedded, ip, false, null);
+			}
+			else result = fillComponentProperties(binary, ip, false, null);
 		} catch (IOException | InvalidKerasConfigurationException | UnsupportedKerasConfigurationException e) {
 			e.printStackTrace();
 		}

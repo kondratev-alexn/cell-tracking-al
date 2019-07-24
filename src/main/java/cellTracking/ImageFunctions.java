@@ -5,7 +5,6 @@ import java.awt.Image;
 import java.awt.image.RGBImageFilter;
 import java.util.ArrayList;
 
-import colorPicking.ColorPicker;
 import ij.ImagePlus;
 import ij.plugin.filter.RankFilters;
 import ij.process.AutoThresholder;
@@ -16,6 +15,7 @@ import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import inra.ijpb.morphology.Strel;
 import point.Point;
+import visualization.ColorPicker;
 import inra.ijpb.morphology.Morphology.Operation;
 
 /* Class for different image processing functions, like maybe filtering for certain processors, or normalizing the image */

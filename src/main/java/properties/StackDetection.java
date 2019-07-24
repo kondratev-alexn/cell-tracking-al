@@ -1,10 +1,12 @@
 package properties;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
 
 import cellTracking.ImageFunctions;
 import graph.CellTrackingGraph;
+import graph.Graph;
 import graph.MitosisInfo;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -14,9 +16,11 @@ import ij.gui.ShapeRoi;
 import ij.gui.Wand;
 import ij.plugin.frame.RoiManager;
 import ij.process.ByteProcessor;
+import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 import inra.ijpb.morphology.Strel;
 import inra.ijpb.morphology.Morphology.Operation;
+import visualization.ColorPicker;
 
 public class StackDetection {
 	private ArrayList<SliceDetections> stack;
@@ -36,24 +40,23 @@ public class StackDetection {
 			ImageProcessor img = imgstack.getProcessor(i + 1);
 			SliceDetections detection = new SliceDetections(img, i + 1, mitosisInfo);
 			stack.add(detection);
-			//System.out.println("Detection added " + i);
+			// System.out.println("Detection added " + i);
 		}
 	}
 
 	public void fillTracks(String ctcResultTxt) {
 		tracks.fillTracks(ctcResultTxt, this);
 	}
-	
+
 	public ArrayList<SliceDetections> detections() {
 		return stack;
 	}
-	
+
 	public TrackCTCMap tracks() {
 		return tracks;
 	}
 
 	public boolean checkTrackCorrectness(int trackIndex, int startSlice, int endSlice) {
-//		System.out.println("Check: stack size is "+stack.size()); 
 		for (int i = startSlice; i <= endSlice; i++) {
 			if (!stack.get(i).isTrackInSlice(trackIndex))
 				return false;
@@ -137,7 +140,7 @@ public class StackDetection {
 		}
 	}
 
-	/*
+	/**
 	 * fill detections with information about its track i.e. its parent, number in
 	 * track
 	 */
@@ -147,7 +150,7 @@ public class StackDetection {
 			int label = 0;
 			for (int slice = track.startSlice(); slice <= track.endSlice(); ++slice) {
 				Roi roi = detectionRoi(slice, trackIndex);
-				int parentIndex = label == 0 ? track.parenIndex() : -1;
+				int parentIndex = label == 0 ? track.parentIndex() : -1;
 				boolean isMitosis = isMitosisDetection(trackIndex, slice);
 				String name = CellTrackingGraph.roiName(trackIndex, slice, label, parentIndex, isMitosis);
 				roi.setName(name);
@@ -155,26 +158,66 @@ public class StackDetection {
 			}
 		}
 	}
+
+	public ImagePlus drawMitosis(ImagePlus impOriginal) {
+		final ImageStack st = impOriginal.getStack();
+		//ImageStack stack = new ImageStack(st.getWidth(), st.getHeight(), st.getSize());
+		ImageStack stack = new ImageStack(st.getWidth(), st.getHeight(), st.getSize());
+		for (int n=1; n<=stack.getSize(); ++n) { //convert to color processors
+			stack.setProcessor(st.getProcessor(n).duplicate().convertToColorProcessor(), n);
+		}
+		
+		int mitosisCount = 0;
+		for (Integer parentIndex: tracks.tracksMap().keySet()) {
+			TrackCTC parentTrack = tracks.tracksMap().get(parentIndex);
+			int childCount = parentTrack._childIndexes.size();
+			if (childCount != 2) 
+				continue;
+			
+			int idx1 = parentTrack._childIndexes.get(0);
+			int idx2 = parentTrack._childIndexes.get(1);
+			
+			int sliceParent = parentTrack.endSlice();
+			int sliceChild1 = tracks.tracksMap().get(idx1).startSlice();
+			int sliceChild2 = tracks.tracksMap().get(idx2).startSlice();
+
+			// draw 3 components from result ctc image by intensity and slices			
+			ColorProcessor cpParent = (ColorProcessor) stack.getProcessor(sliceParent+1);
+			ColorProcessor cpChild1 = (ColorProcessor) stack.getProcessor(sliceChild1+1);
+			ColorProcessor cpChild2 = (ColorProcessor) stack.getProcessor(sliceChild2+1);
+			
+			drawCTCComponent(_ctcResultImp, cpParent, sliceParent, parentIndex, ColorPicker.color(mitosisCount));
+			drawCTCComponent(_ctcResultImp, cpChild1, sliceChild1, idx1, ColorPicker.color(mitosisCount));
+			drawCTCComponent(_ctcResultImp, cpChild2, sliceChild2, idx2, ColorPicker.color(mitosisCount));
+			
+			++mitosisCount;			
+		}
+		
+
+		ImagePlus result = new ImagePlus("Division Events", stack);
+		return result;
+	}
 	
+	public void drawCTCComponent(ImagePlus ctcResult, ColorProcessor cpDrawOn, int slice, int intensity, Color color) {
+		ImageProcessor ip = ctcResult.getStack().getProcessor(slice+1);
+		for (int y = 0; y < cpDrawOn.getHeight(); y++)
+			for (int x = 0; x < cpDrawOn.getWidth(); x++) {
+				if (ip.get(x, y) == intensity) {
+					cpDrawOn.setColor(color);
+					cpDrawOn.drawPixel(x, y);		
+				}
+			}
+	}
+
 	public ImagePlus colorTracks() {
 		ImagePlus imp = new ImagePlus();
-		
+
 		return imp;
 	}
 
 	public Roi makeRingRoi(int slice, int trackIndex, int dilationRadius) {
 		Roi roi = detectionRoi(slice, trackIndex);
 		System.out.format("make ring roi for slice %d track %d %n", slice, trackIndex);
-
-		// int xbl, xbr, ybl, ybr;
-		// Rectangle box = roi.getBounds();
-		// xbl = box.x;
-		// xbr = box.x + box.width;
-		// ybl = box.y;
-		// ybr = box.y + box.height;
-		//
-		// int pLeft, pRight, pTop, pBottom;
-		// pLeft = xbl
 
 		ImageProcessor mask = roi.getMask();
 		ImageProcessor mask2 = new ByteProcessor(mask.getWidth() + 2 * dilationRadius,

@@ -20,9 +20,8 @@ import ij.ImageStack;
 import point.Point;
 import tracks.TrackAdj;
 import tracks.TracksAdj;
-
+import visualization.ColorPicker;
 import cellTracking.PenaltyFunction;
-import colorPicking.ColorPicker;
 
 public class NearestNeighbourTracking {
 	private Graph cellGraph;

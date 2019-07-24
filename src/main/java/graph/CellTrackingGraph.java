@@ -10,7 +10,6 @@ import cellTracking.ComponentProperties;
 import cellTracking.ImageComponentsAnalysis;
 import cellTracking.ImageFunctions;
 import cellTracking.NearestNeighbourTracking;
-import colorPicking.ColorPicker;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -23,6 +22,7 @@ import ij.process.ImageProcessor;
 import ij.process.ShortProcessor;
 import ij.process.StackProcessor;
 import tracks.TracksAdj;
+import visualization.ColorPicker;
 
 /* class representing graph used for cell tracking */
 public class CellTrackingGraph {

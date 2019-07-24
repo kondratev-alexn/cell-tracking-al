@@ -40,6 +40,19 @@ public class TrackCTCMap {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		fillChildrenIndexes();
+	}
+	
+	/**
+	 * Fill all tracks with information about children tracks
+	 */
+	private void fillChildrenIndexes() {
+		for (TrackCTC track: _tracks.values()) {
+			int parent = track.parentIndex();
+			if (parent == 0)
+				continue;
+			_tracks.get(parent)._childIndexes.add(track.index());
+		}
 	}
 	
 	public int trackStartSlice(int trackIndex) {
