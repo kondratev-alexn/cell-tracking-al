@@ -11,12 +11,22 @@ import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.io.ClassPathResource;
 
 import cellTracking.ImageFunctions;
+
+import org.scijava.ItemIO;
+import org.scijava.log.LogService;
+import org.scijava.log.StderrLogService;
+import org.scijava.plugin.Parameter;
+
 import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+
+import de.mpicbg.ulman.ctc.workers.TRA;
+import de.mpicbg.ulman.ctc.workers.SEG;
+import de.mpicbg.ulman.ctc.workers.DET;
 
 public class UNetSegmentation {
 	ComputationGraph model;
@@ -42,6 +52,7 @@ public class UNetSegmentation {
 		
 		INDArray input = imageProcessor2INDArray(ip);
 		INDArray[] prediction = model.output(input);
+		
 		INDArray singlePrediction = prediction[0];		
 		ImageProcessor res = INDArray2ImageProcessor(singlePrediction);
 		
@@ -81,7 +92,7 @@ public class UNetSegmentation {
 			}		
 		return res;
 	}
-	
+		
 	private void normalize01(FloatProcessor fp) {
 		ImageFunctions.normalize(fp, 0, 1);
 		for(int i=0; i<fp.getPixelCount(); ++i) {
@@ -89,28 +100,89 @@ public class UNetSegmentation {
 		}
 	}
 	
-	public void main(String[] args) {
+	public static void main(String[] args) {
 		// test 
-		String path = "C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif";
-		ImagePlus confocal_1 = IJ.openImage(path);
-		
-		ImageStack stack = confocal_1.getStack();
-		ImageProcessor ip = stack.getProcessor(5);
-		FloatProcessor fp = ip.convertToFloatProcessor();
-		
-		ImagePlus slice = new ImagePlus("Slice for Testing", fp);
-		new ImageJ();
-		slice.show();
-		
-		try {
-			ImageProcessor segmented = predict(fp);
-			ImagePlus res = new ImagePlus("Segmentation", segmented);
-			res.show();
-		} catch (IOException | InvalidKerasConfigurationException | UnsupportedKerasConfigurationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		boolean use = true;		
+		final LogService log = new StderrLogService();
+		if (use) {
+			String GTdir  = "C:\\Tokyo\\metrics\\c0010901_easy_ex\\GT";
+			String RESdir = "C:\\Tokyo\\metrics\\c0010901_easy_ex\\RES Unet";
+			double SEG=-1, TRA=-1, DET=-1;
+			
+			// SEG
+			try {
+				final SEG seg = new SEG(log);
+				seg.doLogReports = false;
+				seg.noOfDigits = 3;
+				SEG = seg.calculate(GTdir, RESdir);
+			}
+			catch (RuntimeException e) {
+				log.error("CTC SEG measure problem: "+e.getMessage());
+			}
+			catch (Exception e) {
+				log.error("CTC SEG measure error: "+e.getMessage());
+			}
+			
+			// TRA
+			try {
+				final TRA tra = new TRA(log);
+				tra.doConsistencyCheck = true;
+				tra.doLogReports = false;
+				tra.noOfDigits = 3;
+				TRA = tra.calculate(GTdir, RESdir);
+			}
+			catch (RuntimeException e) {
+				log.error("CTC TRA measure problem: "+e.getMessage());
+			}
+			catch (Exception e) {
+				log.error("CTC TRA measure error: "+e.getMessage());
+			}
+			
+			// DET
+			try {
+				final DET det = new DET(log);
+				det.doConsistencyCheck = true;
+				det.doLogReports = false;
+				det.noOfDigits = 3;
+				DET = det.calculate(GTdir, RESdir);
+			}
+			catch (RuntimeException e) {
+				log.error("CTC DET measure problem: "+e.getMessage());
+			}
+			catch (Exception e) {
+				log.error("CTC DET measure error: "+e.getMessage());
+			}			
+			
+			log.info(SEG);
+			log.info(TRA);
+			log.info(DET);
+			
 		}
-		System.out.println("Finished");
+			
+		else {			
+			String path = "C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif";
+			ImagePlus confocal_1 = IJ.openImage(path);
+			
+		
+			
+			ImageStack stack = confocal_1.getStack();
+			ImageProcessor ip = stack.getProcessor(5);
+			FloatProcessor fp = ip.convertToFloatProcessor();
+			
+			ImagePlus slice = new ImagePlus("Slice for Testing", fp);
+			new ImageJ();
+			slice.show();
+			
+//			try {
+//				ImageProcessor segmented = predict(fp);
+//				ImagePlus res = new ImagePlus("Segmentation", segmented);
+//				res.show();
+//			} catch (IOException | InvalidKerasConfigurationException | UnsupportedKerasConfigurationException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+			System.out.println("Finished");
+		}
 	}
 }
 

@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 import cellTracking.Cell_Tracker;
 import ij.IJ;
 import ij.ImagePlus;
+import properties.CTCResultStruct;
 import visualization.Visualization;
 
 public class PluginRunning {
@@ -26,15 +27,32 @@ public class PluginRunning {
 
 	public void runPluginOnImageToFolder(ImagePlus imp, String resultsFolder, PluginParameters params,
 			boolean copyImage) throws IOException {
-		Path newdir = Paths.get(resultsFolder);
+
+		CTCResultStruct struct = new CTCResultStruct();
+		struct.fillByResultsFolder(resultsFolder);
+		
+		Path resDir = Paths.get(resultsFolder);
 		if (copyImage) {
-			Path name = newdir.getName(newdir.getNameCount() - 1);
-			IJ.save(imp, newdir.resolve(name).toString());
+			Path name = resDir.getName(resDir.getNameCount() - 1);
+			IJ.save(imp, resDir.resolve(name).toString());
 		}
 		Cell_Tracker tracker = new Cell_Tracker();
 		tracker.setup("no save", imp);
 		tracker.setParameters(imp, params);
-		tracker.runOnImagePlus(imp);
+		boolean tryLoadSegmentation = true;
+		if (tryLoadSegmentation) {
+			if (struct.segmentation != null) {
+				System.out.println("--- Previous segmentation loaded.");
+				tracker.loadSegmentationByImage(struct.segmentation, imp);
+			}
+			else {
+				tracker.runOnImagePlus(imp);
+			}
+		}
+		if (!tryLoadSegmentation) {
+			tracker.runOnImagePlus(imp);
+		}
+			
 		tracker.setup("final", imp);
 
 		String txtPath = tracker.textResultsPath();
@@ -48,11 +66,11 @@ public class PluginRunning {
 		Path tif = Paths.get(tifPath);
 		Path infoPath = Paths.get(infoFilePath);
 
-		Files.move(txt, newdir.resolve(txt.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-		Files.move(tif, newdir.resolve(tif.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-		Files.move(infoPath, newdir.resolve(infoPath.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+		Files.move(txt, resDir.resolve(txt.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+		Files.move(tif, resDir.resolve(tif.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+		Files.move(infoPath, resDir.resolve(infoPath.getFileName()), StandardCopyOption.REPLACE_EXISTING);
 
-		String log = "Files moved from " + tifPath + "to " + newdir.resolve(tif.getFileName()).toString();
+		String log = "Files moved from " + tifPath + "to " + resDir.resolve(tif.getFileName()).toString();
 		IJ.log(log);
 	}
 
@@ -68,32 +86,37 @@ public class PluginRunning {
 		return result;
 	}
 
-	static List<Path> sequencesList() throws IOException {
+	static List<Path> sequencesList(boolean includeConfocal, boolean includeFluorescence) throws IOException {
 		ArrayList<String> folders = new ArrayList<String>();
 		// folders with confocal data
-		folders.add("C:\\Tokyo\\Confocal\\171228A1-tiff-combinedAB\\c2");
-		folders.add("C:\\Tokyo\\Confocal\\171228A1-tiff-combinedCD\\c2");
-		folders.add("C:\\Tokyo\\Confocal\\171228A1-tiff-combinedEF\\c2");
-		folders.add("C:\\Tokyo\\Confocal\\181221-q8146921-tiff\\c2");
-		folders.add("C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2");
-		folders.add("C:\\Tokyo\\Confocal\\181228A1-tiff-combined\\c2");
+		if (includeConfocal) {
+			folders.add("C:\\Tokyo\\Confocal\\171228A1-tiff-combinedAB\\c2");
+			folders.add("C:\\Tokyo\\Confocal\\171228A1-tiff-combinedCD\\c2");
+			folders.add("C:\\Tokyo\\Confocal\\171228A1-tiff-combinedEF\\c2");
+			folders.add("C:\\Tokyo\\Confocal\\181221-q8146921-tiff\\c2");
+			folders.add("C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2");
+			folders.add("C:\\Tokyo\\Confocal\\181228A1-tiff-combined\\c2");
+		}
 
 		// fluo data
-		folders.add("C:\\Tokyo\\Data\\170704DataSeparated\\C0002\\all_folder");
+		if (includeFluorescence) {
+			folders.add("C:\\Tokyo\\Data\\170704DataSeparated\\C0002\\all_folder");
+		}
 		return getAllFilePathsFromFolders(folders);
 	}
 
-	static List<Path> testSequences() throws IOException {
+	static List<Path> shortTestSequences() throws IOException {
 		ArrayList<String> folders = new ArrayList<String>();
 		folders.add("C:\\Tokyo\\Data\\Short Sequences Test");
 		return getAllFilePathsFromFolders(folders);
 	}
 
-	static List<Path> exampleSequences() throws IOException {
+	static List<Path> hasGTSequences() throws IOException {
 		ArrayList<String> folders = new ArrayList<String>();
 		folders.add("C:\\Tokyo\\Example Sequences (segmented)");
 		return getAllFilePathsFromFolders(folders);
 	}
+		
 
 	static Path removeExtensionFromPath(Path path) {
 		String str = path.toString();
@@ -108,30 +131,39 @@ public class PluginRunning {
 		boolean copyImage = true;
 		boolean drawOnly = false;
 
-		PluginParameters paramsWithWatershed = new PluginParameters(0.5f, 60, 1500, 0.5f, 1.0f, 4, true, true, true,
-				false, true);
-		PluginParameters paramsWithoutWatershed = new PluginParameters(0.5f, 60, 1500, 0.5f, 1.0f, 4, true, true, false,
-				false, true);
-
-		ArrayList<PluginParameters> parametersList = new ArrayList<PluginParameters>();
-		parametersList.add(paramsWithoutWatershed);
-		parametersList.add(paramsWithWatershed);
-
 		Path wshedResults = Paths.get("C:\\Tokyo\\watershed_results");
 		Path noWshedResults = Paths.get("C:\\Tokyo\\no_watershed_results");
-		ArrayList<Path> resFolders = new ArrayList<Path>();
-		resFolders.add(noWshedResults);
-		resFolders.add(wshedResults);
+		Path noMitosisWshedResults = Paths.get("C:\\Tokyo\\no_mitosis_watershed_results");
+		Path noMitosisNoWshedResults = Paths.get("C:\\Tokyo\\no_mitosis_no_watershed_results");
+		
+		PluginParameters paramsWithWatershed = new PluginParameters(0.5f, 50, 1500, 0.45f, 1.0f, 4, true, true, true,
+				false, true, true, wshedResults);
+		PluginParameters paramsWithoutWatershed = new PluginParameters(0.5f, 50, 1500, 0.5f, 1.0f, 4, true, true, false,
+				false, true, true, noWshedResults);
+		
+		PluginParameters paramsWatershedNoMitosis = new PluginParameters(0.5f, 50, 1500, 0.5f, 1.0f, 4, false, true, true,
+				false, true, true, noMitosisWshedResults);
+		PluginParameters paramsNoWatershedNoMitosis = new PluginParameters(0.5f, 50, 1500, 0.5f, 1.0f, 4, false, true, false,
+				false, true, true, noMitosisNoWshedResults);
+		
 
+		ArrayList<PluginParameters> parametersList = new ArrayList<PluginParameters>();
+		//parametersList.add(paramsWithoutWatershed);
+		//parametersList.add(paramsWithWatershed);
+		parametersList.add(paramsWatershedNoMitosis);
+		parametersList.add(paramsNoWatershedNoMitosis);
+		
 		try {
-			for (int i = 0; i < resFolders.size(); ++i) {
-				Path masterFolder = resFolders.get(i);
+			for (int i = 0; i < parametersList.size(); ++i) {
+				Path masterFolder = parametersList.get(i).destinationFolder;
 				PluginParameters params = parametersList.get(i);
 
-				List<Path> paths = exampleSequences();
-				//paths.addAll(sequencesList());
+				List<Path> paths = hasGTSequences();
+				//paths.addAll(sequencesList(true, true));
+				
 				for (Path p : paths) {
 					// create folder for results based on sequence name
+					//p = Paths.get("C:\\Tokyo\\Example Sequences (segmented)\\c0010901_easy_ex.tif");
 					Path name = removeExtensionFromPath(p);
 					Path resFolder = masterFolder.resolve(name.getFileName());
 					if (!Files.exists(resFolder)) { // if no folder
@@ -143,6 +175,7 @@ public class PluginRunning {
 					}
 					System.out.println("Running plugin on " + p.toString());
 					if (!drawOnly) {
+						params.destinationFolder = resFolder;
 						plugin.runPluginOnImagePathToFolder(p.toString(), resFolder.toString(), params, copyImage);
 						Visualization.drawAndSaveMitosisByResultFolder(resFolder.toString());
 					} else {
@@ -150,6 +183,7 @@ public class PluginRunning {
 					}
 				}
 				System.out.println("Finished running on folder " + masterFolder.toString());
+				
 			}
 			System.out.println("Finished");
 		} catch (IOException e) {

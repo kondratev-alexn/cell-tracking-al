@@ -53,7 +53,7 @@ public class EvaluationFromRoi {
 		ImagePlus imp = resultGraph.getTrackedComponentImages();
 		IJ.save(imp, "tracked_components");
 		// resultGraph.printTrackedGraph();
-		resultGraph.writeTracksToFile_ctc_afterAnalysis("res_track_yaginuma.txt");
+		resultGraph.writeTracksToFile_ctc_afterAnalysis("res_track_yaginuma.txt", false);
 	}
 
 	public void drawRoiComponentAnalysis(Roi roi, int slice, int intensity) {

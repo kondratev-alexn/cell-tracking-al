@@ -53,6 +53,8 @@ public class ImageComponentsAnalysis {
 		fillBasicProperties();
 		fillCircularity();		
 	}
+	
+	
 
 	/*
 	 * gets the number of components in labeled image. Components can have different
@@ -305,7 +307,7 @@ public class ImageComponentsAnalysis {
 	public boolean checkIfChildComponents(int index1, int index2, Point parentCenterPoint, float parentAvrgIntensity,
 			double penalThreshold) {
 		double penal = calculateChildPenalScore(index1, index2, parentCenterPoint, parentAvrgIntensity);
-		System.out.println(" penal score is " + penal);
+//		System.out.println(" penal score is " + penal);
 		return penal < penalThreshold;
 	}
 
@@ -658,17 +660,11 @@ public class ImageComponentsAnalysis {
 					if (l == 0) {
 						upLabel = originalComponents.get(x, y - 1);
 						downLabel = originalComponents.get(x, y + 1);
-						/*
-						 * System.out.println(upLabel); System.out.println(downLabel);
-						 * System.out.println(leftLabel); System.out.println(rightLabel);
-						 */
 						// if up and down has close entensity and different labels, change the down
 						// label to that of top
 						if (upLabel != 0 && downLabel != 0 && upLabel != downLabel)
 							if (Math.abs(getComponentAvrgIntensityByIntensity(upLabel)
 									- getComponentAvrgIntensityByIntensity(downLabel)) < 5) {
-								System.out.println(downLabel);
-								System.out.println(upLabel);
 								changeComponentIntensity(downLabel, upLabel);
 							}
 						// same for left/right
@@ -678,8 +674,6 @@ public class ImageComponentsAnalysis {
 						if (leftLabel != 0 && rightLabel != 0 && leftLabel != rightLabel)
 							if (Math.abs(getComponentAvrgIntensityByIntensity(leftLabel)
 									- getComponentAvrgIntensityByIntensity(rightLabel)) < 5) {
-								System.out.println(leftLabel);
-								System.out.println(rightLabel);
 								changeComponentIntensity(rightLabel, leftLabel);
 							}
 					}

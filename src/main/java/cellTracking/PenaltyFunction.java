@@ -36,7 +36,6 @@ public class PenaltyFunction {
 		p_circ = normVal(circ1, circ2);
 		p_int = normVal(intensity1, intensity2);
 		p_overlap = calculateOverlapScore(comp1, i1, comp2, i2);
-		System.out.println("overlap = " + p_overlap);
 
 		// ! Important to do this since we need penal function, so that less=better,
 		// while SEG is opposite

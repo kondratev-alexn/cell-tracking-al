@@ -1,5 +1,7 @@
 package evaluation;
 
+import java.nio.file.Path;
+
 /**
  * Plugin parameters wrapper
  * @author Александр
@@ -8,7 +10,8 @@ package evaluation;
 public class PluginParameters {
 	
 	public PluginParameters(float softmaxThreshold, int minArea, int maxArea, float minCirc, float maxCirc,
-			int minTrackLength, boolean trackMitosis, boolean filterComponents, boolean useWatershedPostProcessing, boolean addRois, boolean noImageJProcessing) {
+			int minTrackLength, boolean trackMitosis, boolean filterComponents, boolean useWatershedPostProcessing, 
+			boolean addRois, boolean noImageJProcessing, boolean saveSegmentation, Path noWshedResults) {
 		this.softmaxThreshold = softmaxThreshold;
 		this.minArea = minArea;
 		this.maxArea = maxArea;
@@ -20,6 +23,8 @@ public class PluginParameters {
 		this.useWatershedPostProcessing = useWatershedPostProcessing;
 		this.addRois = addRois;
 		this.noImageJProcessing = noImageJProcessing;
+		this.saveSegmentation = saveSegmentation;
+		this.destinationFolder = noWshedResults;
 	}
 	
 	public float softmaxThreshold;
@@ -33,4 +38,7 @@ public class PluginParameters {
 	public boolean useWatershedPostProcessing;
 	public boolean addRois;
 	public boolean noImageJProcessing;
+	public boolean saveSegmentation;
+	
+	public Path destinationFolder;
 }
