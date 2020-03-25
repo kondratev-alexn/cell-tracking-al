@@ -32,24 +32,32 @@ public class TracksAdj {
 	}
 	
 	public void sortTrackByLastSlice() {
+		if (tracks.isEmpty())
+			return;
+		
 		ArrayList<Integer> endSlices = new ArrayList<Integer>(tracksCount());
 		for (int i=0; i<tracksCount(); ++i) {
 			TrackAdj tr = tracks.get(i);
 			int endSlice = tr.getLastSlice();
 			endSlices.add(endSlice);
 		}
-		for (int i=0; i<tracksCount() - 1; ++i) {
-			int endSliceI = endSlices.get(i);
+
+		for (int i=0; i<tracksCount(); ++i) {
+			int currMinEndSlice = endSlices.get(i);
+			int currBestIndex = i;
 			for (int j=i+1; j<tracksCount(); ++j) {
-				int endSliceJ = endSlices.get(j);
-				if (endSliceI > endSliceJ) {
-					Collections.swap(endSlices, i, j);
-					Collections.swap(tracks, i, j);
+				if (endSlices.get(j) < currMinEndSlice) {
+					currMinEndSlice = endSlices.get(j);
+					currBestIndex = j;
 				}
 			}
+
+			Collections.swap(endSlices, i, currBestIndex);
+			Collections.swap(tracks, i, currBestIndex);
 		}
 		
 		// check sorting
+		System.out.println("Printing sorted tracks end slices");
 		for (int i=0; i<tracksCount(); ++i) {
 			TrackAdj tr = tracks.get(i);
 			int endSlice = tr.getLastSlice();
@@ -61,7 +69,6 @@ public class TracksAdj {
 	// fills array of tracks. Graph must not have any divisions by that moment
 	void fillTracks(Graph gr, int minTrackLength) throws Exception {
 		ArrayList<ArrayList<Integer>> adj = Graph.copyAdjList(gr.getAdjList());
-		System.out.println(adj.toString());
 		ArrayList<Integer> childs;
 		ArrayList<Boolean> seenAdj = new ArrayList<Boolean>(adj.size());
 		for (int i = 0; i < adj.size(); i++)

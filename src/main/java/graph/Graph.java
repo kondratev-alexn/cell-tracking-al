@@ -189,7 +189,7 @@ public class Graph {
 			++length;
 			childs = adj.get(childs.get(0));
 		}
-		System.out.format("track length is %d %n ", length);
+		//System.out.format("track length is %d %n ", length);
 		return length;
 	}
 	

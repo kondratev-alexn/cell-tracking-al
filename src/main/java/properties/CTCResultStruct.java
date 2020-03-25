@@ -14,10 +14,11 @@ import ij.ImagePlus;
  *
  */
 public class CTCResultStruct {
-	public ImagePlus impTrackingResults;
-	public String ctcTracksTxtPath;
-	public ImagePlus impOriginal;
-	public String noExtensionName;
+	public ImagePlus impTrackingResults = null;
+	public String ctcTracksTxtPath = "";
+	public ImagePlus impOriginal = null;
+	public String noExtensionName = "";
+	public ImagePlus segmentation = null;
 	
 	public CTCResultStruct() {}
 	
@@ -25,18 +26,40 @@ public class CTCResultStruct {
 		ArrayList<String> folders = new ArrayList<String>(1);
 		folders.add(folder);
 		List<Path> files = PluginRunning.getAllFilePathsFromFolders(folders);
+		
+		//first, sort out all .tif files one by one
 		for (Path f: files) {
 			String fileName = f.getFileName().toString(); 
 			if (fileName.contains("_tracking_results.tif")) {
 				impTrackingResults = new ImagePlus(f.toString());
+				files.remove(f);
+				break;
 			}
-			else 
-				if (fileName.contains(".tif") && !fileName.contains("_mitosis_colored.tif")) {
-					impOriginal = new ImagePlus(f.toString());
-					noExtensionName = fileName.split(".tif")[0];
-				}
+		}
+		for (Path f: files) {
+			String fileName = f.getFileName().toString(); 
+			if (fileName.contains("_segmentation.tif")) {
+				segmentation = new ImagePlus(f.toString());			
+				files.remove(f);
+				break;
+			}
+		}
+		for (Path f: files) {
+			String fileName = f.getFileName().toString(); 
+			if (fileName.contains("_mitosis_colored.tif")) {		
+				files.remove(f);
+				break;
+			}
+		}
+		
+		for (Path f: files) {
+			String fileName = f.getFileName().toString();
 			if (fileName.contains("_tracking_results.txt")) {
 				ctcTracksTxtPath = f.toString();
+			}
+			if (fileName.contains(".tif")) {
+				impOriginal = new ImagePlus(f.toString());
+				noExtensionName = fileName.split(".tif")[0];
 			}
 		}
 	}

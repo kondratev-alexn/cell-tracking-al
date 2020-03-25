@@ -74,8 +74,8 @@ public class CellTrackingGraph {
 		}
 
 		resetNewIndex();
-		System.out.println("Graph before analyzing: ");
-		System.out.println(trGraph);
+//		System.out.println("Graph before analyzing: ");
+//		System.out.println(trGraph);
 
 		// for (int i=0; i<prevComponentsList.size(); i++) {
 		// prevComponentsList.get(i).improveComponentContours();
@@ -85,8 +85,8 @@ public class CellTrackingGraph {
 		MitosisInfo info = new MitosisInfo();
 		analyseTrackingGraph(info, minTrackLength); // new g is generated, images filled with newly labeled components
 
-		System.out.println("Graph after analyzing: ");
-		System.out.println(trGraph);
+//		System.out.println("Graph after analyzing: ");
+//		System.out.println(trGraph);
 
 		if (!infoFileName.isEmpty())
 			MitosisInfo.SerializeMitosisInfo(infoFileName, info);
@@ -96,7 +96,7 @@ public class CellTrackingGraph {
 			ImageComponentsAnalysis comps = new ImageComponentsAnalysis(images.get(i),
 					prevComponentsList.get(i).getAvrgIntensityImage(), false);
 			// NOTE that after this background is a component, so we should filter it out
-			comps.filterComponents(0, 2000, 0, 1.0f, 0, 1000, false);
+			comps.filterComponents(0, 2000, 0, 1.0f, 0, 1000, false, false);
 		}
 		// after this we got newly generated graph g and component analysis for each
 		// slice based on tracking result. Index of each component (intensity)
@@ -349,7 +349,7 @@ public class CellTrackingGraph {
 		// "filter" tracks here by length. 
 		if (Graph.pathLength(adj, startIndexAdj) < minTrackLength) {
 			Graph.removePath(adj, startIndexAdj);
-			System.out.format("track %d removed %n", startingTrackIndex);
+//			System.out.format("track %d removed %n", startingTrackIndex);
 			
 			//we also need to back the global index for consistency
 			newIndex--;
@@ -434,8 +434,8 @@ public class CellTrackingGraph {
 				mitosisEndSlice = t1;
 			}
 
-			System.out.format("1 child: track index %d, mit start %d, mit end %d prevTrack %d %n", trackIndex,
-					mitosisStartSlice, mitosisEndSlice, prevTrackNumber);
+//			System.out.format("1 child: track index %d, mit start %d, mit end %d prevTrack %d %n", trackIndex,
+//					mitosisStartSlice, mitosisEndSlice, prevTrackNumber);
 
 			if (newTrack) {
 				if (mitosisStartSlice != -1)
@@ -492,8 +492,8 @@ public class CellTrackingGraph {
 			childs.remove(0);
 			childs.remove(0);
 		}
-		System.out.format("f end: track index %d, mit start %d, mit end %d prevTrack %d %n", trackIndex,
-				mitosisStartSlice, mitosisEndSlice, prevTrackNumber);
+//		System.out.format("f end: track index %d, mit start %d, mit end %d prevTrack %d %n", trackIndex,
+//				mitosisStartSlice, mitosisEndSlice, prevTrackNumber);
 
 		if (mitosisStartSlice != -1) {
 			info.addMitosisInfo(trackIndex, mitosisStartSlice, mitosisEndSlice);
@@ -504,8 +504,8 @@ public class CellTrackingGraph {
 		return added;
 	}
 
-	public void writeTracksToFile_ctc_afterAnalysis(String filename) {
-		writeTracksToFile_ctc_general(filename, g);
+	public void writeTracksToFile_ctc_afterAnalysis(String filename, boolean verbose) {
+		writeTracksToFile_ctc_general(filename, g, verbose);
 	}
 
 	public static void writeMitosisInformation(String filename, Graph g_analysed) {
@@ -517,18 +517,12 @@ public class CellTrackingGraph {
 	 * changed so that track of one cell that interrupts for 1+ slices is divided
 	 * into several tracks
 	 */
-	public void writeTracksToFile_ctc_general(String filename, Graph g_analysed) {
-		BufferedWriter writer = null, writerMit = null;
+	public void writeTracksToFile_ctc_general(String filename, Graph g_analysed, boolean verbose) {
+		BufferedWriter writer = null;
 		resetNewIndex();
 		ArrayList<ArrayList<Integer>> adj = Graph.copyAdjList(g_analysed.getAdjList());
 		try {
 			File logFile = new File(filename);
-
-			String mitosisInfoFileName = "mitosis_info.txt";
-			File mitosisInfo = new File(mitosisInfoFileName);
-
-			// This will output the full path where the file will be written to...
-			System.out.println(logFile.getCanonicalPath());
 
 			writer = new BufferedWriter(new FileWriter(logFile));
 
@@ -555,7 +549,8 @@ public class CellTrackingGraph {
 				// now only 1 child, make a track. It still would be added for sure, since only
 				// 1 child
 				trackTxt = getTrackString(g_analysed, adj, i, getNewIndex(), trackAdjIndex, 0);
-				System.out.println(trackTxt);
+				if (verbose)
+					System.out.println(trackTxt);
 				writer.write(trackTxt);
 				writer.newLine();
 			}

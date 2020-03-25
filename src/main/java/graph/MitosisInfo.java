@@ -33,9 +33,9 @@ public class MitosisInfo implements Serializable {
 	}
 
 	public static void SerializeMitosisInfo(String filename, MitosisInfo info) {
-		System.out.println("Mitosis info: \n");
-		System.out.println(info.toString());
-		System.out.println();
+//		System.out.println("Mitosis info: \n");
+//		System.out.println(info.toString());
+//		System.out.println();
 		try {
 			FileOutputStream fileOut = new FileOutputStream(filename);
 			ObjectOutputStream out = new ObjectOutputStream(fileOut);

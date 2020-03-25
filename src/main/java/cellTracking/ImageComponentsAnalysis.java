@@ -53,6 +53,8 @@ public class ImageComponentsAnalysis {
 		fillBasicProperties();
 		fillCircularity();		
 	}
+	
+	
 
 	/*
 	 * gets the number of components in labeled image. Components can have different
@@ -217,6 +219,9 @@ public class ImageComponentsAnalysis {
 					properties.get(index).ymin = y;
 				if (properties.get(index).ymax < y)
 					properties.get(index).ymax = y;
+				if (x==0 || y==0 || x==w-1 || y== h-1) {
+					properties.get(index).isOnBorder = true;
+				}
 
 				// }
 			}
@@ -305,7 +310,7 @@ public class ImageComponentsAnalysis {
 	public boolean checkIfChildComponents(int index1, int index2, Point parentCenterPoint, float parentAvrgIntensity,
 			double penalThreshold) {
 		double penal = calculateChildPenalScore(index1, index2, parentCenterPoint, parentAvrgIntensity);
-		System.out.println(" penal score is " + penal);
+//		System.out.println(" penal score is " + penal);
 		return penal < penalThreshold;
 	}
 
@@ -424,7 +429,7 @@ public class ImageComponentsAnalysis {
 
 	/* filter components by area and circularity */
 	public void filterComponents(int minArea, int maxArea, float minCirc, float maxCirc, float minAvrgIntensity,
-			float maxAvrgIntensity, boolean discardWhiteBlobs) {
+			float maxAvrgIntensity, boolean discardWhiteBlobs, boolean removeBorderComponents) {
 		ArrayList<Integer> removeList = new ArrayList<Integer>(20); // what components to filter
 		int area;
 		float circ, avrgInt;
@@ -451,6 +456,11 @@ public class ImageComponentsAnalysis {
 				removeList.add(i);
 				continue;
 			}
+			// remove border components if they are small enough
+			if (properties.get(i).isOnBorder && removeBorderComponents) {
+				removeList.add(i);
+				continue;
+			}
 		}
 
 		// delete components
@@ -460,8 +470,8 @@ public class ImageComponentsAnalysis {
 	}
 
 	public ImageProcessor getFilteredComponentsIp(int minArea, int maxArea, float minCirc, float maxCirc,
-			float minAvrgIntensity, float maxAvrgIntensity, boolean discardWhiteBlobs) {
-		filterComponents(minArea, maxArea, minCirc, maxCirc, minAvrgIntensity, maxAvrgIntensity, discardWhiteBlobs);
+			float minAvrgIntensity, float maxAvrgIntensity, boolean discardWhiteBlobs, boolean removeBorderComponents) {
+		filterComponents(minArea, maxArea, minCirc, maxCirc, minAvrgIntensity, maxAvrgIntensity, discardWhiteBlobs, removeBorderComponents);
 		return imageComponents;
 	}
 
@@ -658,17 +668,11 @@ public class ImageComponentsAnalysis {
 					if (l == 0) {
 						upLabel = originalComponents.get(x, y - 1);
 						downLabel = originalComponents.get(x, y + 1);
-						/*
-						 * System.out.println(upLabel); System.out.println(downLabel);
-						 * System.out.println(leftLabel); System.out.println(rightLabel);
-						 */
 						// if up and down has close entensity and different labels, change the down
 						// label to that of top
 						if (upLabel != 0 && downLabel != 0 && upLabel != downLabel)
 							if (Math.abs(getComponentAvrgIntensityByIntensity(upLabel)
 									- getComponentAvrgIntensityByIntensity(downLabel)) < 5) {
-								System.out.println(downLabel);
-								System.out.println(upLabel);
 								changeComponentIntensity(downLabel, upLabel);
 							}
 						// same for left/right
@@ -678,8 +682,6 @@ public class ImageComponentsAnalysis {
 						if (leftLabel != 0 && rightLabel != 0 && leftLabel != rightLabel)
 							if (Math.abs(getComponentAvrgIntensityByIntensity(leftLabel)
 									- getComponentAvrgIntensityByIntensity(rightLabel)) < 5) {
-								System.out.println(leftLabel);
-								System.out.println(rightLabel);
 								changeComponentIntensity(rightLabel, leftLabel);
 							}
 					}

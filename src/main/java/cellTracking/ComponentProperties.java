@@ -14,6 +14,7 @@ public class ComponentProperties {
 	public int area; 	
 	public float circularity;
 	public int xmin, xmax, ymin, ymax; // corner coordinates for containing rectangle
+	public boolean isOnBorder; // whether the component touches the border or not
 
 	//public boolean trackedDown; // true if component was tracked during tracking (means it has a child). Bad becasue it should be tristate
 	public int childCount; //child count, 0, 1 or 2
@@ -40,6 +41,7 @@ public class ComponentProperties {
 		ymax = 0;
 		childCount = 0;
 		hasParent = false;
+		isOnBorder = false;
 		state = State.NORMAL;
 		massCenter = new Point(0, 0);
 	}

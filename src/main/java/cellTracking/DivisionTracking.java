@@ -33,15 +33,19 @@ public class DivisionTracking {
 	 * after.
 	 * @param track which last components is expected to be dividing
 	 * @param searchTracksRadius radius to search daughter tracks
-	 * @param slicesBefore 
-	 * @param slicesThroughAfter
+	 * @param minSlicesDifference 
+	 * @param maxSlicesDifference
 	 */
-	public void simpleDivisionTracking(TrackAdj track, int searchTracksRadius, int slicesBefore,
-			int slicesThroughAfter) {
+	public void simpleDivisionTracking(TrackAdj track, int searchTracksRadius, int minSlicesDifference,
+			int maxSlicesDifference, float timeCoef) {
 		
 		int endIndex = track.getEndAdjIndex();		
 		int parentComponentSlice = g.getNodeSliceByGlobalIndex(endIndex);
-		int parentComponentIndex = g.getNodeIndexByGlobalIndex(endIndex);
+		int parentComponentIndex = g.getNodeIndexByGlobalIndex(endIndex);		
+		
+		//dont start division tracking for tracks that ended just before last frame
+		if (parentComponentSlice >= componentsList.size() - 3)
+			return;
 		Point parentComponentCenter = componentsList.get(parentComponentSlice).getComponentMassCenter(parentComponentIndex);
 		
 		int componentIndex;
@@ -59,9 +63,13 @@ public class DivisionTracking {
 			// would need to remove dSlice + 1 components
 			if (dSlice + 1 >= tracks.getLength(i)) 
 				continue;
-			if (trackStartingSlice < parentComponentSlice - slicesBefore
-					|| trackStartingSlice >= parentComponentSlice + slicesThroughAfter)
+			if (trackStartingSlice - parentComponentSlice < minSlicesDifference)
 				continue;
+			if (trackStartingSlice - parentComponentSlice > maxSlicesDifference)
+				continue;
+//			if (trackStartingSlice < parentComponentSlice - minSlicesDifference
+//					|| trackStartingSlice >= parentComponentSlice + maxSlicesDifference)
+//				continue;
 
 			componentIndex = tracks.getFirstComponentIndexForTrack(i);
 			if (componentsList.get(trackStartingSlice).getComponentHasParent(componentIndex))
@@ -91,7 +99,7 @@ public class DivisionTracking {
 			int trIndex = possibleTracksIndexes.get(0);
 
 			int dSlice1 = parentComponentSlice - tracks.getStartSliceForTrack(trIndex);
-			System.out.println("slice differences is: " + dSlice1);
+//			System.out.println("slice differences is: " + dSlice1);
 			// if in the same slice then dSlice=0, should remove first component
 			if (dSlice1 >= 0) {
 				if (!tracks.disconnectFirstComponentsFromTrack(trIndex, dSlice1 + 1)) {
@@ -121,9 +129,8 @@ public class DivisionTracking {
 		for (int i = 0; i < possibleTracksIndexes.size(); i++) {
 			componentIndex = tracks.getFirstComponentIndexForTrack(possibleTracksIndexes.get(i));
 			trackStartingSlice = tracks.getStartSliceForTrack(possibleTracksIndexes.get(i));
-			// score = calculateChildPenalScore(slice, index1, slice2, index2,
-			// parentCenterPoint, timePenalCoefficient)
-			score = penalFunction1to1(componentsList.get(parentComponentSlice), blobComponentIndex,
+			int sliceDelta = trackStartingSlice - parentComponentSlice;
+			score = (1 + timeCoef * sliceDelta) * penalFunction1to1(componentsList.get(parentComponentSlice), blobComponentIndex,
 					componentsList.get(trackStartingSlice), componentIndex, minDistance);
 			tracksPenalScores.add(score);
 		}
@@ -165,9 +172,9 @@ public class DivisionTracking {
 				trSlice2 = tracks.getStartSliceForTrack(possibleTracksIndexes.get(j));
 
 				score = calculateChildPenalScore(trSlice1, compIndex1, trSlice2, compIndex2,
-						parentComponentCenter, 0.3f);
+						parentComponentCenter, parentComponentSlice, minDistance);
 				System.out.println("Child score between tracks " + possibleTracksIndexes.get(i) + " and "
-						+ possibleTracksIndexes.get(j) + "is " + score);
+						+ possibleTracksIndexes.get(j) + " is " + score);
 				if (score < bestPairScore) {
 					bestPairScore = score;
 					bestIndex1 = i;
@@ -251,14 +258,17 @@ public class DivisionTracking {
 	}
 	
 	/* calculates penal score for child components (the less, the better) */
-	public double calculateChildPenalScore(int slice1, int index1, int slice2, int index2, Point parentCenterPoint,
-			float timePenalCoefficient) {
-		double score = 0;
+	public double calculateChildPenalScore(int slice1, int index1, int slice2, int index2, Point parentCenterPoint, int parentSlice,
+			double minDistance) {
 		// take into account avrg intensity, size, distance from parent center
-		double c_int, c_size, c_distance; // coefficients
-		c_int = 1; // for intensity of the child blobs
-		c_size = 0.7; // for size of child blobs
-		c_distance = 0.6; // for difference in distance between child blobs and parent
+		double c_intens_diff, c_size_diff, c_diff_distance, c_dist, c_time_to_parent, c_children_time_difference; // coefficients
+		c_intens_diff = 0.1; // for intensity of the child blobs
+		c_size_diff = 0.1; // for size of child blobs
+		c_diff_distance = 0.1; // for difference in distance between child blobs and parent
+		c_dist = 0.1;
+		c_time_to_parent = 2;
+		c_children_time_difference = 1.5;
+		
 
 		double int1, int2, size1, size2, dist1, dist2;
 		int1 = componentsList.get(slice1).getComponentAvrgIntensity(index1);
@@ -270,15 +280,31 @@ public class DivisionTracking {
 		dist1 = Point.dist(componentsList.get(slice1).getComponentMassCenter(index1), parentCenterPoint);
 		dist2 = Point.dist(componentsList.get(slice2).getComponentMassCenter(index2), parentCenterPoint);
 
-		double int_score = ImageComponentsAnalysis.normVal(int1, int2);
-		double size_score = ImageComponentsAnalysis.normVal(size1, size2);
-		double dist_score = ImageComponentsAnalysis.normVal(dist1, dist2);
+		//normVal calculates score based on difference rather thatn on actual distance
+		
+		// difference in intensity - ok
+		double intens_diff_score = ImageComponentsAnalysis.normVal(int1, int2);
+		
+		//difference in size - ok
+		double size_diff_score = ImageComponentsAnalysis.normVal(size1, size2);
+		
+		//difference in distance
+		double dist_difference_score = ImageComponentsAnalysis.normVal(dist1, dist2);
+		
+		double dist_to_parent_score = ImageComponentsAnalysis.normVal(dist1, minDistance) + ImageComponentsAnalysis.normVal(dist2, minDistance);
 
-		double coef_sum = c_int + c_size + c_distance;
-
-		// if slice2 is next to slice1, then time_penal should be zero
-		double time_penal = Math.abs(slice2 - slice1 - 1) * timePenalCoefficient;
-
-		return (1 + time_penal) * (c_int * int_score + c_size * size_score + c_distance * dist_score) / coef_sum;
+		// if slice2 is in the same slice as slice1, then time_penal should be zero
+		double time_children_difference_penal = ImageComponentsAnalysis.normVal(slice2, slice1);
+		//also we dont take into account the time difference between childs and parent
+		 
+		double time_to_parent_penal = ImageComponentsAnalysis.normVal(slice1, parentSlice) + ImageComponentsAnalysis.normVal(slice2, parentSlice);
+		double score = 
+				c_intens_diff * intens_diff_score + 
+				c_size_diff * size_diff_score + 
+				c_diff_distance * dist_difference_score + 
+				c_dist * dist_to_parent_score + 
+				c_time_to_parent * time_to_parent_penal + 
+				c_children_time_difference * time_children_difference_penal;
+		return  score;
 	}
 }

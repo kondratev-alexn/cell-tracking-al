@@ -2,17 +2,24 @@ package cellTracking;
 
 import java.awt.AWTEvent;
 import java.awt.Scrollbar;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Vector;
 
 import org.deeplearning4j.nn.modelimport.keras.exceptions.InvalidKerasConfigurationException;
 import org.deeplearning4j.nn.modelimport.keras.exceptions.UnsupportedKerasConfigurationException;
+import java.nio.file.Files;
 
+//import com.google.common.io.Files;
+
+import evaluation.EvaluationFromRoi;
+import evaluation.PluginParameters;
 import graph.CellTrackingGraph;
-import graph.Graph;
 import graph.MitosisInfo;
 import histogram.FloatHistogram;
-
 import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
@@ -20,30 +27,26 @@ import ij.ImageStack;
 import ij.gui.DialogListener;
 import ij.gui.GenericDialog;
 import ij.io.DirectoryChooser;
+import ij.plugin.Converter;
+import ij.plugin.filter.BackgroundSubtracter;
+import ij.plugin.filter.ExtendedPlugInFilter;
+import ij.plugin.filter.MaximumFinder;
 import ij.plugin.filter.PlugInFilterRunner;
+import ij.plugin.filter.RankFilters;
+import ij.plugin.frame.RoiManager;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageConverter;
 import ij.process.ImageProcessor;
 import ij.process.StackConverter;
-import ij.process.StackProcessor;
-import ij.plugin.filter.ExtendedPlugInFilter;
-import ij.plugin.Converter;
-import ij.plugin.filter.BackgroundSubtracter;
-import ij.plugin.filter.RankFilters;
-import ij.plugin.frame.RoiManager;
+import inra.ijpb.binary.BinaryImages;
+import inra.ijpb.binary.ChamferWeights;
 import inra.ijpb.morphology.Morphology.Operation;
 import inra.ijpb.morphology.Strel;
 import inra.ijpb.morphology.Strel.Shape;
 import inra.ijpb.watershed.ExtendedMinimaWatershed;
 import inra.ijpb.watershed.MarkerControlledWatershedTransform2D;
-import inra.ijpb.binary.BinaryImages;
-import inra.ijpb.binary.ChamferWeights;
 import networkDeploy.UNetSegmentation;
-import properties.StackDetection;
-import evaluation.EvaluationFromRoi;
-import evaluation.PluginParameters;
-import ij.plugin.filter.MaximumFinder;
 
 public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	
@@ -126,6 +129,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private boolean addRois = true; //add rois to roi manager or not
 	private boolean noImageJProcessing = false;
 	private boolean useWatershedPostProcessing = true;
+	private boolean removeBorderComponents = true;
+	private boolean saveSegmentation = false;
+	
+	
+	Path destinationFolder = Paths.get("");
 
 	String ctcTifResult, ctcTxtResult, infoFilePath;
 
@@ -188,6 +196,13 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 					return DONE;
 				}
 			}
+			
+			String segmentationResultPath = "";
+			if (saveSegmentation) {
+				String name = imp.getShortTitle() + "_segmentation.tif";
+				saveSegmentationResult(Paths.get(System.getProperty("user.dir")), name);
+				segmentationResultPath = Paths.get(System.getProperty("user.dir")).resolve(name).toString();
+			}
 
 			// there goes tracking
 			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 3;
@@ -217,9 +232,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			
 			if (trackMitosis) {
 				IJ.log("Tracking mitosis...");
-				tracking.divisionTracking(120, 1, 10);				
+				tracking.divisionTracking(75, 3, 10, 0.4f);				
 				IJ.log("Mitosis tracking finished");
-			}			
+			}
 
 			// System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
@@ -232,9 +247,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			}
 
 			IJ.log("Displaying results.");
+			
+			final String separator = System.getProperty("file.separator");
 
 			// prompt a folder to save results
-			String trackingResultsDir = null;
+			String trackingResultsDir = destinationFolder.toString() + separator;
 
 			if (saveResultsInFolder) {
 				DirectoryChooser dirChoose = new DirectoryChooser("Select a folder to save tracking results.");
@@ -243,11 +260,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			if (trackingResultsDir == null)
 				trackingResultsDir = System.getProperty("user.dir") + '\\';
 
-			final String separator = System.getProperty("file.separator");
 
 			String mitosisInfoFileName = imp.getShortTitle() + "_mitosis_info.ser";
 			infoFilePath = trackingResultsDir + mitosisInfoFileName;
 
+			//here mitosis info file is created 
 			CellTrackingGraph resultGraph = new CellTrackingGraph(tracking, roiManager, imp, infoFilePath, minTrackLength);
 
 			// TRA components show and save
@@ -255,27 +272,31 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			String tifPath = trackingResultsDir + nameTif + ".tif";
 			ctcTifResult = tifPath;
 
+			// here tracking ctc image is created
 			ctcComponents = resultGraph.showTrackedComponentImages(ctcTifResult, true, !noImageJProcessing);
-			resultGraph.printTrackedGraph();
+			//resultGraph.printTrackedGraph();
 
 			String txtResultName = imp.getShortTitle() + "_tracking_results.txt";
 			String txtPath = trackingResultsDir + txtResultName;
 			ctcTxtResult = txtPath;
-			// resultGraph.writeTracksToFile_ctc_afterAnalysis(txtResultName);;;;
-			resultGraph.writeTracksToFile_ctc_afterAnalysis(ctcTxtResult);
-			IJ.log("Text result file created at: " + ctcTxtResult);			
+			// resultGraph.writeTracksToFile_ctc_afterAnalysis(txtResultName);
+			resultGraph.writeTracksToFile_ctc_afterAnalysis(ctcTxtResult, false);
+			IJ.log("Text result file created at: " + ctcTxtResult);		
+			
+			if (!segmentationResultPath.isEmpty()) {
+				//move segmentation results to selected directory 
+				String name = imp.getShortTitle() + "_segmentation.tif";
+				try {					
+					Files.move(Paths.get(segmentationResultPath), Paths.get(trackingResultsDir).resolve(name), StandardCopyOption.REPLACE_EXISTING);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 			
 			//reading back to display in color
 			MitosisInfo mitosisInfo = MitosisInfo.DeserializeMitosisInfo(infoFilePath);
 			if (mitosisInfo == null)
 				mitosisInfo = new MitosisInfo();
-
-			StackDetection stackDetection = new StackDetection();
-			stackDetection.fillStack(ctcComponents, mitosisInfo);
-			System.out.println("Stack filled");
-			IJ.log("Stack with ROIs filled");
-
-			stackDetection.fillTracks(txtPath);
 
 			return DONE;
 		}
@@ -331,8 +352,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		gaussian = new Gaussian();
 		backgroundSub = new BackgroundSubtracter();
 		rankFilters = new RankFilters();
-		//String model_name = "unet_model_full.h5";
-		String model_name = "unet_confocal_fluo_model_full.h5";
+		//String model_name = "unet_confocal_fluo_model_full.h5";
+		String model_name = "unet_confocal_fluo_32_boundary_loss_model_full.h5";
 		uNetSegmentation = new UNetSegmentation(model_name);
 	}
 	
@@ -346,12 +367,17 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 				parameters.trackMitosis,
 				parameters.filterComponents, 
 				parameters.useWatershedPostProcessing,
+				parameters.removeBorderDetections,
 				parameters.addRois, 
-				parameters.noImageJProcessing);
+				parameters.noImageJProcessing,
+				parameters.saveSegmentation,
+				parameters.destinationFolder);
 	}
 	
 	public void setParameters(ImagePlus imp, float softmaxThreshold, int minArea, int maxArea, float minCirc, float maxCirc,
-			int minTrackLength, boolean trackMitosis, boolean filterComponents, boolean useWatershedPostProcessing, boolean addRois, boolean noImageJProcessing) {
+			int minTrackLength, boolean trackMitosis, boolean filterComponents, boolean useWatershedPostProcessing, 
+			boolean removeBorderDetections, 
+			boolean addRois, boolean noImageJProcessing, boolean saveSegmentation, Path destinationFolder) {
 		nChannels = imp.getProcessor().getNChannels();
 		currSlice = 1; // for when algorithm starts processing stack
 		selectedSlice = 1;
@@ -372,8 +398,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		this.trackMitosis = trackMitosis;
 		this.filterComponents = filterComponents;
 		this.useWatershedPostProcessing = useWatershedPostProcessing;
+		this.removeBorderComponents = removeBorderDetections;
 		this.addRois = addRois;
 		this.noImageJProcessing = noImageJProcessing;
+		this.saveSegmentation = saveSegmentation;
+		this.destinationFolder = destinationFolder;
 	}
 
 	@Override
@@ -517,8 +546,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		
 		//result = maximaWatershedSegmentation(result, ip, sigma3, minThreshold, maxThreshold);
 		if (!isConfocal) { //we need preprocessing for epifluorescence data (for old version of weights)
-			result = preprocessing(result, 1.4f, 60, true);
+			//result = preprocessing(result, 1.4f, 60, true);
 		}
+		
 		
 		try {
 			ImageProcessor binary = uNetSegmentation.binarySegmentation(result, (float) softmaxThreshold);
@@ -531,6 +561,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 				result = fillComponentProperties(watershedded, ip, false, null);
 			}
 			else result = fillComponentProperties(binary, ip, false, null);
+			
 		} catch (IOException | InvalidKerasConfigurationException | UnsupportedKerasConfigurationException e) {
 			e.printStackTrace();
 		}
@@ -569,6 +600,27 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			backgroundSub.rollingBallBackground(ip, rollingBallRadius, false, false, false, true, false);
 		ImageFunctions.normalize(ip, 0, 1);
 		return ip;
+	}
+	
+	public void saveSegmentationResult(Path dir, String name) {
+		ImagePlus segmentation = tracking.segmentationResult();
+		IJ.save(segmentation, dir.resolve(name).toString());
+	}
+	
+	public void loadSegmentationByImage(ImagePlus segmentation, ImagePlus intensityImp, boolean removeBorderComponents) {
+		ImageStack stack = segmentation.getStack();
+		tracking.clearComponentsList();
+		for (int i=0; i<stack.getSize(); ++i) {
+			ImageComponentsAnalysis comps = new ImageComponentsAnalysis(stack.getProcessor(i+1).duplicate(), 
+					intensityImp.getStack().getProcessor(i+1).duplicate(), true);
+			comps.filterComponents(minArea, maxArea, minCircularity, maxCircularity, 0, 1000, false, removeBorderComponents);
+			tracking.addComponentsAnalysis(comps);
+		}
+	}
+	
+	public void loadSegmentationByPath(Path segmentationResultPath, ImagePlus intensityImp, boolean removeBorderComponents) {
+		ImagePlus segmentation = new ImagePlus(segmentationResultPath.toString());
+		loadSegmentationByImage(segmentation, intensityImp, removeBorderComponents);
 	}
 
 	/*
@@ -732,7 +784,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 			boolean discardWhiteBlobs = addBrightMarkers;
 			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000,
-					discardWhiteBlobs);
+					discardWhiteBlobs, removeBorderComponents);
 			
 			// here set component's state by marks image (indicate bright blobs)
 			if (startedProcessing && addRois) // add roi only if we started processing
@@ -875,6 +927,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// start ImageJ
 			new ImageJ();
 			ImagePlus image;
+			
 			// ImagePlus image_stack20 = IJ.openImage("C:\\Tokyo\\C002_Movement.tif");
 			// ImagePlus image_c14 =
 			// IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010914_C002.tif");

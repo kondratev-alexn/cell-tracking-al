@@ -54,6 +54,10 @@ public class NearestNeighbourTracking {
 	public int getSlicesCount() {
 		return slicesCount;
 	}
+	
+	public void clearComponentsList() {
+		componentsList.clear();
+	}
 
 	public ArrayList<ImageComponentsAnalysis> getComponentsList() {
 		return componentsList;
@@ -210,12 +214,12 @@ public class NearestNeighbourTracking {
 				v1 = new Node(t1, i);
 				v2 = new Node(slice, index);
 				cellGraph.addArcFromToAddable(v1, v2);
-				if (nSlices > 1) {
-					System.out.println("Arc added during multislice:" + v1 + " to " + v2);
-					System.out
-							.println("or by adj: " + cellGraph.getNodeIndex(v1) + " to " + cellGraph.getNodeIndex(v2));
-					System.out.println("v2 parameters: hasParent=" + comp2List.get(slice).getComponentHasParent(index));
-				}
+//				if (nSlices > 1) {
+//					System.out.println("Arc added during multislice:" + v1 + " to " + v2);
+//					System.out
+//							.println("or by adj: " + cellGraph.getNodeIndex(v1) + " to " + cellGraph.getNodeIndex(v2));
+//					System.out.println("v2 parameters: hasParent=" + comp2List.get(slice).getComponentHasParent(index));
+//				}
 				comp2List.get(slice).setComponentHasParent(index);
 				comp1.incComponentChildCount(i);
 			} else {
@@ -322,8 +326,9 @@ public class NearestNeighbourTracking {
 					// i1, t1, i2, t, score);
 					continue;
 				} else {
-					if (score < 10)
-						System.out.format("Score of component %d in slice %d, t=%d is %f %n", i1, t1, t, score);
+					if (score < 10) {
+//						System.out.format("Score of component %d in slice %d, t=%d is %f %n", i1, t1, t, score);
+					}
 				}
 				if (score < score1) {
 					score2 = score1; // previous minimum is now second-minimum
@@ -495,17 +500,19 @@ public class NearestNeighbourTracking {
 		return diffs.get(diffs.size() - 1) > maxDiff * multiplierThreshold;
 	}
 
-	public void divisionTracking(int searchTrackRadius, int slicesBefore, int slicesThroughAfter) {
+	public void divisionTracking(int searchTrackRadius, int slicesBefore, int slicesThroughAfter, float timeCoef) {
 		TrackAdj tr;
 		DivisionTracking division = new DivisionTracking();
 		division.setTrackingInfo(tracks, cellGraph, componentsList);
 		
 		// we should sort tracks based when their end so that tracks that ended earlier would get connected first	
+		// already doing that when creating list of tracks
+		//tracks.sortTrackByLastSlice();
 		
 		for (int i = 0; i < tracks.tracksCount(); ++i) {
 			tr = tracks.getTrack(i);
 						
-			division.simpleDivisionTracking(tr, searchTrackRadius, slicesBefore, slicesThroughAfter);
+			division.simpleDivisionTracking(tr, searchTrackRadius, slicesBefore, slicesThroughAfter, timeCoef);
 		}
 	}
 
@@ -579,6 +586,17 @@ public class NearestNeighbourTracking {
 
 				componentsList.get(i).removeComponentByIndex(j);
 			}
+	}
+	
+	public ImagePlus segmentationResult() {
+		ImageProcessor ip = componentsList.get(0).getImageComponents();
+		ImageStack stack = new ImageStack(ip.getWidth(), ip.getHeight(), componentsList.size());
+		for (int n=1; n<=stack.getSize(); ++n) {
+			stack.setProcessor(componentsList.get(n-1).getImageComponents().duplicate(), n);
+		}
+		ImagePlus res = new ImagePlus();
+		res.setStack(stack);
+		return res;
 	}
 
 	/* draws cellGraph as tracks on ip */

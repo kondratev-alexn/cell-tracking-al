@@ -11,12 +11,22 @@ import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.io.ClassPathResource;
 
 import cellTracking.ImageFunctions;
+
+import org.scijava.ItemIO;
+import org.scijava.log.LogService;
+import org.scijava.log.StderrLogService;
+import org.scijava.plugin.Parameter;
+
 import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+
+import de.mpicbg.ulman.ctc.workers.TRA;
+import de.mpicbg.ulman.ctc.workers.SEG;
+import de.mpicbg.ulman.ctc.workers.DET;
 
 public class UNetSegmentation {
 	ComputationGraph model;
@@ -42,6 +52,7 @@ public class UNetSegmentation {
 		
 		INDArray input = imageProcessor2INDArray(ip);
 		INDArray[] prediction = model.output(input);
+		
 		INDArray singlePrediction = prediction[0];		
 		ImageProcessor res = INDArray2ImageProcessor(singlePrediction);
 		
@@ -81,7 +92,7 @@ public class UNetSegmentation {
 			}		
 		return res;
 	}
-	
+		
 	private void normalize01(FloatProcessor fp) {
 		ImageFunctions.normalize(fp, 0, 1);
 		for(int i=0; i<fp.getPixelCount(); ++i) {
@@ -89,8 +100,7 @@ public class UNetSegmentation {
 		}
 	}
 	
-	public void main(String[] args) {
-		// test 
+	public static void main(String[] args) {
 		String path = "C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif";
 		ImagePlus confocal_1 = IJ.openImage(path);
 		
@@ -100,17 +110,17 @@ public class UNetSegmentation {
 		
 		ImagePlus slice = new ImagePlus("Slice for Testing", fp);
 		new ImageJ();
-		slice.show();
-		
-		try {
-			ImageProcessor segmented = predict(fp);
-			ImagePlus res = new ImagePlus("Segmentation", segmented);
-			res.show();
-		} catch (IOException | InvalidKerasConfigurationException | UnsupportedKerasConfigurationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		slice.show();		
+//			try {
+//				ImageProcessor segmented = predict(fp);
+//				ImagePlus res = new ImagePlus("Segmentation", segmented);
+//				res.show();
+//			} catch (IOException | InvalidKerasConfigurationException | UnsupportedKerasConfigurationException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
 		System.out.println("Finished");
+		
 	}
 }
 

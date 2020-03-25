@@ -121,5 +121,25 @@
 			<artifactId>MorphoLibJ</artifactId>
 			<version>1.4.0</version>
 		</dependency>
+		<dependency>
+			<groupId>sc.fiji</groupId>
+			<artifactId>simplified-io</artifactId>
+			<version>1.0.1</version>
+		</dependency>
+		<dependency>
+			<groupId>de.mpicbg.ulman</groupId>
+			<artifactId>CTC-paper-FijiPlugins</artifactId>
+			<version>1.4.5</version>
+		</dependency>
+		<dependency>
+			<groupId>de.mpicbg.ulman</groupId>
+			<artifactId>CTC-related-FijiPlugins</artifactId>
+			<version>1.4.5</version>
+		</dependency>
+		<dependency> 
+    		<groupId>com.opencsv</groupId> 
+    		<artifactId>opencsv</artifactId> 
+    		<version>4.1</version> 
+		</dependency> 
 	</dependencies>
 </project>

@@ -43,7 +43,7 @@ public class EvaluationFromRoi {
 		ImageComponentsAnalysis comp;
 		for (int i = 0; i < images.size(); i++) {
 			comp = new ImageComponentsAnalysis(images.get(i), null, false);
-			comp.filterComponents(0, 2000, 0, 1.0f, 0, 1000, false);
+			comp.filterComponents(0, 2000, 0, 1.0f, 0, 1000, false, false);
 			tracking.addComponentsAnalysis(comp);
 		}
 
@@ -53,7 +53,7 @@ public class EvaluationFromRoi {
 		ImagePlus imp = resultGraph.getTrackedComponentImages();
 		IJ.save(imp, "tracked_components");
 		// resultGraph.printTrackedGraph();
-		resultGraph.writeTracksToFile_ctc_afterAnalysis("res_track_yaginuma.txt");
+		resultGraph.writeTracksToFile_ctc_afterAnalysis("res_track_yaginuma.txt", false);
 	}
 
 	public void drawRoiComponentAnalysis(Roi roi, int slice, int intensity) {
