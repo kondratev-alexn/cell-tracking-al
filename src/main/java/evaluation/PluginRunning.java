@@ -35,11 +35,13 @@ public class PluginRunning {
 		return true;
 	}
 
+
 	public void runPluginOnImagePathToFolder(String path, String resultsFolder, PluginParameters params, boolean tryLoadSegmentation,
 			boolean copyImage, boolean saveInCTCFormat, boolean removeBorderComponents) throws IOException {
 		ImagePlus imp = new ImagePlus(path);
 		runPluginOnImageToFolder(imp, resultsFolder, params, tryLoadSegmentation, copyImage, saveInCTCFormat, removeBorderComponents);
 	}
+
 
 	public void runPluginOnImageToFolder(ImagePlus imp, String resultsFolder, PluginParameters params, boolean tryLoadSegmentation,
 			boolean copyImage, boolean saveInCTCFormat, boolean removeBorderComponents) throws IOException {
@@ -55,6 +57,7 @@ public class PluginRunning {
 		Cell_Tracker tracker = new Cell_Tracker();
 		tracker.setup("no save", imp);
 		tracker.setParameters(imp, params);
+		tracker.runOnImagePlus(imp);
 		if (tryLoadSegmentation) {
 			if (struct.segmentation != null) {
 				System.out.println("--- Previous segmentation loaded.");

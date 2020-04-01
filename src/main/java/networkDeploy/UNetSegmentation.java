@@ -101,8 +101,67 @@ public class UNetSegmentation {
 	}
 	
 	public static void main(String[] args) {
-		String path = "C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif";
-		ImagePlus confocal_1 = IJ.openImage(path);
+		boolean use = true;		
+		final LogService log = new StderrLogService();
+		if (use) {
+			String GTdir  = "C:\\Tokyo\\metrics\\c0010901_easy_ex\\GT";
+			String RESdir = "C:\\Tokyo\\metrics\\c0010901_easy_ex\\RES Unet";
+			double SEG=-1, TRA=-1, DET=-1;
+			
+			// SEG
+			try {
+				final SEG seg = new SEG(log);
+				seg.doLogReports = false;
+				seg.noOfDigits = 3;
+				SEG = seg.calculate(GTdir, RESdir);
+			}
+			catch (RuntimeException e) {
+				log.error("CTC SEG measure problem: "+e.getMessage());
+			}
+			catch (Exception e) {
+				log.error("CTC SEG measure error: "+e.getMessage());
+			}
+			
+			// TRA
+			try {
+				final TRA tra = new TRA(log);
+				tra.doConsistencyCheck = true;
+				tra.doLogReports = false;
+				tra.noOfDigits = 3;
+				TRA = tra.calculate(GTdir, RESdir);
+			}
+			catch (RuntimeException e) {
+				log.error("CTC TRA measure problem: "+e.getMessage());
+			}
+			catch (Exception e) {
+				log.error("CTC TRA measure error: "+e.getMessage());
+			}
+			
+			// DET
+			try {
+				final DET det = new DET(log);
+				det.doConsistencyCheck = true;
+				det.doLogReports = false;
+				det.noOfDigits = 3;
+				DET = det.calculate(GTdir, RESdir);
+			}
+			catch (RuntimeException e) {
+				log.error("CTC DET measure problem: "+e.getMessage());
+			}
+			catch (Exception e) {
+				log.error("CTC DET measure error: "+e.getMessage());
+			}			
+			
+			log.info(SEG);
+			log.info(TRA);
+			log.info(DET);
+			
+		}
+			
+		else {			
+			String path = "C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif";
+			ImagePlus confocal_1 = IJ.openImage(path);
+			
 		
 		ImageStack stack = confocal_1.getStack();
 		ImageProcessor ip = stack.getProcessor(5);

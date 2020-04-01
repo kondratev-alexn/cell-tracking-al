@@ -9,6 +9,7 @@ import java.nio.file.Path;
  */
 public class PluginParameters {
 	
+
 	// for convenience
 	public String name;
 	
