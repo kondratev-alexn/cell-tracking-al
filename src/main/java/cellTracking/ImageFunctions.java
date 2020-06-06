@@ -25,7 +25,7 @@ public class ImageFunctions {
 	 * normalizes image from [ip.min,ip.max] to [minValue, maxValue]. Works in
 	 * place.
 	 */
-	public static void normalize(ImageProcessor ip, float minValue, float maxValue) {
+	public static void normalizeInPlace(ImageProcessor ip, float minValue, float maxValue) {
 		// find max and min first
 		float ipmin = Float.MAX_VALUE, ipmax = Float.MIN_VALUE;
 		float v;
@@ -42,6 +42,12 @@ public class ImageFunctions {
 			v = ip.getf(i);
 			ip.setf(i, (v - ipmin) / (ipmax - ipmin) * (maxValue - minValue) + minValue);
 		}
+	}
+	
+	public static ImageProcessor normalize(ImageProcessor ip, float minValue, float maxValue) {
+		ImageProcessor res = ip.duplicate();
+		normalizeInPlace(ip, minValue, maxValue);
+		return res;
 	}
 
 	/* leave areas with values between minValue and maxValue */
@@ -276,7 +282,7 @@ public class ImageFunctions {
 		ImageProcessor Grad = ip.duplicate();
 		gaus.GradientMagnitudeGaussian(Grad, (float) sigma);
 		// Grad = operationMorph(Grad, Operation.EROSION, Strel.Shape.DISK, 1);
-		normalize(Grad, 0, 255);
+		normalizeInPlace(Grad, 0, 255);
 		ImageProcessor t = Grad.duplicate();
 		double theta;
 		double v1 = 0, v2 = 0;

@@ -185,6 +185,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			showAbout();
 			return DONE;
 		}
+		
+		imagePlus = imp;
 
 		if (arg.equals("final")) {
 			// replace the preview image by the original image
@@ -297,7 +299,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			MitosisInfo mitosisInfo = MitosisInfo.DeserializeMitosisInfo(infoFilePath);
 			if (mitosisInfo == null)
 				mitosisInfo = new MitosisInfo();
-
+			currSlice = 1;
 			return DONE;
 		}
 
@@ -354,6 +356,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		rankFilters = new RankFilters();
 		//String model_name = "unet_confocal_fluo_model_full.h5";
 		String model_name = "unet_confocal_fluo_32_boundary_loss_model_full.h5";
+		model_name = "model_inout_512.h5";
+		model_name = "fluo_resunet_mitosis_512_weights.h5";
 		uNetSegmentation = new UNetSegmentation(model_name);
 	}
 	
@@ -514,6 +518,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		// change image if current slice changed
 		Vector sliders = gd.getSliders();
 		selectedSlice = ((Scrollbar) sliders.get(0)).getValue();
+		currSlice = selectedSlice;
 
 		if (sigma1 > sigmaMax)
 			sigma1 = sigmaMax;
@@ -550,21 +555,21 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		}
 		
 		
-		try {
-			ImageProcessor binary = uNetSegmentation.binarySegmentation(result, (float) softmaxThreshold);
-			if (useWatershedPostProcessing) {
-				//make distance-based watershed transform here to separate touching cells
-				ChamferWeights weights = ChamferWeights.BORGEFORS;
-				final ImageProcessor dist = BinaryImages.distanceMap(binary, weights.getFloatWeights(), true);
-				dist.invert();
-				ImageProcessor watershedded = ExtendedMinimaWatershed.extendedMinimaWatershed(dist, binary, 1, 4, 32, false);
-				result = fillComponentProperties(watershedded, ip, false, null);
-			}
-			else result = fillComponentProperties(binary, ip, false, null);
-			
-		} catch (IOException | InvalidKerasConfigurationException | UnsupportedKerasConfigurationException e) {
-			e.printStackTrace();
-		}
+		/* create a stack from previous,current and next slice */
+		ImageStack stack3 = create3Stack();
+		ImageProcessor res = uNetSegmentation.binarySegmentationFromMaskWithMarkers(stack3, 0.5f);
+		
+		result = fillComponentProperties(res, ip, false, null);
+//			ImageProcessor binary = uNetSegmentation.binarySegmentation(result, (float) softmaxThreshold);
+//			if (useWatershedPostProcessing) {
+//				//make distance-based watershed transform here to separate touching cells
+//				ChamferWeights weights = ChamferWeights.BORGEFORS;
+//				final ImageProcessor dist = BinaryImages.distanceMap(binary, weights.getFloatWeights(), true);
+//				dist.invert();
+//				ImageProcessor watershedded = ExtendedMinimaWatershed.extendedMinimaWatershed(dist, binary, 1, 4, 32, false);
+//				result = fillComponentProperties(watershedded, ip, false, null);
+//			}
+//			else result = fillComponentProperties(binary, ip, false, null);
 
 		result = result.convertToFloatProcessor();
 		result.resetMinAndMax();
@@ -598,7 +603,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 		if (rollingBallRadius > 0)
 			backgroundSub.rollingBallBackground(ip, rollingBallRadius, false, false, false, true, false);
-		ImageFunctions.normalize(ip, 0, 1);
+		ImageFunctions.normalizeInPlace(ip, 0, 1);
 		return ip;
 	}
 	
@@ -621,6 +626,34 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	public void loadSegmentationByPath(Path segmentationResultPath, ImagePlus intensityImp, boolean removeBorderComponents) {
 		ImagePlus segmentation = new ImagePlus(segmentationResultPath.toString());
 		loadSegmentationByImage(segmentation, intensityImp, removeBorderComponents);
+	}
+	
+	/* creates stack from current imagePlus and current slice */
+	private ImageStack create3Stack() {
+		int w = imagePlus.getWidth();
+		int h = imagePlus.getHeight();
+		ImageStack res = new ImageStack(w,h,3);
+		if (currSlice==1) {
+			res.setProcessor(imagePlus.getStack().getProcessor(1).duplicate(), 1);
+			res.setProcessor(imagePlus.getStack().getProcessor(1).duplicate(), 2);
+			res.setProcessor(imagePlus.getStack().getProcessor(2).duplicate(), 3);
+			return res;
+		}
+		
+		
+		int lastSlice = imagePlus.getStack().getSize(); 
+		if (currSlice==lastSlice) {
+			res.setProcessor(imagePlus.getStack().getProcessor(lastSlice-1).duplicate(), 1);
+			res.setProcessor(imagePlus.getStack().getProcessor(lastSlice).duplicate(), 2);
+			res.setProcessor(imagePlus.getStack().getProcessor(lastSlice).duplicate(), 3);
+			return res;
+		}
+		
+		for  (int i=-1; i<=1; ++i) { 
+			res.setProcessor(imagePlus.getStack().getProcessor(currSlice+i).duplicate(), i+2);
+		}
+		
+		return res;		
 	}
 
 	/*
@@ -679,8 +712,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			watershedImage = ImageFunctions.operationMorph(watershedImage, Operation.TOPHAT, Strel.Shape.DISK,
 					topHatRadius);
 
-		ImageFunctions.normalize(watershedImage, 0, 1);
-		ImageFunctions.normalize(ip, 0, 1);
+		ImageFunctions.normalizeInPlace(watershedImage, 0, 1);
+		ImageFunctions.normalizeInPlace(ip, 0, 1);
 
 		BlobDetector blobs = new BlobDetector(ip, null, sigmas);
 		float[] sigmas_bright = { 4, 7, 10, 15, 20 };
@@ -717,7 +750,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageProcessor closingImage = ImageFunctions.operationMorph(ip, Operation.CLOSING, Shape.DISK, 20);
 
 		ImageProcessorCalculator.sub(watershedImage, closingImage);
-		ImageFunctions.normalize(watershedImage, 0, 1);
+		ImageFunctions.normalizeInPlace(watershedImage, 0, 1);
 		// watershedImage = ImageProcessorCalculator.invertedImage(watershedImage);
 
 		if (showImageForWatershedding) {
@@ -738,7 +771,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		}
 
 		if (showBlobs && previewing && !startedProcessing) {
-			ImageFunctions.normalize(marksDarkBinary, 0, 2);
+			ImageFunctions.normalizeInPlace(marksDarkBinary, 0, 2);
 			// marksDarkBinary = ImageFunctions.operationMorph(marksDarkBinary,
 			// Operation.DILATION, Strel.Shape.DISK, 2);
 			ip = original;
@@ -746,7 +779,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksCopy, true, true, 7);
 			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksDarkBinary, true, true,
 			// 7);
-			ImageFunctions.normalize(watershedImage, 0, 255);
+			ImageFunctions.normalizeInPlace(watershedImage, 0, 255);
 			// ImageFunctions.colorCirclesBySigmaMarkers(watershedImage, marksDarkBinary,
 			// true, true, 7);
 			ImageFunctions.drawCirclesBySigmaMarkerks(ip, marksDarkBinary, true, false);

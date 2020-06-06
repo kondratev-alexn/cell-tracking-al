@@ -54,10 +54,11 @@ public class PluginRunning {
 			Path name = resDir.getName(resDir.getNameCount() - 1);
 			IJ.save(imp, resDir.resolve(name).toString());
 		}
+		System.out.println(imp.getStackSize());
 		Cell_Tracker tracker = new Cell_Tracker();
 		tracker.setup("no save", imp);
 		tracker.setParameters(imp, params);
-		tracker.runOnImagePlus(imp);
+//		tracker.runOnImagePlus(imp);
 		if (tryLoadSegmentation) {
 			if (struct.segmentation != null) {
 				System.out.println("--- Previous segmentation loaded.");
@@ -111,9 +112,7 @@ public class PluginRunning {
 			}			
 		}
 		IJ.log(log);
-	}
-	
-	
+	}	
 
 	public static List<Path> getAllFilePathsFromFolders(List<String> folders) throws IOException {
 		List<Path> result = new ArrayList<Path>();
@@ -123,7 +122,6 @@ public class PluginRunning {
 				result.addAll(listPaths);
 			}
 		}
-
 		return result;
 	}
 
@@ -214,16 +212,15 @@ public class PluginRunning {
 
 		ArrayList<PluginParameters> parametersList = new ArrayList<PluginParameters>();
 		//parametersList.add(paramsWithoutWatershed);
-		parametersList.add(paramsWithWatershed);
+//		parametersList.add(paramsWithWatershed);
 		//parametersList.add(paramsWatershedNoMitosis);
 		//parametersList.add(paramsNoWatershedNoMitosis);
-//		parametersList.add(paramsWithWatershedKeepBorder);
+		parametersList.add(paramsWithWatershedKeepBorder);
 		
 		boolean tryLoadSegmentation = false;
 		
 		try {
-
-			String resultFileName = "metrics_comparison_border_remove_min_area";
+			String resultFileName = "metrics_comparison_border_keep_resunet_w_wshed";
 			WriterCSV writer = new WriterCSV(Paths.get("C:\\Tokyo\\metrics\\" + resultFileName + ".csv"));
 			String[] header = {"Sequence", "Experiment", "SEG", "TRA", "DET"};
 			writer.writeLine(header);

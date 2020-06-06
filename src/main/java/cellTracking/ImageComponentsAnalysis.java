@@ -12,6 +12,7 @@ import ij.plugin.frame.RoiManager;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
+import ij.process.ShortProcessor;
 import inra.ijpb.binary.BinaryImages;
 import inra.ijpb.morphology.Strel;
 import inra.ijpb.morphology.Strel.Shape;
@@ -169,6 +170,18 @@ public class ImageComponentsAnalysis {
 
 	public int getComponentsCount() {
 		return nComponents;
+	}
+	
+	public ImageProcessor getSinglePixelComponents() {
+		ImageProcessor res = new ShortProcessor(imageComponents.getWidth(), imageComponents.getHeight());
+		for (int i=0; i<properties.size(); ++i) {
+			Point p = getComponentMassCenter(i);
+			int x = (int)p.getX();
+			int y = (int)p.getY();
+			res.setf(x, y, 1);
+		}
+		ImageFunctions.LabelMarker(res);
+		return res;
 	}
 
 	/*
