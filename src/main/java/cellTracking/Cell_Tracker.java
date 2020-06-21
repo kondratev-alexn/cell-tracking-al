@@ -47,6 +47,7 @@ import inra.ijpb.morphology.Strel.Shape;
 import inra.ijpb.watershed.ExtendedMinimaWatershed;
 import inra.ijpb.watershed.MarkerControlledWatershedTransform2D;
 import networkDeploy.UNetSegmentation;
+import visualization.Visualization;
 
 public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	
@@ -78,6 +79,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	/* image containing tracking results in ctc format */
 	ImagePlus ctcComponents;
+	
+	/* stacks for saving mitosis start/end results from network */
+	ImageStack mitosisStart;
+	ImageStack mitosisEnd;
 
 	private int currSlice = 1; // slice number for stack processing
 	private int selectedSlice; // currently selected slice by slider
@@ -159,7 +164,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ctcTifResult = "";
 		ctcTxtResult = "";
 		infoFilePath = "";
-
+		
 		// convert to float if plugin just started
 		if (nSlices == 1) {
 			Converter conv = new Converter();
@@ -237,6 +242,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 				tracking.divisionTracking(75, 3, 10, 0.4f);				
 				IJ.log("Mitosis tracking finished");
 			}
+			
+			// draw mitosis start, end on the image for visualisation
+			ImagePlus unetMitosisVisualization = Visualization.drawMitosisStartEndFromUnet(imp, mitosisStart, mitosisEnd);
+			IJ.save(unetMitosisVisualization, "G:\\Tokyo\\mitosis_vis.tif");
 
 			// System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
@@ -247,6 +256,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			if (!noImageJProcessing) {
 				imp.show();
 			}
+			
+			// save mitosis start and end results for now
+			IJ.save(new ImagePlus("start", mitosisStart), "G:\\Tokyo\\mitosis_start.tif");
+			IJ.save(new ImagePlus("end", mitosisEnd), "G:\\Tokyo\\mitosis_end.tif");
 
 			IJ.log("Displaying results.");
 			
@@ -314,6 +327,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		
 		saveResultsInFolder = !arg.equals("no save");
 
+		mitosisStart = new ImageStack(imp.getWidth(), imp.getHeight(), nSlices);
+		mitosisEnd = new ImageStack(imp.getWidth(), imp.getHeight(), nSlices);
+
 		if (saveResultsInFolder) {
 			System.out.println("Saving in folder");
 		}
@@ -354,11 +370,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		gaussian = new Gaussian();
 		backgroundSub = new BackgroundSubtracter();
 		rankFilters = new RankFilters();
-		//String model_name = "unet_confocal_fluo_model_full.h5";
-		String model_name = "unet_confocal_fluo_32_boundary_loss_model_full.h5";
-		model_name = "model_inout_512.h5";
-		model_name = "fluo_resunet_mitosis_512_weights.h5";
+//		String model_name = "unet_confocal_fluo_model_full.h5";
+//		String model_name = "resunet_3stack_model_full.h5";
+		String model_name = "model_fluo_resunet_mitosis_512_weights.h5";
 		uNetSegmentation = new UNetSegmentation(model_name);
+//		foo mess
 	}
 	
 	public void setParameters(ImagePlus imp, PluginParameters parameters) {
@@ -557,9 +573,14 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		
 		/* create a stack from previous,current and next slice */
 		ImageStack stack3 = create3Stack();
-		ImageProcessor res = uNetSegmentation.binarySegmentationFromMaskWithMarkers(stack3, 0.5f);
+		ImageProcessor[] watershedResMitosisMasks = uNetSegmentation.binarySegmentationFromMaskWithMarkers(stack3, 0.5f, 0.4f);
+				
+		mitosisStart.setProcessor(watershedResMitosisMasks[1], currSlice);
+		mitosisEnd.setProcessor(watershedResMitosisMasks[2], currSlice);
 		
-		result = fillComponentProperties(res, ip, false, null);
+		result = fillComponentProperties(watershedResMitosisMasks[0], ip, false, null);
+//		fillComponentProperties(watershedResMitosisMasks[1], ip, false, null);
+//		fillComponentProperties(watershedResMitosisMasks[2], ip, false, null);
 //			ImageProcessor binary = uNetSegmentation.binarySegmentation(result, (float) softmaxThreshold);
 //			if (useWatershedPostProcessing) {
 //				//make distance-based watershed transform here to separate touching cells
@@ -640,7 +661,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			return res;
 		}
 		
-		
 		int lastSlice = imagePlus.getStack().getSize(); 
 		if (currSlice==lastSlice) {
 			res.setProcessor(imagePlus.getStack().getProcessor(lastSlice-1).duplicate(), 1);
@@ -699,7 +719,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		// create mask for watershed
 		watershedMask = watershedImage.duplicate();
 		// threshold = markerImg.duplicate(); //this should be otsu thresholded image
-		// with convex hulling aftewards
+		// with convex hulling afterwards
 		// ImageFunctions.thresholdMinMax(watershedMask, minThreshold, maxThreshold);
 
 		// cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
@@ -931,17 +951,17 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		if (traConvert) {
 			EvaluationFromRoi eval = new EvaluationFromRoi();
 			new ImageJ();
-			String roiFilePath = "C:\\Tokyo\\trackingResults\\c0010901_easy_ex-matchedROI.zip";
-			String imageFilePath = "C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif";
+			String roiFilePath = "G:\\Tokyo\\trackingResults\\c0010901_easy_ex-matchedROI.zip";
+			String imageFilePath = "G:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif";
 
-			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010907_easy_ex-matchedROI.zip";
-			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif";
+			roiFilePath = "G:\\Tokyo\\trackingResults\\c0010907_easy_ex-matchedROI.zip";
+			imageFilePath = "G:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif";
 
-			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010906_medium_double_nuclei_ex-matchedROI.zip";
-			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif";
+			roiFilePath = "G:\\Tokyo\\trackingResults\\c0010906_medium_double_nuclei_ex-matchedROI.zip";
+			imageFilePath = "G:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif";
 
-			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010913_hard_ex-matchedROI.zip";
-			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif";
+			roiFilePath = "G:\\Tokyo\\trackingResults\\c0010913_hard_ex-matchedROI.zip";
+			imageFilePath = "G:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif";
 
 			eval.convertToTRAformat(roiFilePath, imageFilePath);
 			return;
@@ -961,36 +981,32 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			new ImageJ();
 			ImagePlus image;
 			
-			// ImagePlus image_stack20 = IJ.openImage("C:\\Tokyo\\C002_Movement.tif");
+			// ImagePlus image_stack20 = IJ.openImage("G:\\Tokyo\\C002_Movement.tif");
 			// ImagePlus image_c14 =
-			// IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010914_C002.tif");
-			// ImagePlus image_stack3 = IJ.openImage("C:\\Tokyo\\\\movement_3images.tif");
-			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\C002_10.tif");
+			// IJ.openImage("G:\\Tokyo\\170704DataSeparated\\C0002\\c0010914_C002.tif");
+			// ImagePlus image_stack3 = IJ.openImage("G:\\Tokyo\\\\movement_3images.tif");
+			ImagePlus image_stack10 = IJ.openImage("G:\\Tokyo\\C002_10.tif");
 			// ImagePlus image_shorter_bright_blobs =
-			// IJ.openImage("C:\\Tokyo\\Short_c1_ex.tif");
+			// IJ.openImage("G:\\Tokyo\\Short_c1_ex.tif");
 
-			ImagePlus image_ex_01 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
-			ImagePlus image_ex_06 =
-			IJ.openImage("C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
-			// ImagePlus image_ex_07 =
-			// IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
-			// ImagePlus image_ex_13 =
-			// IJ.openImage("C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
+//			ImagePlus image_ex_01 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
+//			ImagePlus image_ex_06 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
+			ImagePlus image_ex_07 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
+//			ImagePlus image_ex_13 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
 
-			ImagePlus confocal_1 = IJ
-					.openImage("C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif");
+//			ImagePlus confocal_1 = IJ.openImage("G:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif");
 
-			image = image_ex_01;
-			// image = image_ex_07;
+//			image = image_ex_01;
+			 image = image_ex_07;
 			// image = image_stack20;
-			image = image_stack10;
+//			image = image_stack10;
 			// image = image_stack3;
 			// image = image_c10;
 			// image = image_ez_division;
 			// image = image_test_tracking;
 			// image = image_shorter_bright_blobs;
-			image = image_ex_06;
-			// image = image_ex_13;
+//			image = image_ex_06;
+//			image = image_ex_13;
 			//image = confocal_1;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();

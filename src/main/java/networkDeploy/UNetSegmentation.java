@@ -108,13 +108,17 @@ public class UNetSegmentation {
 	return res;
 }
 	
-	public ImageProcessor binarySegmentationFromMaskWithMarkers(ImageStack stack, float threshold) {
+	/* return watershed components, mitosis start and mitosis end ips */
+	public ImageProcessor[] binarySegmentationFromMaskWithMarkers(ImageStack stack, float threshold, float thresholdMitosis) {
 		ImageStack[] maskAndMarkers = predictMaskMarkersMitosis3Stack(stack);
 		ImageProcessor mask = maskAndMarkers[0].getProcessor(1);
 		ImageProcessor markers = maskAndMarkers[1].getProcessor(2);
 
 		ImageProcessor binaryMask = ImageFunctions.maskThresholdMoreThan(mask, threshold, null);
 		ImageProcessor binaryMarkers = ImageFunctions.maskThresholdMoreThan(markers, threshold, null);
+		
+		ImageProcessor binaryMitosisStart = ImageFunctions.maskThresholdMoreThan(maskAndMarkers[1].getProcessor(1), thresholdMitosis, null);
+		ImageProcessor binaryMitosisEnd = ImageFunctions.maskThresholdMoreThan(maskAndMarkers[1].getProcessor(2), thresholdMitosis, null);
 		
 		ImageComponentsAnalysis comps = new ImageComponentsAnalysis(binaryMarkers, markers, true);
 		ImageProcessor labeledMarkers = comps.getSinglePixelComponents();
@@ -125,8 +129,11 @@ public class UNetSegmentation {
 		
 		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(dist, labeledMarkers,
 				binaryMask, 4);
-		ImageProcessor res = watershed.applyWithPriorityQueue();
-		return res;
+		ImageProcessor res_ips[] = new ImageProcessor[3];
+		res_ips[0] = watershed.applyWithPriorityQueue();
+		res_ips[1] = binaryMitosisStart;
+		res_ips[2] = binaryMitosisEnd;
+		return res_ips;
 	}
 
 	public FloatProcessor predictMaskSingleImage(ImageProcessor ip) throws IOException, InvalidKerasConfigurationException, UnsupportedKerasConfigurationException {
@@ -143,7 +150,7 @@ public class UNetSegmentation {
 	
 	public ImageStack[] predictMaskMarkersMitosis3Stack(ImageStack stack) {
 		stack = normalizeStack01(stack);
-		INDArray input = imageStack2INDArray(stack);	
+		INDArray input = imageStack2INDArray(stack);
 		
 		ComputationGraph graph = new TransferLearning.GraphBuilder(model)
 				.removeVertexAndConnections("output_softmax")
@@ -155,8 +162,8 @@ public class UNetSegmentation {
 		INDArray[] prediction = graph.output(input);
 		INDArray predSigmoid = prediction[0];
 		INDArray predBeforeSoftmax = prediction[1];
-		System.out.println(predSigmoid.shapeInfoToString());
-		System.out.println(predBeforeSoftmax.shapeInfoToString());
+//		System.out.println(predSigmoid.shapeInfoToString());
+//		System.out.println(predBeforeSoftmax.shapeInfoToString());
 		
 		ImageStack binaryMaskWithMarkers = INDArray2ImageStack(predSigmoid);
 		ImageStack categoryMitosisMasks = INDArray2ImageStack(predBeforeSoftmax);
@@ -274,8 +281,8 @@ public class UNetSegmentation {
 	}
 	
 	public static void main(String[] args) {	
-		String path = "C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif";
-		String path2 = "C:\\Tokyo\\watershed_results\\c0010901_easy_ex\\c0010901_easy_ex.tif";
+		String path = "G:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif";
+		String path2 = "G:\\Tokyo\\watershed_results\\c0010901_easy_ex\\c0010901_easy_ex.tif";
 		ImagePlus fluo_1 = IJ.openImage(path2);
 			
 		

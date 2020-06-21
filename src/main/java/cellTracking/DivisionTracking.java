@@ -33,7 +33,7 @@ public class DivisionTracking {
 	 * after.
 	 * @param track which last components is expected to be dividing
 	 * @param searchTracksRadius radius to search daughter tracks
-	 * @param minSlicesDifference 
+	 * @param minSlicesDifference
 	 * @param maxSlicesDifference
 	 */
 	public void simpleDivisionTracking(TrackAdj track, int searchTracksRadius, int minSlicesDifference,
