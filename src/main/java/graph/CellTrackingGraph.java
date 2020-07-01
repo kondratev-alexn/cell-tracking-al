@@ -10,6 +10,7 @@ import cellTracking.ComponentProperties;
 import cellTracking.ImageComponentsAnalysis;
 import cellTracking.ImageFunctions;
 import cellTracking.NearestNeighbourTracking;
+import cellTracking.State;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -74,7 +75,7 @@ public class CellTrackingGraph {
 		}
 
 		resetNewIndex();
-//		System.out.println("Graph before analyzing: ");
+//		System.out.println("Graph before analyzinC: ");
 //		System.out.println(trGraph);
 
 		// for (int i=0; i<prevComponentsList.size(); i++) {
@@ -85,7 +86,7 @@ public class CellTrackingGraph {
 		MitosisInfo info = new MitosisInfo();
 		analyseTrackingGraph(info, minTrackLength); // new g is generated, images filled with newly labeled components
 
-//		System.out.println("Graph after analyzing: ");
+//		System.out.println("Graph after analyzinC: ");
 //		System.out.println(trGraph);
 
 		if (!infoFileName.isEmpty())
@@ -258,8 +259,15 @@ public class CellTrackingGraph {
 		int y0 = prevComp.getComponentY0(indexInPrev);
 
 		ImageProcessor imageComponents = images.get(sliceIndex);
+		String stateName = "";
+		State st = prevComp.getComponentState(indexInPrev);
 		boolean isMitosis = prevComp.isComponentMitosis(indexInPrev);
-
+		
+		if (st==State.MITOSIS_START)
+			stateName = "mit_start";
+		else if (st==State.MITOSIS_END)
+			stateName = "mit_end";
+;
 		Roi roi = null;
 		Wand w = new Wand(imageComponents);
 		String roiName;
@@ -267,10 +275,8 @@ public class CellTrackingGraph {
 		w.autoOutline(x0, y0, intensity, intensity);
 		if (w.npoints > 0) { // we have a roi from the wand...
 			roi = new PolygonRoi(w.xpoints, w.ypoints, w.npoints, Roi.TRACED_ROI);
-			// roiName = roiName(mainTrackIndex, sliceIndex, labelIndex, parentTrackNumber,
-			// isMitosis);
 			roiName = roiName(intensity, sliceIndex, labelIndex, parentTrackNumber, isMitosis);
-			roi.setName(roiName);
+			roi.setName(roiName + "_" + stateName);
 			roi.setPosition(sliceIndex + 1);
 		}
 

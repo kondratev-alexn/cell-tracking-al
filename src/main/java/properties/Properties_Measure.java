@@ -50,7 +50,7 @@ public class Properties_Measure implements PlugIn {
 		if (selectDir)
 			dataDir = dirChoose.getDirectory();
 		else
-			dataDir = "G:\\Tokyo\\Data\\Properties Measure\\";
+			dataDir = "C:\\Tokyo\\Data\\Properties Measure\\";
 		if (dataDir == null)
 			return;
 

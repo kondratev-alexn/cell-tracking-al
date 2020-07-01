@@ -141,7 +141,7 @@ public class NearestNeighbourTracking {
 				// if closest component in comp1 has 0 children or 1 children
 				v1 = new Node(t1, closestIndex);
 				v2 = new Node(t2, i);
-				System.out.println("Arc made during back tracking: " + v1 + " -- " + v2
+				System.out.println("Arc made during back trackinC: " + v1 + " -- " + v2
 						+ " with comp1(closest) child count being " + comp1.getComponentChildCount(closestIndex)
 						+ "and comp2 child count being " + comp2.getComponentChildCount(i));
 				cellGraph.addArcFromToAddable(v1, v2);
@@ -155,7 +155,7 @@ public class NearestNeighbourTracking {
 
 	/*
 	 * components list should be filled tracking algorithm: first, find nearest
-	 * neighbours going from 0 to T time slice then, back tracking: find nearest
+	 * neighbours going from 0 to T time slice then, back trackinC: find nearest
 	 * component of i in i-1 that wasn't tracked
 	 */
 	public void trackComponents(double radius, double radiusBackTracking, int n_lookThroughSlices,
@@ -184,10 +184,12 @@ public class NearestNeighbourTracking {
 	/*
 	 * new version of tracking - in 1 direction, using multislice best score and
 	 * second best score
+	 * added list of allowed connections in terms of cell states.
 	 */
 	public void findBestScoringComponents(ImageComponentsAnalysis comp1, int t1,
 			ArrayList<ImageComponentsAnalysis> comp2List, int nSlices, double maxRadius, double scoreThreshold,
-			double timeDecayCoefficient) {
+			double timeDecayCoefficient, boolean connectNormalComponentsToMitosisEndComponents,
+			ArrayList<ComponentStateLink> allowedConnections, int maxAllowedLength) {
 		int[] indexes;
 		int backBestIndex = -1;
 		int slice = -1, index = -1;
@@ -207,13 +209,33 @@ public class NearestNeighbourTracking {
 						scoreThreshold);
 				if (backBestIndex != i)
 					continue;
-				if (comp2List.get(slice).getComponentHasParent(index)
-						|| comp2List.get(slice).getComponentState(index) == State.MITOSIS)
+				if (comp2List.get(slice).getComponentHasParent(index) || comp2List.get(slice).getComponentState(index) == State.MITOSIS)
 					continue;
+				
+				// connect only mit_end -> mit_end or mit_end -> normal. 
+				// disallow unnatural connections
+				if (connectNormalComponentsToMitosisEndComponents && allowedConnections!=null) {
+					boolean isAllowed = false;
+					for (ComponentStateLink allowedLink: allowedConnections) {
+						isAllowed = isAllowed || allowedLink.checkStates(comp1, i, comp2List.get(slice), index);
+					}
+					if (!isAllowed)
+						continue;
+				}
 
 				v1 = new Node(t1, i);
+				
+				ArrayList<ArrayList<Integer>> adj = Graph.copyAdjList(cellGraph.adjLists);
+				int indexV1 = cellGraph.getNodeIndex(v1);				
+				int pathLen = Graph.pathLength(adj, indexV1);
+//				System.out.println("len:" + pathLen);
+				if (pathLen >= maxAllowedLength && maxAllowedLength != -1) {
+//					System.out.println("allowed len");
+					continue;
+				}
+				
 				v2 = new Node(slice, index);
-				cellGraph.addArcFromToAddable(v1, v2);
+				cellGraph.addArcFromToAddable(v1, v2);	
 //				if (nSlices > 1) {
 //					System.out.println("Arc added during multislice:" + v1 + " to " + v2);
 //					System.out
@@ -234,15 +256,15 @@ public class NearestNeighbourTracking {
 	 * it immediately
 	 */
 	public void trackComponentsOneAndMultiSlice(double maxRadius, int nSlices, double scoreThreshold,
-			double oneSliceScoreThreshold, double timeDecayCoefficient) {
+			double oneSliceScoreThreshold, double timeDecayCoefficient,int  maxLength) {
 		for (int t = 0; t < componentsList.size() - 1; t++) {
 			findBestScoringComponents(componentsList.get(t), t, componentsList, 1, maxRadius, oneSliceScoreThreshold,
-					timeDecayCoefficient);
+					timeDecayCoefficient, false, null, maxLength);
 		}
 
 		for (int t = 0; t < componentsList.size() - 1; t++) {
 			findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices, maxRadius, scoreThreshold,
-					timeDecayCoefficient);
+					timeDecayCoefficient, false, null, maxLength);
 		}
 
 		// for (int t = 0; t < componentsList.size() - 1; t++) {
@@ -254,22 +276,24 @@ public class NearestNeighbourTracking {
 
 	// separate one-slice tracking from multi-slice, so we can do them at different
 	// times (i.e. after mitosis detection)
-	public void trackComponentsOneSlice(double maxRadius, double oneSliceScoreThreshold) {
+	public void trackComponentsOneSlice(double maxRadius, double oneSliceScoreThreshold, boolean connectNormalComponentsToMitosisEndComponents,
+			ArrayList<ComponentStateLink> allowedConnections, int maxLength) {
 		for (int t = 0; t < componentsList.size() - 1; t++) {
 			String log = String.format("One-slice tracking, slice %d %n", t);
 			IJ.log(log);
 			findBestScoringComponents(componentsList.get(t), t, componentsList, 1, maxRadius, oneSliceScoreThreshold,
-					1);
+					1, connectNormalComponentsToMitosisEndComponents, allowedConnections, maxLength);
 		}
 	}
 
 	public void trackComponentsMultiSlice(double maxRadius, int nSlices, double scoreThreshold,
-			double timeDecayCoefficient) {
+			double timeDecayCoefficient, boolean connectNormalComponentsToMitosisEndComponents,
+			ArrayList<ComponentStateLink> allowedConnections, int maxLength) {
 		for (int t = 0; t < componentsList.size() - 1; t++) {
 			String log = String.format("Multi-slice tracking, slice %d %n", t);
 			IJ.log(log);
 			findBestScoringComponents(componentsList.get(t), t, componentsList, nSlices, maxRadius, scoreThreshold,
-					timeDecayCoefficient);
+					timeDecayCoefficient, connectNormalComponentsToMitosisEndComponents, allowedConnections, maxLength);
 		}
 	}
 
@@ -286,6 +310,8 @@ public class NearestNeighbourTracking {
 		double score;
 		for (int i = 0; i < comp2.getComponentsCount(); i++) {
 			score = PenaltyFunction.penalFunctionNN(comp1, i1, comp2, i, maxRadius);
+//			if (comp1.getComponentState(i1)==State.NORMAL && comp2.getComponentState(i)==State.MITOSIS_START) 
+//				System.out.println("score for normal->mit_start connection is: " + score);
 			if (score < min_score) {
 				min_score = score;
 				min_i = i;
@@ -500,7 +526,8 @@ public class NearestNeighbourTracking {
 		return diffs.get(diffs.size() - 1) > maxDiff * multiplierThreshold;
 	}
 
-	public void divisionTracking(int searchTrackRadius, int slicesBefore, int slicesThroughAfter, float timeCoef) {
+	public void divisionTracking(int searchTrackRadius, int slicesBefore, int slicesThroughAfter, float timeCoef, 
+			ArrayList<ComponentStateLink> allowedConnectionsParentChild, ArrayList<ComponentStateLink> allowedConnectionsChildren) {
 		TrackAdj tr;
 		DivisionTracking division = new DivisionTracking();
 		division.setTrackingInfo(tracks, cellGraph, componentsList);
@@ -512,8 +539,20 @@ public class NearestNeighbourTracking {
 		for (int i = 0; i < tracks.tracksCount(); ++i) {
 			tr = tracks.getTrack(i);
 						
-			division.simpleDivisionTracking(tr, searchTrackRadius, slicesBefore, slicesThroughAfter, timeCoef);
+			division.simpleDivisionTracking(tr, searchTrackRadius, slicesBefore, slicesThroughAfter, timeCoef,
+					 allowedConnectionsParentChild, allowedConnectionsChildren);
 		}
+	}
+	
+	/**
+	 * function used in mitosis beginning+end segmentation model, 
+	 * after all segmentation is added to components and tracked as usual with division tracking
+	 * 
+	 * This function tries to find tracks that start with mitosis end component, then find track with its pair from mitosis end segmentation
+	 * and connect it to its parent
+	 */
+	public void connectMitosisEndComponentsToTracks() {
+		
 	}
 
 	/* mitosis tracking */
@@ -563,20 +602,20 @@ public class NearestNeighbourTracking {
 			String log = String.format("Mitosis tracking, slice %d %n", slice);
 			IJ.log(log);
 			System.out.println();
-			System.out.println("--- Mitosis tracking: slice " + slice);
+			System.out.println("--- Mitosis trackinC: slice " + slice);
 			whiteBlobsTracking.fillSliceDetectionsWithUniqueCandidates(slice,
 					componentsList.get(slice).getInvertedIntensityImage());
 			whiteBlobsTracking.sortBlobsInDetections(slice);
-			System.out.println("--- Mitosis tracking: Filling first Blobs");
+			System.out.println("--- Mitosis trackinC: Filling first Blobs");
 			whiteBlobsTracking.fillFirstBlobs(slice);
-			System.out.println("--- Mitosis tracking: Filling second Blobs");
+			System.out.println("--- Mitosis trackinC: Filling second Blobs");
 			whiteBlobsTracking.fillSecondBlobs(slice, childPenalThreshold);
 
 			// whiteBlobsTracking.fillTrackCandidateIndexes(slice, searchTracksRadius);
 		}
 	}
 
-	// currently not working: doesn't remove components from graph
+	// currently not workinC: doesn't remove components from graph
 	public void clearIsolatedComponents() {
 		for (int i = 0; i < componentsList.size(); i++)
 			for (int j = 0; j < componentsList.get(i).getComponentsCount(); j++) {
@@ -756,7 +795,7 @@ public class NearestNeighbourTracking {
 				// if closest component in comp1 has 0 children or 1 children
 				v1 = new Node(t1, closestIndex);
 				v2 = new Node(t2, i);
-				// System.out.println("Arc made during back tracking: " + v1 + " -- " + v2
+				// System.out.println("Arc made during back trackinC: " + v1 + " -- " + v2
 				// + " with comp1(closest) child count being " +
 				// comp1.getComponentChildCount(closestIndex)
 				// + "and comp2 child count being " + comp2.getComponentChildCount(i));

@@ -488,14 +488,14 @@ public class ImageComponentsAnalysis {
 		return imageComponents;
 	}
 
-	public void setComponentsBrightBlobStateByMarks(ImageProcessor marksBright) {
+	public void setComponentsStateByMarks(ImageProcessor marks, State state) {
 		int index;
-		for (int y = 0; y < marksBright.getHeight(); y++)
-			for (int x = 0; x < marksBright.getWidth(); x++) {
-				if (marksBright.get(x, y) > 0) { // set component state to mitosis
+		for (int y = 0; y < marks.getHeight(); y++)
+			for (int x = 0; x < marks.getWidth(); x++) {
+				if (marks.get(x, y) > 0) { // set component state to mitosis
 					index = getComponentIndexByPosition(x, y);
 					if (index != -1) {
-						setComponentState(index, State.WHITE_BLOB_COMPONENT);
+						setComponentState(index, state);
 						// System.out.println("component " +index + " marked as WHITE_BLOB_COMPONENT");
 						// seems working
 					}
@@ -570,6 +570,16 @@ public class ImageComponentsAnalysis {
 		
 		for (int i=0; i<getComponentsCount(); i++) {
 			drawMorphedComponentOnImage(imageComponents, Operation.CLOSING, Strel.Shape.DISK, i, 2);
+		}
+	}
+	
+	public void improveMitosisEndComponentContours() {		
+
+		//ImageProcessor compImage = getMorphedComponentImage(op, shape, nComp, d);
+		for (int i=0; i<getComponentsCount(); i++) {
+			if (properties.get(i).state != State.MITOSIS_END)
+				continue;
+			drawMorphedComponentOnImage(imageComponents, Operation.DILATION, Strel.Shape.DISK, i, 2);
 		}
 	}
 
@@ -763,7 +773,7 @@ public class ImageComponentsAnalysis {
 	 * Adds rois to roi manager with slice label, with each roi corresponding to one
 	 * component in this.imageComponents. Rois are ordered by intensity
 	 */
-	public void addRoisToManager(RoiManager manager, ImagePlus img, int slice) {
+	public void addRoisToManager(RoiManager manager, ImagePlus img, int slice, String prefix) {
 		// RoiManager res = new RoiManager();
 		Roi roi;
 		Wand w = new Wand(imageComponents);
@@ -785,9 +795,14 @@ public class ImageComponentsAnalysis {
 			if (w.npoints > 0) { // we have a roi from the wand...
 
 				isWhiteBlob = properties.get(index).state == State.WHITE_BLOB_COMPONENT;
+				prefix = "";
+				if (properties.get(index).state == State.MITOSIS_START)
+					prefix="START_";
+				if (properties.get(index).state == State.MITOSIS_END)
+					prefix="END_";
 
 				roi = new PolygonRoi(w.xpoints, w.ypoints, w.npoints, Roi.TRACED_ROI);
-				roiName = String.format("%04d", slice);
+				roiName = prefix + String.format("%04d", slice);
 				roiName += "-" + index;
 				if (isWhiteBlob)
 					roiName += "_white_blob";

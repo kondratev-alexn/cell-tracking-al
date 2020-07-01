@@ -2,10 +2,6 @@ package cellTracking;
 
 import point.Point;
 
-enum State {
-	NORMAL, MITOSIS, WHITE_BLOB_COMPONENT
-}
-
 /* Class for information about connected components */
 public class ComponentProperties {
 	public int displayIntensity; // intensity used for the component in the image

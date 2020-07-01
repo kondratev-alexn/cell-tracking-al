@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Vector;
 
 import org.deeplearning4j.nn.modelimport.keras.exceptions.InvalidKerasConfigurationException;
@@ -100,7 +101,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private double gaussianSigma = 2;
 	private double minThreshold = 20;
 	private double maxThreshold = 50;
-	private int minArea = 100;
+	private int minArea = 50;
 	private int maxArea = 1400;
 	private float minCircularity = 0.55f;
 	private float maxCircularity = 1.0f;
@@ -108,7 +109,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private int maximumNumberOfBlobs = 60; // how many dark blobs will be detected
 	
 	// tracks filtering parameters
-	private int minTrackLength = 5;
+	private int minTrackLength = 3;
 
 	private float blobMergeThreshold = 0.32f; // threshold, below which blobs will be merged
 	private float childPenaltyThreshold = 0.275f;
@@ -121,7 +122,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private boolean isTestMode = false;
 	private boolean useGaussian = true;
 	private boolean isBandpass = false;
-	private boolean trackMitosis = false;
+	private boolean trackMitosis = true;
 
 	private boolean showImageForWatershedding = false;
 	private boolean filterComponents = true;
@@ -137,7 +138,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private boolean removeBorderComponents = true;
 	private boolean saveSegmentation = false;
 	
-	
 	Path destinationFolder = Paths.get("");
 
 	String ctcTifResult, ctcTxtResult, infoFilePath;
@@ -147,6 +147,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private ImageComponentsAnalysis prevComponentsAnalysis = null; // for getting masks of segmented cells in next
 																	// slices
 	private NearestNeighbourTracking tracking = null;
+	private NearestNeighbourTracking trackingMitStart = null;
+	private NearestNeighbourTracking trackingMitEnd = null;
 
 	private final float sigmaMax = 50; // max value of sigmas
 
@@ -159,6 +161,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	public void initPlugin(ImagePlus imp) {
 		nSlices = imp.getStackSize();
 		tracking = new NearestNeighbourTracking();
+		trackingMitStart = new NearestNeighbourTracking();
+		trackingMitEnd = new NearestNeighbourTracking();
 		cellMask = null;
 		ctcComponents = null;
 		ctcTifResult = "";
@@ -214,19 +218,55 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// there goes tracking
 			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 3;
 			double oneSliceScoreThreshold = 0.33;
+			//oneSliceScoreThreshold = 0.
 			double scoreThreshold = 0.6;
 			double timeDecayCoefficient = 0.3;
-			// tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices,
-			// scoreThreshold);
-			// tracking.trackComponentsOneAndMultiSlice(maxRadiusDark, slices,
-			// scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
+			// tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices, scoreThreshold);
+			// tracking.trackComponentsOneAndMultiSlice(maxRadiusDark, slices, scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
 
 			IJ.log("Tracking dark nuclei...");
-			tracking.trackComponentsOneSlice(maxRadiusDark, oneSliceScoreThreshold);
-			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient);
+			ArrayList<ComponentStateLink> linkNormal = new ArrayList<ComponentStateLink>();
+			linkNormal.add(new ComponentStateLink(State.NORMAL, State.NORMAL));
+			
+			ArrayList<ComponentStateLink> linksNormalAndStart = new ArrayList<ComponentStateLink>();
+			linksNormalAndStart.add(new ComponentStateLink(State.NORMAL, State.NORMAL));
+			linksNormalAndStart.add(new ComponentStateLink(State.NORMAL, State.MITOSIS_START));
+
+			ArrayList<ComponentStateLink> linkEndEnd = new ArrayList<ComponentStateLink>();
+			linkEndEnd.add(new ComponentStateLink(State.MITOSIS_END, State.MITOSIS_END));
+
+			ArrayList<ComponentStateLink> linkNormalStart = new ArrayList<ComponentStateLink>();
+			linkNormalStart.add(new ComponentStateLink(State.NORMAL, State.MITOSIS_START));
+
+			ArrayList<ComponentStateLink> linkStartStart = new ArrayList<ComponentStateLink>();
+			linkStartStart.add(new ComponentStateLink(State.MITOSIS_START, State.MITOSIS_START));
+
+			ArrayList<ComponentStateLink> linkEndNormal = new ArrayList<ComponentStateLink>();
+			linkEndNormal.add(new ComponentStateLink(State.MITOSIS_END, State.NORMAL));
+			
+			// track nuclei only
+			tracking.trackComponentsOneSlice(maxRadiusDark, oneSliceScoreThreshold, true, linkNormal, -1);
+			tracking.trackComponentsOneSlice(30, oneSliceScoreThreshold+2, true, linksNormalAndStart, -1);
+			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient, true, linkNormal, -1);
+//			tracking.trackComponentsMultiSlice(75, slices, scoreThreshold, timeDecayCoefficient, true, linkNormal, -1);
+
+			//connect mitosis end to normal
+			tracking.trackComponentsOneSlice(40, 0.8, true, linkEndNormal, -1);
+//			tracking.trackComponentsMultiSlice(40, 2, 1.2, 0.4f, true, linkEndNormal, -1);
+			
+			// connect mitosis end components
+//			tracking.trackComponentsOneSlice(30, 0.7, true, linkEndEnd, -1);
+			
+			// connect nuclei with mitosis start
+			tracking.trackComponentsOneSlice(70, 0.8, true, linkNormalStart, -1);
+//			tracking.trackComponentsMultiSlice(70, 2, 0.8, 0.6, true, linkNormalStart, -1);
+			
+			// connect mit start with itself
+			tracking.trackComponentsOneSlice(25, 0.7, true, linkStartStart, -1);
+			
 			tracking.fillTracksAdj(minTrackLength);
 			IJ.log("Tracking dark nuclei finished.");
-
+			
 			// old version
 //			if (trackMitosis) {
 //				IJ.log("Tracking mitosis...");
@@ -239,13 +279,23 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			
 			if (trackMitosis) {
 				IJ.log("Tracking mitosis...");
-				tracking.divisionTracking(75, 3, 10, 0.4f);				
+//				tracking.divisionTracking(75, 3, 10, 0.4f);
+
+				ArrayList<ComponentStateLink> linksParentChild = new ArrayList<ComponentStateLink>();
+				linksParentChild.add(new ComponentStateLink(State.MITOSIS_START, State.MITOSIS_END));
+				linksParentChild.add(new ComponentStateLink(State.NORMAL, State.MITOSIS_END));
+				linksParentChild.add(new ComponentStateLink(State.MITOSIS_START, State.NORMAL));
+				tracking.divisionTracking(60, 1, 10, 0.4f, linksParentChild, null);
+
+				ArrayList<ComponentStateLink> linksParentChildNN = new ArrayList<ComponentStateLink>();
+				linksParentChildNN.add(new ComponentStateLink(State.NORMAL, State.NORMAL));
+				tracking.divisionTracking(60, 3, 10, 0.4f, linksParentChildNN, null);
 				IJ.log("Mitosis tracking finished");
 			}
 			
 			// draw mitosis start, end on the image for visualisation
 			ImagePlus unetMitosisVisualization = Visualization.drawMitosisStartEndFromUnet(imp, mitosisStart, mitosisEnd);
-			IJ.save(unetMitosisVisualization, "G:\\Tokyo\\mitosis_vis.tif");
+			IJ.save(unetMitosisVisualization, "C:\\Tokyo\\mitosis_vis.tif");
 
 			// System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
@@ -258,8 +308,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			}
 			
 			// save mitosis start and end results for now
-			IJ.save(new ImagePlus("start", mitosisStart), "G:\\Tokyo\\mitosis_start.tif");
-			IJ.save(new ImagePlus("end", mitosisEnd), "G:\\Tokyo\\mitosis_end.tif");
+//			IJ.save(new ImagePlus("start", mitosisStart), "C:\\Tokyo\\mitosis_start.tif");
+//			IJ.save(new ImagePlus("end", mitosisEnd), "C:\\Tokyo\\mitosis_end.tif");
 
 			IJ.log("Displaying results.");
 			
@@ -274,7 +324,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			}
 			if (trackingResultsDir == null)
 				trackingResultsDir = System.getProperty("user.dir") + '\\';
-
 
 			String mitosisInfoFileName = imp.getShortTitle() + "_mitosis_info.ser";
 			infoFilePath = trackingResultsDir + mitosisInfoFileName;
@@ -318,6 +367,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 		nSlices = imp.getStackSize();
 		tracking = new NearestNeighbourTracking();
+		trackingMitStart = new NearestNeighbourTracking();
+		trackingMitEnd = new NearestNeighbourTracking();
 		cellMask = null;
 		addRois = true;
 		ctcComponents = null;
@@ -371,10 +422,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		backgroundSub = new BackgroundSubtracter();
 		rankFilters = new RankFilters();
 //		String model_name = "unet_confocal_fluo_model_full.h5";
-//		String model_name = "resunet_3stack_model_full.h5";
+//		String model_name = "pre_mitosis_resunet.h5";
 		String model_name = "model_fluo_resunet_mitosis_512_weights.h5";
 		uNetSegmentation = new UNetSegmentation(model_name);
-//		foo mess
 	}
 	
 	public void setParameters(ImagePlus imp, PluginParameters parameters) {
@@ -570,17 +620,56 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			//result = preprocessing(result, 1.4f, 60, true);
 		}
 		
-		
-		/* create a stack from previous,current and next slice */
+		/* create a stack from previous, current and next slice */
 		ImageStack stack3 = create3Stack();
-		ImageProcessor[] watershedResMitosisMasks = uNetSegmentation.binarySegmentationFromMaskWithMarkers(stack3, 0.5f, 0.4f);
-				
+		ImageProcessor[] watershedResMitosisMasks = uNetSegmentation.binarySegmentationFromMaskWithMarkers(stack3, 0.5f, 0.6f);
+		
 		mitosisStart.setProcessor(watershedResMitosisMasks[1], currSlice);
 		mitosisEnd.setProcessor(watershedResMitosisMasks[2], currSlice);
 		
-		result = fillComponentProperties(watershedResMitosisMasks[0], ip, false, null);
-//		fillComponentProperties(watershedResMitosisMasks[1], ip, false, null);
-//		fillComponentProperties(watershedResMitosisMasks[2], ip, false, null);
+		ImageProcessor allComps = watershedResMitosisMasks[0].duplicate();
+		ImageProcessorCalculator.add(allComps, watershedResMitosisMasks[1]);
+		ImageProcessorCalculator.add(allComps, watershedResMitosisMasks[2]);
+
+		ImageComponentsAnalysis compMitosisStart = new ImageComponentsAnalysis(watershedResMitosisMasks[1], ip, true); 
+		ImageComponentsAnalysis compMitosisEnd = new ImageComponentsAnalysis(watershedResMitosisMasks[2], ip, true); 
+		compMitosisStart.getFilteredComponentsIp(50, 1000, 0.6f, 1.0f, 0, 1000, false, removeBorderComponents);
+		compMitosisStart.improveMitosisEndComponentContours();
+		compMitosisEnd.getFilteredComponentsIp(50, 1000, 0.6f, 1.0f, 0, 1000, false, removeBorderComponents);
+		
+		ImageProcessor mitStartMarkers = compMitosisStart.getSinglePixelComponents();
+		ImageProcessor mitEndMarkers = compMitosisEnd.getSinglePixelComponents();
+		
+//		result = fillComponentProperties(allComps, ip, false, null, true);
+		
+		// from fillComponentProperties function...
+		if (filterComponents) {
+			// get labeled component image and fill
+			ImageComponentsAnalysis compAnalisys = new ImageComponentsAnalysis(allComps, ip, true); 
+
+			ip = compAnalisys.getFilteredComponentsIp(minArea, maxArea, minCircularity, maxCircularity, 0, 1000,
+					false, removeBorderComponents);
+			
+			// here set component's state by marks image
+			compAnalisys.setComponentsStateByMarks(mitStartMarkers, State.MITOSIS_START);
+			compAnalisys.setComponentsStateByMarks(mitEndMarkers, State.MITOSIS_END);
+			// works fine
+			
+			if (startedProcessing && addRois) // add roi only if we started processing
+				compAnalisys.addRoisToManager(roiManager, imagePlus, currSlice, "");
+
+			if (startedProcessing || doesStacks()) {
+				prevComponentsAnalysis = compAnalisys;
+				tracking.addComponentsAnalysis(compAnalisys);
+			}
+		}
+
+//		compMitosisStart.addRoisToManager(roiManager, imagePlus, currSlice, "start");
+//		compMitosisEnd.addRoisToManager(roiManager, imagePlus, currSlice, "end");
+
+//		trackingMitStart.addComponentsAnalysis(compMitosisStart);
+//		trackingMitEnd.addComponentsAnalysis(compMitosisEnd);
+
 //			ImageProcessor binary = uNetSegmentation.binarySegmentation(result, (float) softmaxThreshold);
 //			if (useWatershedPostProcessing) {
 //				//make distance-based watershed transform here to separate touching cells
@@ -673,7 +762,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			res.setProcessor(imagePlus.getStack().getProcessor(currSlice+i).duplicate(), i+2);
 		}
 		
-		return res;		
+		return res;
 	}
 
 	/*
@@ -826,13 +915,14 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		return ip;
 	}
 	
-	private ImageProcessor fillComponentProperties(ImageProcessor ip, ImageProcessor intensityImg, boolean addBrightMarkers, ImageProcessor marksBrightBinary) {
+	private ImageProcessor fillComponentProperties(ImageProcessor ip, ImageProcessor intensityImg, boolean addBrightMarkers, ImageProcessor marksBrightBinary,
+			boolean addToRoiManager) {
 		if (filterComponents) {
 			// get labeled component image and fill
 			ImageComponentsAnalysis compAnalisys = new ImageComponentsAnalysis(ip, intensityImg, true); 
 
 			if (addBrightMarkers) {
-				compAnalisys.setComponentsBrightBlobStateByMarks(marksBrightBinary);
+				compAnalisys.setComponentsStateByMarks(marksBrightBinary, State.MITOSIS);
 			}
 
 			boolean discardWhiteBlobs = addBrightMarkers;
@@ -840,8 +930,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 					discardWhiteBlobs, removeBorderComponents);
 			
 			// here set component's state by marks image (indicate bright blobs)
-			if (startedProcessing && addRois) // add roi only if we started processing
-				compAnalisys.addRoisToManager(roiManager, imagePlus, currSlice);
+			if (startedProcessing && addRois && addToRoiManager) // add roi only if we started processing
+				compAnalisys.addRoisToManager(roiManager, imagePlus, currSlice, "");
 
 			if (startedProcessing || doesStacks()) {
 				prevComponentsAnalysis = compAnalisys;
@@ -951,17 +1041,17 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		if (traConvert) {
 			EvaluationFromRoi eval = new EvaluationFromRoi();
 			new ImageJ();
-			String roiFilePath = "G:\\Tokyo\\trackingResults\\c0010901_easy_ex-matchedROI.zip";
-			String imageFilePath = "G:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif";
+			String roiFilePath = "C:\\Tokyo\\trackingResults\\c0010901_easy_ex-matchedROI.zip";
+			String imageFilePath = "C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif";
 
-			roiFilePath = "G:\\Tokyo\\trackingResults\\c0010907_easy_ex-matchedROI.zip";
-			imageFilePath = "G:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif";
+			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010907_easy_ex-matchedROI.zip";
+			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif";
 
-			roiFilePath = "G:\\Tokyo\\trackingResults\\c0010906_medium_double_nuclei_ex-matchedROI.zip";
-			imageFilePath = "G:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif";
+			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010906_medium_double_nuclei_ex-matchedROI.zip";
+			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif";
 
-			roiFilePath = "G:\\Tokyo\\trackingResults\\c0010913_hard_ex-matchedROI.zip";
-			imageFilePath = "G:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif";
+			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010913_hard_ex-matchedROI.zip";
+			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif";
 
 			eval.convertToTRAformat(roiFilePath, imageFilePath);
 			return;
@@ -981,20 +1071,20 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			new ImageJ();
 			ImagePlus image;
 			
-			// ImagePlus image_stack20 = IJ.openImage("G:\\Tokyo\\C002_Movement.tif");
+			// ImagePlus image_stack20 = IJ.openImage("C:\\Tokyo\\C002_Movement.tif");
 			// ImagePlus image_c14 =
-			// IJ.openImage("G:\\Tokyo\\170704DataSeparated\\C0002\\c0010914_C002.tif");
-			// ImagePlus image_stack3 = IJ.openImage("G:\\Tokyo\\\\movement_3images.tif");
-			ImagePlus image_stack10 = IJ.openImage("G:\\Tokyo\\C002_10.tif");
+			// IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010914_C002.tif");
+			// ImagePlus image_stack3 = IJ.openImage("C:\\Tokyo\\\\movement_3images.tif");
+			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\c01_11_slices.tif");
 			// ImagePlus image_shorter_bright_blobs =
-			// IJ.openImage("G:\\Tokyo\\Short_c1_ex.tif");
+			// IJ.openImage("C:\\Tokyo\\Short_c1_ex.tif");
 
-//			ImagePlus image_ex_01 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
-//			ImagePlus image_ex_06 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
-			ImagePlus image_ex_07 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
-//			ImagePlus image_ex_13 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
+//			ImagePlus image_ex_01 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
+			ImagePlus image_ex_06 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
+			ImagePlus image_ex_07 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
+//			ImagePlus image_ex_13 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
 
-//			ImagePlus confocal_1 = IJ.openImage("G:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif");
+//			ImagePlus confocal_1 = IJ.openImage("C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif");
 
 //			image = image_ex_01;
 			 image = image_ex_07;

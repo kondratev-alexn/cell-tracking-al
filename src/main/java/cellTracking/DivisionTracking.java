@@ -37,14 +37,15 @@ public class DivisionTracking {
 	 * @param maxSlicesDifference
 	 */
 	public void simpleDivisionTracking(TrackAdj track, int searchTracksRadius, int minSlicesDifference,
-			int maxSlicesDifference, float timeCoef) {
+			int maxSlicesDifference, float timeCoef,
+			ArrayList<ComponentStateLink> allowedConnectionsParentChild, ArrayList<ComponentStateLink> allowedConnectionsChildren) {
 		
 		int endIndex = track.getEndAdjIndex();		
 		int parentComponentSlice = g.getNodeSliceByGlobalIndex(endIndex);
 		int parentComponentIndex = g.getNodeIndexByGlobalIndex(endIndex);		
 		
 		//dont start division tracking for tracks that ended just before last frame
-		if (parentComponentSlice >= componentsList.size() - 3)
+		if (parentComponentSlice >= componentsList.size() - 1)
 			return;
 		Point parentComponentCenter = componentsList.get(parentComponentSlice).getComponentMassCenter(parentComponentIndex);
 		
@@ -78,10 +79,18 @@ public class DivisionTracking {
 			mc = componentsList.get(trackStartingSlice).getComponentMassCenter(componentIndex);
 
 			dist = mc.distTo(parentComponentCenter);
+			boolean isAllowedStates = false;
+			for (ComponentStateLink statelink: allowedConnectionsParentChild) {
+				boolean isOk = statelink.checkStates(componentsList.get(parentComponentSlice), parentComponentIndex,
+						componentsList.get(trackStartingSlice), componentIndex);
+				isAllowedStates = isAllowedStates || isOk;
+			}
 			if (dist <= searchTracksRadius) {
 				if (dist < minDistance) // also find min distance for calculating penal function
 					minDistance = dist;
-				possibleTracksIndexes.add(i);
+				if (isAllowedStates) {
+					possibleTracksIndexes.add(i);
+				}
 			}
 		}
 
@@ -132,6 +141,28 @@ public class DivisionTracking {
 			int sliceDelta = trackStartingSlice - parentComponentSlice;
 			score = (1 + timeCoef * sliceDelta) * penalFunction1to1(componentsList.get(parentComponentSlice), blobComponentIndex,
 					componentsList.get(trackStartingSlice), componentIndex, minDistance);
+			State state1,state2;
+			state1 = componentsList.get(parentComponentSlice).getComponentState(blobComponentIndex);
+			state2 = componentsList.get(trackStartingSlice).getComponentState(componentIndex);
+			// improve score for pair mit_start -> mit_end
+//			if (state1 == State.MITOSIS_START && state2 == State.MITOSIS_START)
+//				score = score + 100;
+//			if (state1 == State.MITOSIS_START && state2 == State.NORMAL)
+//				score = score + 0.1;
+//			if (state1 == State.MITOSIS_START && state2 == State.MITOSIS_END)
+//				score = score - 0.75;
+//			if (state1 == State.NORMAL && state2 == State.MITOSIS_START)
+//				score = score + 100;
+//			if (state1 == State.NORMAL && state2 == State.NORMAL)
+//				score = score;
+//			if (state1 == State.NORMAL && state2 == State.MITOSIS_END)
+//				score = score + 0.5;
+//			if (state1 == State.MITOSIS_END && state2 == State.MITOSIS_START)
+//				score = score + 100;
+//			if (state1 == State.MITOSIS_END && state2 == State.NORMAL) // ???? not sure what to do here
+//				score = score + 0.01;
+//			if (state1 == State.MITOSIS_END && state2 == State.MITOSIS_END)
+//				score = score + 100;
 			tracksPenalScores.add(score);
 		}
 //		System.out.println("score unsorted: " + tracksPenalScores.toString());
@@ -173,6 +204,14 @@ public class DivisionTracking {
 
 				score = calculateChildPenalScore(trSlice1, compIndex1, trSlice2, compIndex2,
 						parentComponentCenter, parentComponentSlice, minDistance);
+				State state1,state2;
+				state1 = componentsList.get(trSlice1).getComponentState(compIndex1);
+				state2 = componentsList.get(trSlice2).getComponentState(compIndex2);
+				// improve score greatly if both children are mitosis end
+//				if (state1==State.MITOSIS_END && state2==State.MITOSIS_END)
+//					score = score - 0.75;
+//				if (state1 == State.MITOSIS_START || state2 == State.MITOSIS_START)
+//					score = score + 100;
 				System.out.println("Child score between tracks " + possibleTracksIndexes.get(i) + " and "
 						+ possibleTracksIndexes.get(j) + " is " + score);
 				if (score < bestPairScore) {
@@ -194,10 +233,20 @@ public class DivisionTracking {
 		int dSlice2 = parentComponentSlice - tracks.getStartSliceForTrack(bestTrackIndex2);
 		System.out.println("slice differences are: " + dSlice1 + ", " + dSlice2);
 		// if in the same slice then dSlice=0, should remove first component
-		if (dSlice1 >= 0)
-			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex1, dSlice1 + 1);
-		if (dSlice2 >= 0)
-			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex2, dSlice2 + 1);
+		
+		// try removing first components so that daughter tracks start in the same slice
+		int maxSliceDif = dSlice1;
+		if (dSlice2<maxSliceDif)
+			maxSliceDif = dSlice2;
+
+		if (maxSliceDif >= 0) {
+			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex1, maxSliceDif + 1);
+			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex2, maxSliceDif + 1);
+		}
+//		if (dSlice1 >= 0) 
+//			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex1, dSlice1 + 1);
+//		if (dSlice2 >= 0)
+//			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex2, dSlice2 + 1);
 
 		// now connect them to graph
 		int nodeToIndex1 = tracks.getStartAdjIndexForTrack(bestTrackIndex1);
@@ -239,9 +288,9 @@ public class DivisionTracking {
 		p_dist = ImageComponentsAnalysis.normVal(minDistance, dist);
 
 		// weights for area, avrg intensity and distance values
-		double w_a = 0.8;
+		double w_a = 0.4;
 		double w_i = 0.4;
-		double w_d = 1;
+		double w_d = 1.2;
 		double w_sum = w_a + w_i + w_d;
 		w_a /= w_sum; // normalize value to [0,1]
 		w_i /= w_sum;
@@ -264,7 +313,7 @@ public class DivisionTracking {
 		double c_intens_diff, c_size_diff, c_diff_distance, c_dist, c_time_to_parent, c_children_time_difference; // coefficients
 		c_intens_diff = 0.1; // for intensity of the child blobs
 		c_size_diff = 0.1; // for size of child blobs
-		c_diff_distance = 0.1; // for difference in distance between child blobs and parent
+		c_diff_distance = 0.5; // for difference in distance between child blobs and parent
 		c_dist = 0.1;
 		c_time_to_parent = 2;
 		c_children_time_difference = 1.5;

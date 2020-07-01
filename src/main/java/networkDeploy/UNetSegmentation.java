@@ -50,7 +50,7 @@ public class UNetSegmentation {
 	public void setModel(String modelFile) throws IOException, UnsupportedKerasConfigurationException, InvalidKerasConfigurationException {
 		String simpleMlp = new ClassPathResource(modelFile).getFile().getPath();		
 		model = KerasModelImport.importKerasModelAndWeights(simpleMlp, false);		
-		System.out.println(model.summary());
+//		System.out.println(model.summary());
 	}
 	
 	public ImageProcessor binarySegmentation(ImageProcessor ip, float threshold) throws IOException, InvalidKerasConfigurationException, UnsupportedKerasConfigurationException {
@@ -112,7 +112,7 @@ public class UNetSegmentation {
 	public ImageProcessor[] binarySegmentationFromMaskWithMarkers(ImageStack stack, float threshold, float thresholdMitosis) {
 		ImageStack[] maskAndMarkers = predictMaskMarkersMitosis3Stack(stack);
 		ImageProcessor mask = maskAndMarkers[0].getProcessor(1);
-		ImageProcessor markers = maskAndMarkers[1].getProcessor(2);
+		ImageProcessor markers = maskAndMarkers[0].getProcessor(2);
 
 		ImageProcessor binaryMask = ImageFunctions.maskThresholdMoreThan(mask, threshold, null);
 		ImageProcessor binaryMarkers = ImageFunctions.maskThresholdMoreThan(markers, threshold, null);
@@ -158,6 +158,7 @@ public class UNetSegmentation {
 //				.setOutputs("conv2d_80", "conv2d_79")
 //				.setOutputs("activation_55")
 				.setOutputs("output_sigmoid", "last_conv_softmax")
+//				.setOutputs("sigmoid", "sigmoid") 
 				.build();
 		INDArray[] prediction = graph.output(input);
 		INDArray predSigmoid = prediction[0];
@@ -281,8 +282,8 @@ public class UNetSegmentation {
 	}
 	
 	public static void main(String[] args) {	
-		String path = "G:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif";
-		String path2 = "G:\\Tokyo\\watershed_results\\c0010901_easy_ex\\c0010901_easy_ex.tif";
+		String path = "C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif";
+		String path2 = "C:\\Tokyo\\watershed_results\\c0010901_easy_ex\\c0010901_easy_ex.tif";
 		ImagePlus fluo_1 = IJ.openImage(path2);
 			
 		

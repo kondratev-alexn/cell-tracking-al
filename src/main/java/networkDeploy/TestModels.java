@@ -26,7 +26,7 @@ public class TestModels {
 	}
 	
 	public static void main(String[] args) {	
-		String path2 = "G:\\Tokyo\\watershed_results\\c0010901_easy_ex\\c0010901_easy_ex.tif";
+		String path2 = "C:\\Tokyo\\watershed_results\\c0010901_easy_ex\\c0010901_easy_ex.tif";
 		ImagePlus fluo_1 = IJ.openImage(path2);
 		
 		ImageStack stack = fluo_1.getStack();
@@ -68,7 +68,7 @@ public class TestModels {
 			ImagePlus imp = new ImagePlus("fdfd",res);
 			imp.show();
 			ImagePlus imp2 = new ImagePlus("mitosis",maskAndMarkers[1]);
-			IJ.save(imp2, "G:/Tokyo/mitosis_res_before_softmax.tif");
+			IJ.save(imp2, "C:/Tokyo/mitosis_res_before_softmax.tif");
 			imp2.show();
 			
 		} catch (IOException | UnsupportedKerasConfigurationException | InvalidKerasConfigurationException e) {

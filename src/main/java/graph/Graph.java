@@ -7,8 +7,8 @@ public class Graph {
 	protected ArrayList<Node> nodes; // vertices of the graph
 	protected ArrayList<Arc> arcs; // edges of the graph
 
-	// to use the graph easily
-	protected ArrayList<ArrayList<Integer>> adjLists; // has the same size as "nodes"
+	// to use the graph easily (easily, yeah...)
+	public ArrayList<ArrayList<Integer>> adjLists; // has the same size as "nodes"
 
 	public Graph(int nNodes, int nArcs, int nAdj) {
 		nodes = new ArrayList<Node>(5);
@@ -183,6 +183,8 @@ public class Graph {
 	 * @return
 	 */
 	public static int pathLength(ArrayList<ArrayList<Integer>> adj, int adjIndex) {
+		if (adjIndex == -1) 
+			return 0;
 		int length = 1;
 		ArrayList<Integer> childs = adj.get(adjIndex);
 		while (childs.size() == 1) {

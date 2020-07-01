@@ -109,7 +109,7 @@ public class PluginRunning {
 				imp2.setProcessor(null, ip);
 				Path path = ctcFolderPath.resolve(name+digits+".tif");
 				IJ.saveAs(imp2, "tiff", path.toString());
-			}			
+			}
 		}
 		IJ.log(log);
 	}	
@@ -129,40 +129,40 @@ public class PluginRunning {
 		ArrayList<String> folders = new ArrayList<String>();
 		// folders with confocal data
 		if (includeConfocal) {
-			folders.add("G:\\Tokyo\\Confocal\\171228A1-tiff-combinedAB\\c2");
-			folders.add("G:\\Tokyo\\Confocal\\171228A1-tiff-combinedCD\\c2");
-			folders.add("G:\\Tokyo\\Confocal\\171228A1-tiff-combinedEF\\c2");
-			folders.add("G:\\Tokyo\\Confocal\\181221-q8146921-tiff\\c2");
-			folders.add("G:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2");
-			folders.add("G:\\Tokyo\\Confocal\\181228A1-tiff-combined\\c2");
+			folders.add("C:\\Tokyo\\Confocal\\171228A1-tiff-combinedAB\\c2");
+			folders.add("C:\\Tokyo\\Confocal\\171228A1-tiff-combinedCD\\c2");
+			folders.add("C:\\Tokyo\\Confocal\\171228A1-tiff-combinedEF\\c2");
+			folders.add("C:\\Tokyo\\Confocal\\181221-q8146921-tiff\\c2");
+			folders.add("C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2");
+			folders.add("C:\\Tokyo\\Confocal\\181228A1-tiff-combined\\c2");
 		}
 
 		// fluo data
 		if (includeFluorescence) {
-			folders.add("G:\\Tokyo\\Data\\170704DataSeparated\\C0002\\all_folder");
+			folders.add("C:\\Tokyo\\Data\\170704DataSeparated\\C0002\\all_folder");
 		}
 		return getAllFilePathsFromFolders(folders);
 	}
 
 	static List<Path> shortTestSequences() throws IOException {
 		ArrayList<String> folders = new ArrayList<String>();
-		folders.add("G:\\Tokyo\\Data\\Short Sequences Test");
+		folders.add("C:\\Tokyo\\Data\\Short Sequences Test");
 		return getAllFilePathsFromFolders(folders);
 	}
 
 	static List<Path> hasGTSequences() throws IOException {
 		ArrayList<String> folders = new ArrayList<String>();
-		folders.add("G:\\Tokyo\\Example Sequences (segmented)");
+		folders.add("C:\\Tokyo\\Example Sequences (segmented)");
 		return getAllFilePathsFromFolders(folders);
 	}
 	
 	/** returns dictionary of sequence names and their GT paths */
 	static HashMap<String, Path> GTPaths() {
 		HashMap<String, Path> res = new HashMap<String, Path>();
-		res.put("c0010901_easy_ex", Paths.get("G:\\Tokyo\\metrics\\c0010901_easy_ex\\GT"));
-		res.put("c0010906_medium_double_nuclei_ex", Paths.get("G:\\Tokyo\\metrics\\c0010906_medium_double_nuclei_ex\\GT"));
-		res.put("c0010907_easy_ex", Paths.get("G:\\Tokyo\\metrics\\c0010907_easy_ex\\GT"));
-		res.put("c0010913_hard_ex", Paths.get("G:\\Tokyo\\metrics\\c0010913_hard_ex\\GT"));
+		res.put("c0010901_easy_ex", Paths.get("C:\\Tokyo\\metrics\\c0010901_easy_ex\\GT"));
+		res.put("c0010906_medium_double_nuclei_ex", Paths.get("C:\\Tokyo\\metrics\\c0010906_medium_double_nuclei_ex\\GT"));
+		res.put("c0010907_easy_ex", Paths.get("C:\\Tokyo\\metrics\\c0010907_easy_ex\\GT"));
+		res.put("c0010913_hard_ex", Paths.get("C:\\Tokyo\\metrics\\c0010913_hard_ex\\GT"));
 		return res;
 	}
 		
@@ -176,17 +176,19 @@ public class PluginRunning {
 
 	public static void main(String[] args) {
 		PluginRunning plugin = new PluginRunning();
-		// Path masterFolder = Paths.get("G:\\Tokyo\\auto_results");
+		// Path masterFolder = Paths.get("C:\\Tokyo\\auto_results");
 		boolean copyImage = true;
 		boolean drawOnly = false;
 		boolean rmBorderComponents = true;
 
-		Path wshedResults = Paths.get("G:\\Tokyo\\watershed_results");
-		Path noWshedResults = Paths.get("G:\\Tokyo\\no_watershed_results");
-		Path noMitosisWshedResults = Paths.get("G:\\Tokyo\\no_mitosis_watershed_results");
-		Path noMitosisNoWshedResults = Paths.get("G:\\Tokyo\\no_mitosis_no_watershed_results");
+		Path wshedResults = Paths.get("C:\\Tokyo\\watershed_results");
+		Path noWshedResults = Paths.get("C:\\Tokyo\\no_watershed_results");
+		Path noMitosisWshedResults = Paths.get("C:\\Tokyo\\no_mitosis_watershed_results");
+		Path noMitosisNoWshedResults = Paths.get("C:\\Tokyo\\no_mitosis_no_watershed_results");
 		
-		Path olderWshedUnetResults = Paths.get("G:\\Tokyo\\wshed v0");
+//		Path olderWshedUnetResults = Paths.get("wshed v0");
+//		Path olderWshedUnetResults = Paths.get("C:\\Tokyo\\pre_mitosis wshed resnet");
+		Path olderWshedUnetResults = Paths.get("C:\\Tokyo\\after mitosis wshed resnet (mit not used, old)");
 		
 		PluginParameters paramsWithWatershed = new PluginParameters("with wshed remove border",
 				0.5f, 50, 1500, 0.45f, 1.0f, 4, true, true, true, 
@@ -207,7 +209,7 @@ public class PluginRunning {
 				false, true, true, noMitosisNoWshedResults);
 		
 		PluginParameters paramsWithWatershedKeepBorder = new PluginParameters("with wshed keep border",
-				0.5f, 50, 1500, 0.45f, 1.0f, 2, true, true, true, 
+				0.5f, 50, 1500, 0.55f, 1.0f, 3, true, true, true, 
 				!rmBorderComponents,
 				false, true, true, olderWshedUnetResults);
 		
@@ -222,8 +224,8 @@ public class PluginRunning {
 		boolean tryLoadSegmentation = false;
 		
 		try {
-			String resultFileName = "metrics_comparison_border_keep_resunet_w_wshed_only_test_bci_min_track2";
-			WriterCSV writer = new WriterCSV(Paths.get("G:\\Tokyo\\metrics\\" + resultFileName + ".csv"));
+			String resultFileName = "wshed_resunet_mit_added_full_v6_len3";
+			WriterCSV writer = new WriterCSV(Paths.get("C:\\Tokyo\\metrics\\" + resultFileName + ".csv"));
 			String[] header = {"Sequence", "Experiment", "SEG", "TRA", "DET", "CT", "TF", "BCi"};
 			writer.writeLine(header);
 			for (int i = 0; i < parametersList.size(); ++i) {
@@ -233,13 +235,16 @@ public class PluginRunning {
 				Metrics metrics = new Metrics();
 
 				List<Path> paths = hasGTSequences();
+				List<Path> testP = new ArrayList<Path>();
+				testP.add(paths.get(2));
+				paths = testP;
 				HashMap<String, Path> gtPaths = GTPaths();
 				//List<Path> paths = shortTestSequences();
 				//paths.addAll(sequencesList(true, true));
 				
 				for (Path p : paths) {
 					// create folder for results based on sequence name
-					//p = Paths.get("G:\\Tokyo\\Example Sequences (segmented)\\c0010901_easy_ex.tif");
+					//p = Paths.get("C:\\Tokyo\\Example Sequences (segmented)\\c0010901_easy_ex.tif");
 					Path name = removeExtensionFromPath(p);
 					Path resFolder = masterFolder.resolve(name.getFileName());
 					if (!Files.exists(resFolder)) { // if no folder

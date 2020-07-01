@@ -60,11 +60,14 @@ public class Metrics {
 		return _CCA;
 	}
 	
-	
 	public void calculateMetrics(Path GTFolderPath, Path resultPath) {
 		String GTdir  = GTFolderPath.toString();
 		String RESdir = resultPath.toString();
-		
+		calculateMetrics(GTdir, RESdir);
+	}
+	
+	
+	public void calculateMetrics(String GTdir, String RESdir) {		
 		// SEG
 		try {
 			final SEG seg = new SEG(log);
