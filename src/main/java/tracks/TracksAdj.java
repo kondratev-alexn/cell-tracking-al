@@ -61,7 +61,10 @@ public class TracksAdj {
 		for (int i=0; i<tracksCount(); ++i) {
 			TrackAdj tr = tracks.get(i);
 			int endSlice = tr.getLastSlice();
-			System.out.format("%d ", endSlice);
+			int startSlice = tr.getFirstSlice();
+//			System.out.format("%d ", endSlice);
+			System.out.format("Track %d start at slice %d %n", i, startSlice);
+			
 		}
 		System.out.println();
 	}

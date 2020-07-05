@@ -28,7 +28,7 @@ public class MetricsTest {
 		seqNames[3] = "c0010913_hard_ex";
 		
 
-		WriterCSV writer = new WriterCSV(Paths.get("C:\\Tokyo\\metrics\\" + "old_results" + ".csv"));
+		WriterCSV writer = new WriterCSV(Paths.get("C:\\Tokyo\\metrics\\" + "old_results_t" + ".csv"));
 		String[] header = {"Sequence", "Experiment", "SEG", "TRA", "DET", "CT", "TF", "BCi"};
 		writer.writeLine(header);
 		

@@ -247,15 +247,16 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// track nuclei only
 			tracking.trackComponentsOneSlice(maxRadiusDark, oneSliceScoreThreshold, true, linkNormal, -1);
 			tracking.trackComponentsOneSlice(30, oneSliceScoreThreshold+2, true, linksNormalAndStart, -1);
+			tracking.trackComponentsOneSlice(100, oneSliceScoreThreshold+10, true, linkNormal, -1);
 			tracking.trackComponentsMultiSlice(maxRadiusDark, slices, scoreThreshold, timeDecayCoefficient, true, linkNormal, -1);
-//			tracking.trackComponentsMultiSlice(75, slices, scoreThreshold, timeDecayCoefficient, true, linkNormal, -1);
+//			tracking.trackComponentsMultiSlice(100, slices, scoreThreshold+10, timeDecayCoefficient, true, linkNormal, -1);
 
 			//connect mitosis end to normal
 			tracking.trackComponentsOneSlice(40, 0.8, true, linkEndNormal, -1);
 //			tracking.trackComponentsMultiSlice(40, 2, 1.2, 0.4f, true, linkEndNormal, -1);
 			
 			// connect mitosis end components
-//			tracking.trackComponentsOneSlice(30, 0.7, true, linkEndEnd, -1);
+			tracking.trackComponentsOneSlice(30, 0.7, true, linkEndEnd, -1);
 			
 			// connect nuclei with mitosis start
 			tracking.trackComponentsOneSlice(70, 0.8, true, linkNormalStart, -1);
@@ -271,7 +272,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 //			if (trackMitosis) {
 //				IJ.log("Tracking mitosis...");
 //				// check for mitosis start by two ideas (intensity change / bright blob nearby)
-//				tracking.analyzeTracksForMitosisByAverageIntensity(mitosisStartIntensityCoefficient);
+//			 	tracking.analyzeTracksForMitosisByAverageIntensity(mitosisStartIntensityCoefficient);
 //				tracking.analyzeTracksForMitosisByWhiteBlob(0.5f);				
 //				tracking.startMitosisTracking(30, childPenaltyThreshold);
 //				IJ.log("Mitosis tracking finished");
@@ -289,7 +290,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 				ArrayList<ComponentStateLink> linksParentChildNN = new ArrayList<ComponentStateLink>();
 				linksParentChildNN.add(new ComponentStateLink(State.NORMAL, State.NORMAL));
-				tracking.divisionTracking(60, 3, 10, 0.4f, linksParentChildNN, null);
+//				tracking.divisionTracking(60, 3, 10, 0.4f, linksParentChildNN, null);
 				IJ.log("Mitosis tracking finished");
 			}
 			
@@ -624,6 +625,16 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		ImageStack stack3 = create3Stack();
 		ImageProcessor[] watershedResMitosisMasks = uNetSegmentation.binarySegmentationFromMaskWithMarkers(stack3, 0.5f, 0.6f);
 		
+		if (currSlice == 6) {
+////			save binary masks img for paper
+//			ImagePlus binMasks = new ImagePlus("bin_masks", watershedResMitosisMasks[3]);
+//			ImagePlus binMarkers = new ImagePlus("bin_markers", watershedResMitosisMasks[4]);
+//			ImagePlus slice6 = new ImagePlus("slice6_img", stack3.getProcessor(2));
+//			IJ.save(binMasks, "C://Tokyo//bin_masks.tif");
+//			IJ.save(binMarkers, "C://Tokyo//bin_markers.tif");
+//			IJ.save(slice6, "C://Tokyo//img_slice.tif");
+//			IJ.save(new ImagePlus("vv",watershedResMitosisMasks[0]), "C://Tokyo//watershed_es.tif");
+		}
 		mitosisStart.setProcessor(watershedResMitosisMasks[1], currSlice);
 		mitosisEnd.setProcessor(watershedResMitosisMasks[2], currSlice);
 		
@@ -1082,7 +1093,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 //			ImagePlus image_ex_01 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
 			ImagePlus image_ex_06 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
 			ImagePlus image_ex_07 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
-//			ImagePlus image_ex_13 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
+			ImagePlus image_ex_13 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
 
 //			ImagePlus confocal_1 = IJ.openImage("C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif");
 
@@ -1095,7 +1106,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// image = image_ez_division;
 			// image = image_test_tracking;
 			// image = image_shorter_bright_blobs;
-//			image = image_ex_06;
+			image = image_ex_06;
 //			image = image_ex_13;
 			//image = confocal_1;
 			ImageConverter converter = new ImageConverter(image);

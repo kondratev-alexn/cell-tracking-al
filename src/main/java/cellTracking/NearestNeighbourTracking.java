@@ -79,7 +79,7 @@ public class NearestNeighbourTracking {
 	 * fill in the graph
 	 */
 	public void findNearestComponents(ImageComponentsAnalysis comp1, int t1, ImageComponentsAnalysis comp2, int t2,
-			double radius, double scoreThreshold) {
+			double radius, double scoreThreshold, ArrayList<ComponentStateLink> allowedConnections) {
 		Point m1, m2;
 		int closestIndex, backClosestIndex;
 		Node v1, v2;
@@ -89,13 +89,13 @@ public class NearestNeighbourTracking {
 			}
 			m2 = comp2.getComponentMassCenter(i); //
 			// closestIndex = findClosestPointIndex(m2, comp1, radius);
-			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius, scoreThreshold);
+			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius, scoreThreshold, allowedConnections);
 			if (closestIndex != -1) { // closest component found, add to graph
 				// should also check back - if for the found component the closest neighbour is
 				// the same, then link them, otherwise skip?
 				m1 = comp1.getComponentMassCenter(closestIndex);
 				// backClosestIndex = findClosestPointIndex(m1, comp2, radius);
-				backClosestIndex = findBestScoringComponentIndex(comp1, closestIndex, comp2, radius, scoreThreshold);
+				backClosestIndex = findBestScoringComponentIndex(comp1, closestIndex, comp2, radius, scoreThreshold, allowedConnections);
 				if (backClosestIndex != i)
 					continue;
 				if (comp1.getComponentChildCount(closestIndex) > 0) { // only if it has no children
@@ -115,7 +115,7 @@ public class NearestNeighbourTracking {
 
 	/* this is for back tracking (mitosys should be tracked with this steps) */
 	public void findNearestComponentsBackStep(ImageComponentsAnalysis comp2, int t2, ImageComponentsAnalysis comp1,
-			int t1, double radius, double scoreThreshold) {
+			int t1, double radius, double scoreThreshold, ArrayList<ComponentStateLink> allowedConnections) {
 		Point m2;
 		int closestIndex;
 		Node v1, v2;
@@ -125,7 +125,7 @@ public class NearestNeighbourTracking {
 			}
 			m2 = comp2.getComponentMassCenter(i); // component without parent
 			// closestIndex = findClosestPointIndex(m2, comp1, radius);
-			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius, scoreThreshold);
+			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius, scoreThreshold, allowedConnections);
 			// here should be daughter-check, not the same scoring function
 
 			if (closestIndex != -1) { // closest component found, add to graph
@@ -159,14 +159,14 @@ public class NearestNeighbourTracking {
 	 * component of i in i-1 that wasn't tracked
 	 */
 	public void trackComponents(double radius, double radiusBackTracking, int n_lookThroughSlices,
-			double scoreThreshold) {
+			double scoreThreshold, ArrayList<ComponentStateLink> allowedConnections) {
 		// 0 -> T tracking
 
 		for (int j = 0; j < n_lookThroughSlices; j++) {
 			for (int i = 1; i < componentsList.size(); ++i) {
 				if (i + j < componentsList.size())
 					findNearestComponents(componentsList.get(i - 1), i - 1, componentsList.get(i + j), i + j,
-							radius + j * 10, scoreThreshold);
+							radius + j * 10, scoreThreshold, allowedConnections);
 			}
 		}
 
@@ -175,7 +175,7 @@ public class NearestNeighbourTracking {
 			for (int i = componentsList.size() - 1; i > 0; --i) {
 				if (i - j > 0) {
 					findNearestComponentsBackStep(componentsList.get(i), i, componentsList.get(i - 1 - j), i - 1 - j,
-							radiusBackTracking + j * 10, 2 * scoreThreshold);
+							radiusBackTracking + j * 10, 2 * scoreThreshold, allowedConnections);
 				}
 			}
 		}
@@ -199,17 +199,17 @@ public class NearestNeighbourTracking {
 				continue;
 			}
 			indexes = findBestScoringComponentIndexMultiSlice(comp1, i, t1, comp2List, nSlices, maxRadius,
-					scoreThreshold, timeDecayCoefficient);
+					scoreThreshold, timeDecayCoefficient, allowedConnections);
 			slice = indexes[0];
 			index = indexes[1];
 
 			if (index != -1) { // something was found
 				// check back-compatabilty
 				backBestIndex = findBestScoringComponentIndex(comp2List.get(slice), index, comp1, maxRadius,
-						scoreThreshold);
+						scoreThreshold, allowedConnections);
 				if (backBestIndex != i)
 					continue;
-				if (comp2List.get(slice).getComponentHasParent(index) || comp2List.get(slice).getComponentState(index) == State.MITOSIS)
+				if (comp2List.get(slice).getComponentHasParent(index))
 					continue;
 				
 				// connect only mit_end -> mit_end or mit_end -> normal. 
@@ -303,12 +303,20 @@ public class NearestNeighbourTracking {
 	 * radius for components; if min score is higher than scoreThreshold, then don't
 	 * consider it "best", return -1 (not found)
 	 */
-	private int findBestScoringComponentIndex(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2,
-			double maxRadius, double scoreThreshold) {
+	public static int findBestScoringComponentIndex(ImageComponentsAnalysis comp1, int i1, ImageComponentsAnalysis comp2,
+			double maxRadius, double scoreThreshold, ArrayList<ComponentStateLink> allowedConnections) {
 		int min_i = -1;
 		double min_score = Double.MAX_VALUE;
 		double score;
 		for (int i = 0; i < comp2.getComponentsCount(); i++) {
+			boolean isAllowed = false;
+			for (ComponentStateLink allowedLink: allowedConnections) {
+				// here we need to check reverted state links
+				isAllowed = isAllowed || allowedLink.checkRevertedStates(comp1, i1, comp2, i);
+			}
+			if (!isAllowed)
+				continue;
+			
 			score = PenaltyFunction.penalFunctionNN(comp1, i1, comp2, i, maxRadius);
 //			if (comp1.getComponentState(i1)==State.NORMAL && comp2.getComponentState(i)==State.MITOSIS_START) 
 //				System.out.println("score for normal->mit_start connection is: " + score);
@@ -331,7 +339,7 @@ public class NearestNeighbourTracking {
 	 */
 	private int[] findBestScoringComponentIndexMultiSlice(ImageComponentsAnalysis comp1, int i1, int t1,
 			ArrayList<ImageComponentsAnalysis> comp2List, int nSlices, double maxRadius, double scoreThreshold,
-			double timeDecayCoefficient) {
+			double timeDecayCoefficient, ArrayList<ComponentStateLink> allowedConnections) {
 		int[] result = new int[2];
 		int firstBestSlice = t1 + 1, secondBestSlice = t1 + 1;
 		int firstBestIndex = -1, secondBestIndex = -1;
@@ -342,6 +350,13 @@ public class NearestNeighbourTracking {
 				break;
 			dt = t - t1 - 1; // for multiplier coefficient
 			for (int i2 = 0; i2 < comp2List.get(t).getComponentsCount(); i2++) {
+				boolean isAllowed = false;
+				for (ComponentStateLink allowedLink: allowedConnections) {
+					isAllowed = isAllowed || allowedLink.checkStates(comp1, i1, comp2List.get(t), i2);
+				}
+				if (!isAllowed)
+					continue;
+				
 				score = (1 + dt * timeDecayCoefficient)
 						* PenaltyFunction.penalFunctionNN(comp1, i1, comp2List.get(t), i2, maxRadius);
 				if (score > scoreThreshold) {

@@ -129,10 +129,12 @@ public class UNetSegmentation {
 		
 		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(dist, labeledMarkers,
 				binaryMask, 4);
-		ImageProcessor res_ips[] = new ImageProcessor[3];
+		ImageProcessor res_ips[] = new ImageProcessor[5];
 		res_ips[0] = watershed.applyWithPriorityQueue();
 		res_ips[1] = binaryMitosisStart;
 		res_ips[2] = binaryMitosisEnd;
+		res_ips[3] = binaryMask;
+		res_ips[4] = binaryMarkers;
 		return res_ips;
 	}
 

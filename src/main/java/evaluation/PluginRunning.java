@@ -112,7 +112,7 @@ public class PluginRunning {
 			}
 		}
 		IJ.log(log);
-	}	
+	}
 
 	public static List<Path> getAllFilePathsFromFolders(List<String> folders) throws IOException {
 		List<Path> result = new ArrayList<Path>();
@@ -209,10 +209,9 @@ public class PluginRunning {
 				false, true, true, noMitosisNoWshedResults);
 		
 		PluginParameters paramsWithWatershedKeepBorder = new PluginParameters("with wshed keep border",
-				0.5f, 50, 1500, 0.55f, 1.0f, 3, true, true, true, 
+				0.5f, 50, 1500, 0.55f, 1.0f, 2, true, true, true, 
 				!rmBorderComponents,
 				false, true, true, olderWshedUnetResults);
-		
 
 		ArrayList<PluginParameters> parametersList = new ArrayList<PluginParameters>();
 		//parametersList.add(paramsWithoutWatershed);
@@ -224,7 +223,7 @@ public class PluginRunning {
 		boolean tryLoadSegmentation = false;
 		
 		try {
-			String resultFileName = "wshed_resunet_mit_added_full_v6_len3";
+			String resultFileName = "wshed_resunet_mit_added_full_v7_len2_test_asv6";
 			WriterCSV writer = new WriterCSV(Paths.get("C:\\Tokyo\\metrics\\" + resultFileName + ".csv"));
 			String[] header = {"Sequence", "Experiment", "SEG", "TRA", "DET", "CT", "TF", "BCi"};
 			writer.writeLine(header);
@@ -235,9 +234,9 @@ public class PluginRunning {
 				Metrics metrics = new Metrics();
 
 				List<Path> paths = hasGTSequences();
-				List<Path> testP = new ArrayList<Path>();
-				testP.add(paths.get(2));
-				paths = testP;
+//				List<Path> testP = new ArrayList<Path>();
+//				testP.add(paths.get(1));
+//				paths = testP;
 				HashMap<String, Path> gtPaths = GTPaths();
 				//List<Path> paths = shortTestSequences();
 				//paths.addAll(sequencesList(true, true));

@@ -115,7 +115,7 @@ public class DivisionTracking {
 					//trying to remove the whole track, do something
 					return;
 				}
-			}			
+			}
 
 			int nodeToIndex = tracks.getStartAdjIndexForTrack(trIndex);
 			g.addArcFromIndexToIndexAddable(endIndex, nodeToIndex);
@@ -138,10 +138,26 @@ public class DivisionTracking {
 		for (int i = 0; i < possibleTracksIndexes.size(); i++) {
 			componentIndex = tracks.getFirstComponentIndexForTrack(possibleTracksIndexes.get(i));
 			trackStartingSlice = tracks.getStartSliceForTrack(possibleTracksIndexes.get(i));
+			
 			int sliceDelta = trackStartingSlice - parentComponentSlice;
-			score = (1 + timeCoef * sliceDelta) * penalFunction1to1(componentsList.get(parentComponentSlice), blobComponentIndex,
+			score = timeCoef * sliceDelta + penalFunction1to1(componentsList.get(parentComponentSlice), blobComponentIndex,
 					componentsList.get(trackStartingSlice), componentIndex, minDistance);
-			State state1,state2;
+
+			System.out.println("Parent-child score between parent track ended in slice "
+					+ parentComponentSlice + " and candidate track " + possibleTracksIndexes.get(i) + " starting in slice " + trackStartingSlice + 
+					" with X0 at " + componentsList.get(trackStartingSlice).getComponentX0(componentIndex) + " is " + score);
+			
+			// need to go through each track here for back-checking
+//			for (int tri = 0; tri < tracks.tracksCount(); ++tri) {
+//				TrackAdj tr = tracks.getTrack(i);
+//				int backBestIndex = NearestNeighbourTracking.findBestScoringComponentIndex(componentsList.get(trackStartingSlice), componentIndex, 
+//						componentsList.get(parentComponentSlice),
+//						searchTracksRadius,
+//						5, allowedConnectionsParentChild);
+//				if (backBestIndex != blobComponentIndex)
+//					score = score + 2;
+//			}
+			State state1, state2;
 			state1 = componentsList.get(parentComponentSlice).getComponentState(blobComponentIndex);
 			state2 = componentsList.get(trackStartingSlice).getComponentState(componentIndex);
 			// improve score for pair mit_start -> mit_end
@@ -235,14 +251,26 @@ public class DivisionTracking {
 		// if in the same slice then dSlice=0, should remove first component
 		
 		// try removing first components so that daughter tracks start in the same slice
-		int maxSliceDif = dSlice1;
-		if (dSlice2<maxSliceDif)
-			maxSliceDif = dSlice2;
-
-		if (maxSliceDif >= 0) {
-			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex1, maxSliceDif + 1);
-			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex2, maxSliceDif + 1);
+//		int maxSliceDif = dSlice1;
+//		if (dSlice2<maxSliceDif)
+//			maxSliceDif = dSlice2;
+//
+//		if (maxSliceDif >= 0) {
+//			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex1, maxSliceDif + 1);
+//			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex2, maxSliceDif + 1);
+//		}
+		
+//		we should disconnect components from track that starts earlier to the part their start at the same slice
+		int sliceDif = tracks.getStartSliceForTrack(bestTrackIndex1) - tracks.getStartSliceForTrack(bestTrackIndex2);
+		if (sliceDif > 0) { 
+//			track2 started earlier, disconnect components from it
+			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex2, sliceDif);
 		}
+		else if (sliceDif<0) {
+//			track1 started earlier
+			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex1, -sliceDif);
+		}
+		
 //		if (dSlice1 >= 0) 
 //			tracks.disconnectFirstComponentsFromTrack(bestTrackIndex1, dSlice1 + 1);
 //		if (dSlice2 >= 0)
@@ -313,8 +341,8 @@ public class DivisionTracking {
 		double c_intens_diff, c_size_diff, c_diff_distance, c_dist, c_time_to_parent, c_children_time_difference; // coefficients
 		c_intens_diff = 0.1; // for intensity of the child blobs
 		c_size_diff = 0.1; // for size of child blobs
-		c_diff_distance = 0.5; // for difference in distance between child blobs and parent
-		c_dist = 0.1;
+		c_diff_distance = 0.1; // for difference in distance between child blobs and parent
+		c_dist = 1.2;
 		c_time_to_parent = 2;
 		c_children_time_difference = 1.5;
 		
