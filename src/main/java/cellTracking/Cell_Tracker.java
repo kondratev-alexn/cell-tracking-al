@@ -297,6 +297,11 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// draw mitosis start, end on the image for visualisation
 			ImagePlus unetMitosisVisualization = Visualization.drawMitosisStartEndFromUnet(imp, mitosisStart, mitosisEnd);
 			IJ.save(unetMitosisVisualization, "C:\\Tokyo\\mitosis_vis.tif");
+			
+			
+//			ImagePlus colorTracks = tracking.colorTracks(imp);
+//			IJ.save(colorTracks, "color_tracks.tif");
+//			Visualization.
 
 			// System.out.println(tracking.getGraph());
 			// System.out.println(tracking.getGraph().checkNoEqualNodes());
@@ -340,6 +345,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// here tracking ctc image is created
 			ctcComponents = resultGraph.showTrackedComponentImages(ctcTifResult, true, !noImageJProcessing);
 			//resultGraph.printTrackedGraph();
+			
+			ImagePlus coloredTrackImage = resultGraph.drawComponentColoredByFullTracks(imp);
+			IJ.save(coloredTrackImage, "colored_tracks.tif");
+//			coloredTrackImage.show();
 
 			String txtResultName = imp.getShortTitle() + "_tracking_results.txt";
 			String txtPath = trackingResultsDir + txtResultName;
@@ -1091,14 +1100,14 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// IJ.openImage("C:\\Tokyo\\Short_c1_ex.tif");
 
 //			ImagePlus image_ex_01 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
-			ImagePlus image_ex_06 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
-			ImagePlus image_ex_07 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
+//			ImagePlus image_ex_06 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
+//			ImagePlus image_ex_07 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
 			ImagePlus image_ex_13 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
 
 //			ImagePlus confocal_1 = IJ.openImage("C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif");
 
 //			image = image_ex_01;
-			 image = image_ex_07;
+//			 image = image_ex_07;
 			// image = image_stack20;
 //			image = image_stack10;
 			// image = image_stack3;
@@ -1106,8 +1115,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// image = image_ez_division;
 			// image = image_test_tracking;
 			// image = image_shorter_bright_blobs;
-			image = image_ex_06;
-//			image = image_ex_13;
+//			image = image_ex_06;
+			image = image_ex_13;
 			//image = confocal_1;
 			ImageConverter converter = new ImageConverter(image);
 			converter.convertToGray32();

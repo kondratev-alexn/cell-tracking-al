@@ -14,7 +14,7 @@
 
 	<groupId>noneGroupId</groupId>
 	<artifactId>Cell_Tracking</artifactId>
-	<version>1.1.0</version>
+	<version>1.2.0</version>
 	<name>Cell tracking</name>
 	<description>A project implementing imageJ plugin for cell tracking</description>
 	
@@ -142,4 +142,5 @@
     		<version>4.1</version> 
 		</dependency> 
 	</dependencies>
+	
 </project>
