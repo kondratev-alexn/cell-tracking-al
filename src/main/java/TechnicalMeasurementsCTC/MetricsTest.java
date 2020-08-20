@@ -12,15 +12,15 @@ public class MetricsTest {
 		String resFolders[] = {"RES", "RES Unet", "RES UNet boundary no mit no wshed", "RES UNet boundary no mit wshed",
 				"RES UNet boundary no wshed", "Res UNet boundary wshed"};
 		
-		gtPaths[0] = "C:\\Tokyo\\metrics\\c0010901_easy_ex\\GT";
-		gtPaths[1] = "C:\\Tokyo\\metrics\\c0010906_medium_double_nuclei_ex\\GT";
-		gtPaths[2] = "C:\\Tokyo\\metrics\\c0010907_easy_ex\\GT";
-		gtPaths[3] = "C:\\Tokyo\\metrics\\c0010913_hard_ex\\GT";		
+		gtPaths[0] = "G:\\Tokyo\\metrics\\c0010901_easy_ex\\GT";
+		gtPaths[1] = "G:\\Tokyo\\metrics\\c0010906_medium_double_nuclei_ex\\GT";
+		gtPaths[2] = "G:\\Tokyo\\metrics\\c0010907_easy_ex\\GT";
+		gtPaths[3] = "G:\\Tokyo\\metrics\\c0010913_hard_ex\\GT";		
 
-		resPaths[0] = "C:\\Tokyo\\metrics\\c0010901_easy_ex";
-		resPaths[1] = "C:\\Tokyo\\metrics\\c0010906_medium_double_nuclei_ex";
-		resPaths[2] = "C:\\Tokyo\\metrics\\c0010907_easy_ex";
-		resPaths[3] = "C:\\Tokyo\\metrics\\c0010913_hard_ex";
+		resPaths[0] = "G:\\Tokyo\\metrics\\c0010901_easy_ex";
+		resPaths[1] = "G:\\Tokyo\\metrics\\c0010906_medium_double_nuclei_ex";
+		resPaths[2] = "G:\\Tokyo\\metrics\\c0010907_easy_ex";
+		resPaths[3] = "G:\\Tokyo\\metrics\\c0010913_hard_ex";
 		
 		seqNames[0] = "c0010901_easy_ex";
 		seqNames[1] = "c0010906_medium_double_nuclei_ex";
@@ -28,7 +28,7 @@ public class MetricsTest {
 		seqNames[3] = "c0010913_hard_ex";
 		
 
-		WriterCSV writer = new WriterCSV(Paths.get("C:\\Tokyo\\metrics\\" + "old_results_t" + ".csv"));
+		WriterCSV writer = new WriterCSV(Paths.get("G:\\Tokyo\\metrics\\" + "old_results_t" + ".csv"));
 		String[] header = {"Sequence", "Experiment", "SEG", "TRA", "DET", "CT", "TF", "BCi"};
 		writer.writeLine(header);
 		

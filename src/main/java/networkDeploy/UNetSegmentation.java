@@ -284,8 +284,8 @@ public class UNetSegmentation {
 	}
 	
 	public static void main(String[] args) {	
-		String path = "C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif";
-		String path2 = "C:\\Tokyo\\watershed_results\\c0010901_easy_ex\\c0010901_easy_ex.tif";
+		String path = "G:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif";
+		String path2 = "G:\\Tokyo\\watershed_results\\c0010901_easy_ex\\c0010901_easy_ex.tif";
 		ImagePlus fluo_1 = IJ.openImage(path2);
 			
 		

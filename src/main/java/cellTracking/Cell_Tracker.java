@@ -296,8 +296,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			
 			// draw mitosis start, end on the image for visualisation
 			ImagePlus unetMitosisVisualization = Visualization.drawMitosisStartEndFromUnet(imp, mitosisStart, mitosisEnd);
-			IJ.save(unetMitosisVisualization, "C:\\Tokyo\\mitosis_vis.tif");
-			
+			IJ.save(unetMitosisVisualization, "G:\\Tokyo\\mitosis_vis.tif");
 			
 //			ImagePlus colorTracks = tracking.colorTracks(imp);
 //			IJ.save(colorTracks, "color_tracks.tif");
@@ -314,8 +313,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			}
 			
 			// save mitosis start and end results for now
-//			IJ.save(new ImagePlus("start", mitosisStart), "C:\\Tokyo\\mitosis_start.tif");
-//			IJ.save(new ImagePlus("end", mitosisEnd), "C:\\Tokyo\\mitosis_end.tif");
+//			IJ.save(new ImagePlus("start", mitosisStart), "G:\\Tokyo\\mitosis_start.tif");
+//			IJ.save(new ImagePlus("end", mitosisEnd), "G:\\Tokyo\\mitosis_end.tif");
 
 			IJ.log("Displaying results.");
 			
@@ -639,10 +638,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 //			ImagePlus binMasks = new ImagePlus("bin_masks", watershedResMitosisMasks[3]);
 //			ImagePlus binMarkers = new ImagePlus("bin_markers", watershedResMitosisMasks[4]);
 //			ImagePlus slice6 = new ImagePlus("slice6_img", stack3.getProcessor(2));
-//			IJ.save(binMasks, "C://Tokyo//bin_masks.tif");
-//			IJ.save(binMarkers, "C://Tokyo//bin_markers.tif");
-//			IJ.save(slice6, "C://Tokyo//img_slice.tif");
-//			IJ.save(new ImagePlus("vv",watershedResMitosisMasks[0]), "C://Tokyo//watershed_es.tif");
+//			IJ.save(binMasks, "G://Tokyo//bin_masks.tif");
+//			IJ.save(binMarkers, "G://Tokyo//bin_markers.tif");
+//			IJ.save(slice6, "G://Tokyo//img_slice.tif");
+//			IJ.save(new ImagePlus("vv",watershedResMitosisMasks[0]), "G://Tokyo//watershed_es.tif");
 		}
 		mitosisStart.setProcessor(watershedResMitosisMasks[1], currSlice);
 		mitosisEnd.setProcessor(watershedResMitosisMasks[2], currSlice);
@@ -1061,17 +1060,17 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		if (traConvert) {
 			EvaluationFromRoi eval = new EvaluationFromRoi();
 			new ImageJ();
-			String roiFilePath = "C:\\Tokyo\\trackingResults\\c0010901_easy_ex-matchedROI.zip";
-			String imageFilePath = "C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif";
+			String roiFilePath = "G:\\Tokyo\\trackingResults\\c0010901_easy_ex-matchedROI.zip";
+			String imageFilePath = "G:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif";
 
-			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010907_easy_ex-matchedROI.zip";
-			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif";
+			roiFilePath = "G:\\Tokyo\\trackingResults\\c0010907_easy_ex-matchedROI.zip";
+			imageFilePath = "G:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif";
 
-			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010906_medium_double_nuclei_ex-matchedROI.zip";
-			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif";
+			roiFilePath = "G:\\Tokyo\\trackingResults\\c0010906_medium_double_nuclei_ex-matchedROI.zip";
+			imageFilePath = "G:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif";
 
-			roiFilePath = "C:\\Tokyo\\trackingResults\\c0010913_hard_ex-matchedROI.zip";
-			imageFilePath = "C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif";
+			roiFilePath = "G:\\Tokyo\\trackingResults\\c0010913_hard_ex-matchedROI.zip";
+			imageFilePath = "G:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif";
 
 			eval.convertToTRAformat(roiFilePath, imageFilePath);
 			return;
@@ -1091,20 +1090,20 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			new ImageJ();
 			ImagePlus image;
 			
-			// ImagePlus image_stack20 = IJ.openImage("C:\\Tokyo\\C002_Movement.tif");
+			// ImagePlus image_stack20 = IJ.openImage("G:\\Tokyo\\C002_Movement.tif");
 			// ImagePlus image_c14 =
-			// IJ.openImage("C:\\Tokyo\\170704DataSeparated\\C0002\\c0010914_C002.tif");
-			// ImagePlus image_stack3 = IJ.openImage("C:\\Tokyo\\\\movement_3images.tif");
-			ImagePlus image_stack10 = IJ.openImage("C:\\Tokyo\\c01_11_slices.tif");
+			// IJ.openImage("G:\\Tokyo\\170704DataSeparated\\C0002\\c0010914_C002.tif");
+			// ImagePlus image_stack3 = IJ.openImage("G:\\Tokyo\\\\movement_3images.tif");
+			ImagePlus image_stack10 = IJ.openImage("G:\\Tokyo\\c01_11_slices.tif");
 			// ImagePlus image_shorter_bright_blobs =
-			// IJ.openImage("C:\\Tokyo\\Short_c1_ex.tif");
+			// IJ.openImage("G:\\Tokyo\\Short_c1_ex.tif");
 
-//			ImagePlus image_ex_01 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
-//			ImagePlus image_ex_06 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
-//			ImagePlus image_ex_07 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
-			ImagePlus image_ex_13 = IJ.openImage("C:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
+//			ImagePlus image_ex_01 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010901_easy_ex.tif");
+//			ImagePlus image_ex_06 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010906_medium_double_nuclei_ex.tif");
+//			ImagePlus image_ex_07 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010907_easy_ex.tif");
+			ImagePlus image_ex_13 = IJ.openImage("G:\\Tokyo\\example_sequences\\c0010913_hard_ex.tif");
 
-//			ImagePlus confocal_1 = IJ.openImage("C:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif");
+//			ImagePlus confocal_1 = IJ.openImage("G:\\Tokyo\\Confocal\\181221-q8156901-tiff\\c2\\181221-q8156901hfC2c2.tif");
 
 //			image = image_ex_01;
 //			 image = image_ex_07;

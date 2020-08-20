@@ -75,7 +75,7 @@ public class CellTrackingGraph {
 		}
 
 		resetNewIndex();
-//		System.out.println("Graph before analyzinC: ");
+//		System.out.println("Graph before analyzinG: ");
 //		System.out.println(trGraph);
 
 		// for (int i=0; i<prevComponentsList.size(); i++) {
@@ -86,7 +86,7 @@ public class CellTrackingGraph {
 		MitosisInfo info = new MitosisInfo();
 		analyseTrackingGraph(info, minTrackLength); // new g is generated, images filled with newly labeled components
 
-//		System.out.println("Graph after analyzinC: ");
+//		System.out.println("Graph after analyzinG: ");
 //		System.out.println(trGraph);
 
 		if (!infoFileName.isEmpty())

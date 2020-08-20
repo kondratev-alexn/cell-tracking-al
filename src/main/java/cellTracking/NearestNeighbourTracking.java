@@ -141,7 +141,7 @@ public class NearestNeighbourTracking {
 				// if closest component in comp1 has 0 children or 1 children
 				v1 = new Node(t1, closestIndex);
 				v2 = new Node(t2, i);
-				System.out.println("Arc made during back trackinC: " + v1 + " -- " + v2
+				System.out.println("Arc made during back trackinG: " + v1 + " -- " + v2
 						+ " with comp1(closest) child count being " + comp1.getComponentChildCount(closestIndex)
 						+ "and comp2 child count being " + comp2.getComponentChildCount(i));
 				cellGraph.addArcFromToAddable(v1, v2);
@@ -155,7 +155,7 @@ public class NearestNeighbourTracking {
 
 	/*
 	 * components list should be filled tracking algorithm: first, find nearest
-	 * neighbours going from 0 to T time slice then, back trackinC: find nearest
+	 * neighbours going from 0 to T time slice then, back trackinG: find nearest
 	 * component of i in i-1 that wasn't tracked
 	 */
 	public void trackComponents(double radius, double radiusBackTracking, int n_lookThroughSlices,
@@ -617,20 +617,20 @@ public class NearestNeighbourTracking {
 			String log = String.format("Mitosis tracking, slice %d %n", slice);
 			IJ.log(log);
 			System.out.println();
-			System.out.println("--- Mitosis trackinC: slice " + slice);
+			System.out.println("--- Mitosis trackinG: slice " + slice);
 			whiteBlobsTracking.fillSliceDetectionsWithUniqueCandidates(slice,
 					componentsList.get(slice).getInvertedIntensityImage());
 			whiteBlobsTracking.sortBlobsInDetections(slice);
-			System.out.println("--- Mitosis trackinC: Filling first Blobs");
+			System.out.println("--- Mitosis trackinG: Filling first Blobs");
 			whiteBlobsTracking.fillFirstBlobs(slice);
-			System.out.println("--- Mitosis trackinC: Filling second Blobs");
+			System.out.println("--- Mitosis trackinG: Filling second Blobs");
 			whiteBlobsTracking.fillSecondBlobs(slice, childPenalThreshold);
 
 			// whiteBlobsTracking.fillTrackCandidateIndexes(slice, searchTracksRadius);
 		}
 	}
 
-	// currently not workinC: doesn't remove components from graph
+	// currently not workinG: doesn't remove components from graph
 	public void clearIsolatedComponents() {
 		for (int i = 0; i < componentsList.size(); i++)
 			for (int j = 0; j < componentsList.get(i).getComponentsCount(); j++) {
@@ -810,7 +810,7 @@ public class NearestNeighbourTracking {
 				// if closest component in comp1 has 0 children or 1 children
 				v1 = new Node(t1, closestIndex);
 				v2 = new Node(t2, i);
-				// System.out.println("Arc made during back trackinC: " + v1 + " -- " + v2
+				// System.out.println("Arc made during back trackinG: " + v1 + " -- " + v2
 				// + " with comp1(closest) child count being " +
 				// comp1.getComponentChildCount(closestIndex)
 				// + "and comp2 child count being " + comp2.getComponentChildCount(i));

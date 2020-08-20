@@ -12,7 +12,7 @@
 		<relativePath />
 	</parent>
 
-	<groupId>noneGroupId</groupId>
+	<groupId>ru.mmip.tracking</groupId>
 	<artifactId>Cell_Tracking</artifactId>
 	<version>1.2.0</version>
 	<name>Cell tracking</name>
@@ -139,8 +139,7 @@
 		<dependency> 
     		<groupId>com.opencsv</groupId> 
     		<artifactId>opencsv</artifactId> 
-    		<version>4.1</version> 
-		</dependency> 
+    		</dependency> 
 	</dependencies>
 	
 </project>
