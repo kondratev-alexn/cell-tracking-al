@@ -58,25 +58,7 @@ public class UNetSegmentation {
 		ImageProcessor binary = ImageFunctions.maskThresholdMoreThan(prediction, threshold, null);
 		return binary;
 	}
-	
-	/* apply softmax */
-//	public ImageStack softmax(ImageStack stack) {
-//		int w = stack.getWidth();
-//		int h = stack.getHeight();
-//		int s = stack.getSize();
-//		ImageStack res = new ImageStack(w, h, s);
-//		for (int y=0; y<h; ++y)
-//			for (int x=0; x<w; ++x) {
-//				float temp[] = new float[s];				
-//				for (int c=1; c<=s; ++c) {
-//				// softmax is 
-//					temp[c] = Exp(stack.getpi)
-//				}
-//			}
-//		
-//		return res;
-//	}
-	
+		
 	/** apply softmax for 3-channel images */
 	public ImageStack softmax_3c(ImageStack stack) {
 	int w = stack.getWidth();
@@ -165,8 +147,6 @@ public class UNetSegmentation {
 		INDArray[] prediction = graph.output(input);
 		INDArray predSigmoid = prediction[0];
 		INDArray predBeforeSoftmax = prediction[1];
-//		System.out.println(predSigmoid.shapeInfoToString());
-//		System.out.println(predBeforeSoftmax.shapeInfoToString());
 		
 		ImageStack binaryMaskWithMarkers = INDArray2ImageStack(predSigmoid);
 		ImageStack categoryMitosisMasks = INDArray2ImageStack(predBeforeSoftmax);
@@ -180,6 +160,7 @@ public class UNetSegmentation {
 	private INDArray imageProcessor2INDArray(ImageProcessor ip) {
 		int w = ip.getWidth();
 		int h = ip.getHeight();
+		
 		/* Input shape is [minibatchSize, layerInputDepth, inputHeight, inputWidth] */
 		INDArray res = Nd4j.zeros(1, 1, h, w);
 		for (int y=0; y<h; ++y)
@@ -193,6 +174,7 @@ public class UNetSegmentation {
 		int w = stack.getWidth();
 		int h = stack.getHeight();
 		int c = stack.getSize();
+		
 		/* Input shape is [minibatchSize, layerInputDepth, inputHeight, inputWidth] */
 		INDArray res = Nd4j.zeros(1, c, h, w);
 		for (int z=0; z<c; ++z) {
@@ -200,7 +182,6 @@ public class UNetSegmentation {
 			for (int y=0; y<h; ++y)
 				for (int x=0; x<w; ++x) {					
 						res.putScalar(0,z,y,x, ip.getf(x, y));
-//						System.out.println(ip.getf(x, y));
 				}
 		}
 		return res;
@@ -236,16 +217,6 @@ public class UNetSegmentation {
 			stack.setProcessor(slice, z+1);
 		}
 		return stack;
-	}
-	
-	@Deprecated
-	private ImageProcessor patch(ImageProcessor ip, int x0, int y0, int width, int height) {
-		ImageProcessor res = new FloatProcessor(width, height);
-		for (int y=y0; y<y0+height; ++y)
-			for (int x=x0; x<x0+width; ++x) {
-				res.putPixelValue(x-x0, y-y0, ip.getf(x,y));
-			}		
-		return res;
 	}
 	
 	private ImageStack normalizeStack01(ImageStack stack) {

@@ -1,11 +1,7 @@
 package properties;
 
-import java.io.IOException;
-import java.nio.file.CopyOption;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 
 import cellTracking.Cell_Tracker;
@@ -25,8 +21,6 @@ import inra.ijpb.math.ImageCalculator;
 import inra.ijpb.morphology.Morphology.Operation;
 
 public class Properties_Measure implements PlugIn {
-
-	// final ImageJ ij = new ImageJ();
 
 	public static void main(String[] args) {
 		Locale.setDefault(Locale.US);
@@ -167,7 +161,6 @@ public class Properties_Measure implements PlugIn {
 					restxt_name = txt.getFileName().toString();
 					mitosisInfoName = infoPath.getFileName().toString();
 				}
-
 			} else {
 
 			}

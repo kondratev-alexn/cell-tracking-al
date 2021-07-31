@@ -101,10 +101,6 @@ public class StackDetection {
 		}
 	}
 
-	public TrackCTCMap tracksCTC() {
-		return tracks;
-	}
-
 	public void show() {
 		ImageStack istack = new ImageStack(_ctcResultImp.getWidth(), _ctcResultImp.getHeight(),
 				_ctcResultImp.getStackSize());

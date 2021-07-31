@@ -53,7 +53,7 @@ public class FormatSaver {
 		makeHeaderFile(dir + "header.txt", columns, ';');
 
 		// create file for each track
-		for (TrackCTC track : stack.tracksCTC().tracksMap().values()) {
+		for (TrackCTC track : stack.tracks().tracksMap().values()) {
 			PrintWriter pw = new PrintWriter(
 					new File(dir + String.format(name + "StatisticsTrack%04d.txt", track.index())));
 			int startSlice = track.startSlice();

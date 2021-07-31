@@ -2,25 +2,19 @@ package cellTracking;
 
 import java.awt.AWTEvent;
 import java.awt.Scrollbar;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Vector;
-
 import org.deeplearning4j.nn.modelimport.keras.exceptions.InvalidKerasConfigurationException;
 import org.deeplearning4j.nn.modelimport.keras.exceptions.UnsupportedKerasConfigurationException;
 import java.nio.file.Files;
-
-//import com.google.common.io.Files;
-
 import evaluation.EvaluationFromRoi;
 import evaluation.PluginParameters;
 import graph.CellTrackingGraph;
 import graph.MitosisInfo;
-import histogram.FloatHistogram;
 import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
@@ -29,24 +23,13 @@ import ij.gui.DialogListener;
 import ij.gui.GenericDialog;
 import ij.io.DirectoryChooser;
 import ij.plugin.Converter;
-import ij.plugin.filter.BackgroundSubtracter;
 import ij.plugin.filter.ExtendedPlugInFilter;
-import ij.plugin.filter.MaximumFinder;
 import ij.plugin.filter.PlugInFilterRunner;
-import ij.plugin.filter.RankFilters;
 import ij.plugin.frame.RoiManager;
-import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageConverter;
 import ij.process.ImageProcessor;
 import ij.process.StackConverter;
-import inra.ijpb.binary.BinaryImages;
-import inra.ijpb.binary.ChamferWeights;
-import inra.ijpb.morphology.Morphology.Operation;
-import inra.ijpb.morphology.Strel;
-import inra.ijpb.morphology.Strel.Shape;
-import inra.ijpb.watershed.ExtendedMinimaWatershed;
-import inra.ijpb.watershed.MarkerControlledWatershedTransform2D;
 import networkDeploy.UNetSegmentation;
 import visualization.Visualization;
 
@@ -68,12 +51,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	/** Keep instance of result image */
 	private ImageProcessor result;
-	//
-	/* for storing thresholded intensity image */
-	private ImageProcessor thresholdedIntensity;
-
-	/** Contains mask for previously segmented cells */
-	private ImageProcessor cellMask;
 
 	/* roi manager for current slice */
 	private RoiManager roiManager;
@@ -88,49 +65,28 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private int currSlice = 1; // slice number for stack processing
 	private int selectedSlice; // currently selected slice by slider
 
-	// sigmas for bandpass algorithm, also in UI
-	public double sigma1 = 1.40;
-	public double sigma2 = 10.00;
-	public double sigma3 = 0.80;
-
 	/* numerical parameters for UI */
 	private double softmaxThreshold = 0.50; // now its threshold for lambda2+lambda1 in blob detection
-	private double heightToleranceBright = 0.20;
-	private int rollingBallRadius = 20; // for background subtraction
-	private int topHatRadius = 20;
-	private double gaussianSigma = 2;
-	private double minThreshold = 20;
-	private double maxThreshold = 50;
 	private int minArea = 50;
 	private int maxArea = 1400;
 	private float minCircularity = 0.55f;
 	private float maxCircularity = 1.0f;
-	private int dilationRadius = 1;
-	private int maximumNumberOfBlobs = 60; // how many dark blobs will be detected
 	
 	// tracks filtering parameters
 	private int minTrackLength = 3;
 
-	private float blobMergeThreshold = 0.32f; // threshold, below which blobs will be merged
 	private float childPenaltyThreshold = 0.275f;
 	private float mitosisStartIntensityCoefficient = 1.00f;
 
-	private float[] sigmas = { 6, 9, 12, 16, 32 };
 
 	/* booleans for CheckBoxes */
 	private boolean isConfocal = true;
-	private boolean isTestMode = false;
-	private boolean useGaussian = true;
-	private boolean isBandpass = false;
 	private boolean trackMitosis = true;
 
-	private boolean showImageForWatershedding = false;
 	private boolean filterComponents = true;
 	private boolean previewing = false;
 
 	private boolean startedProcessing = false; // comes true after user has selected whether to process stacks or not
-	private boolean showBlobs = false;
-	private boolean useMaximumFinder = false; //whether to use maxFinder plugin or blob detection
 	
 	private boolean addRois = true; //add rois to roi manager or not
 	private boolean noImageJProcessing = false;
@@ -147,23 +103,12 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	private ImageComponentsAnalysis prevComponentsAnalysis = null; // for getting masks of segmented cells in next
 																	// slices
 	private NearestNeighbourTracking tracking = null;
-	private NearestNeighbourTracking trackingMitStart = null;
-	private NearestNeighbourTracking trackingMitEnd = null;
 
-	private final float sigmaMax = 50; // max value of sigmas
-
-	// plugins
-	private Gaussian gaussian;
-	private BackgroundSubtracter backgroundSub;
-	private RankFilters rankFilters;
 	private UNetSegmentation uNetSegmentation;
 	
 	public void initPlugin(ImagePlus imp) {
 		nSlices = imp.getStackSize();
 		tracking = new NearestNeighbourTracking();
-		trackingMitStart = new NearestNeighbourTracking();
-		trackingMitEnd = new NearestNeighbourTracking();
-		cellMask = null;
 		ctcComponents = null;
 		ctcTifResult = "";
 		ctcTxtResult = "";
@@ -199,7 +144,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 		if (arg.equals("final")) {
 			// replace the preview image by the original image
-			// resetPreview();
 			if (!noImageJProcessing) {
 				imagePlus.updateAndDraw();
 				roiManager.selectAndMakeVisible(imagePlus, -1);
@@ -216,13 +160,10 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			}
 
 			// there goes tracking
-			int maxRadiusDark = 25, maxRadiusBright = 18, slices = 3;
+			int maxRadiusDark = 25, slices = 3;
 			double oneSliceScoreThreshold = 0.33;
-			//oneSliceScoreThreshold = 0.
 			double scoreThreshold = 0.6;
 			double timeDecayCoefficient = 0.3;
-			// tracking.trackComponents(maxRadiusDark, maxRadiusBright, slices, scoreThreshold);
-			// tracking.trackComponentsOneAndMultiSlice(maxRadiusDark, slices, scoreThreshold, oneSliceScoreThreshold, timeDecayCoefficient);
 
 			IJ.log("Tracking dark nuclei...");
 			ArrayList<ComponentStateLink> linkNormal = new ArrayList<ComponentStateLink>();
@@ -267,20 +208,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			
 			tracking.fillTracksAdj(minTrackLength);
 			IJ.log("Tracking dark nuclei finished.");
-			
-			// old version
-//			if (trackMitosis) {
-//				IJ.log("Tracking mitosis...");
-//				// check for mitosis start by two ideas (intensity change / bright blob nearby)
-//			 	tracking.analyzeTracksForMitosisByAverageIntensity(mitosisStartIntensityCoefficient);
-//				tracking.analyzeTracksForMitosisByWhiteBlob(0.5f);				
-//				tracking.startMitosisTracking(30, childPenaltyThreshold);
-//				IJ.log("Mitosis tracking finished");
-//			}
-			
+						
 			if (trackMitosis) {
 				IJ.log("Tracking mitosis...");
-//				tracking.divisionTracking(75, 3, 10, 0.4f);
 
 				ArrayList<ComponentStateLink> linksParentChild = new ArrayList<ComponentStateLink>();
 				linksParentChild.add(new ComponentStateLink(State.MITOSIS_START, State.MITOSIS_END));
@@ -298,23 +228,9 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImagePlus unetMitosisVisualization = Visualization.drawMitosisStartEndFromUnet(imp, mitosisStart, mitosisEnd);
 			IJ.save(unetMitosisVisualization, "G:\\Tokyo\\mitosis_vis.tif");
 			
-//			ImagePlus colorTracks = tracking.colorTracks(imp);
-//			IJ.save(colorTracks, "color_tracks.tif");
-//			Visualization.
-
-			// System.out.println(tracking.getGraph());
-			// System.out.println(tracking.getGraph().checkNoEqualNodes());
-			// ImageProcessor ip = imp.getProcessor();
-			// tracking.drawTracksIp(ip);
-			// ImagePlus trResult = tracking.drawTracksImagePlus(imp);
-
 			if (!noImageJProcessing) {
 				imp.show();
 			}
-			
-			// save mitosis start and end results for now
-//			IJ.save(new ImagePlus("start", mitosisStart), "G:\\Tokyo\\mitosis_start.tif");
-//			IJ.save(new ImagePlus("end", mitosisEnd), "G:\\Tokyo\\mitosis_end.tif");
 
 			IJ.log("Displaying results.");
 			
@@ -345,8 +261,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ctcComponents = resultGraph.showTrackedComponentImages(ctcTifResult, true, !noImageJProcessing);
 			//resultGraph.printTrackedGraph();
 			
-			ImagePlus coloredTrackImage = resultGraph.drawComponentColoredByFullTracks(imp);
-			IJ.save(coloredTrackImage, "colored_tracks.tif");
+//			ImagePlus coloredTrackImage = resultGraph.drawComponentColoredByFullTracks(imp);
+//			IJ.save(coloredTrackImage, "colored_tracks.tif");
 //			coloredTrackImage.show();
 
 			String txtResultName = imp.getShortTitle() + "_tracking_results.txt";
@@ -376,9 +292,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 		nSlices = imp.getStackSize();
 		tracking = new NearestNeighbourTracking();
-		trackingMitStart = new NearestNeighbourTracking();
-		trackingMitEnd = new NearestNeighbourTracking();
-		cellMask = null;
 		addRois = true;
 		ctcComponents = null;
 		ctcTifResult = "";
@@ -427,11 +340,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 	 * creates instances of used plugins
 	 */
 	private void instancePlugins() throws IOException, UnsupportedKerasConfigurationException, InvalidKerasConfigurationException {
-		gaussian = new Gaussian();
-		backgroundSub = new BackgroundSubtracter();
-		rankFilters = new RankFilters();
-//		String model_name = "unet_confocal_fluo_model_full.h5";
-//		String model_name = "pre_mitosis_resunet.h5";
 		String model_name = "model_fluo_resunet_mitosis_512_weights.h5";
 		uNetSegmentation = new UNetSegmentation(model_name);
 	}
@@ -471,8 +379,8 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		this.softmaxThreshold = softmaxThreshold;
 		this.minArea = minArea;
 		this.maxArea = maxArea;
-		minCircularity = minCirc;
-		maxCircularity = maxCirc;
+		this.minCircularity = minCirc;
+		this.maxCircularity = maxCirc;
 		this.minTrackLength = minTrackLength;
 		this.trackMitosis = trackMitosis;
 		this.filterComponents = filterComponents;
@@ -491,7 +399,7 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		this.baseImage = imp.getProcessor().duplicate();
 
 		nChannels = imp.getProcessor().getNChannels();
-		currSlice = 1; // for when algorithm starts processing stack
+		currSlice = 1; // when algorithm starts processing stack
 		selectedSlice = imp.getCurrentSlice();
 
 		GenericDialog gd = new GenericDialog(command);
@@ -513,7 +421,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		previewing = false;
 
 		// here reset everything like preview etc.
-
 		currSlice = doesStacks() ? 1 : selectedSlice;
 		roiManager = RoiManager.getInstance();
 		if (roiManager == null)
@@ -530,16 +437,12 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		gd.addNumericField("Max area", maxArea, 0);
 		gd.addNumericField("Min circularity", minCircularity, 3);
 		gd.addNumericField("Max circularity", maxCircularity, 3);
-		// gd.addNumericField("Dilation Radius (postprocessing)", dilationRadius, 0);
 		gd.addNumericField("Minimum track length", minTrackLength, 0);
 		gd.addNumericField("Bright blob childs threshold", childPenaltyThreshold, 3);
 		gd.addNumericField("Intensity change coefficient (mitosis)", mitosisStartIntensityCoefficient, 3);
-		// gd.addCheckbox("test mode", isTestMode);
-		// gd.addCheckbox("Show Image before Watershedding", showImageForWatershedding);
 		gd.addCheckbox("Confocal data", isConfocal);
 		gd.addCheckbox("Track Mitosis", trackMitosis);
 		gd.addCheckbox("Filter components", filterComponents);
-//		gd.addCheckbox("Use MaximumFinder filter", useMaximumFinder);
 		gd.addPreviewCheckbox(pfr);
 		gd.addDialogListener(this);
 		gd.addSlider("Slice", 1, nSlices, selectedSlice);
@@ -553,9 +456,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		imagePlus.setSlice(selectedSlice);
 		baseImage = imagePlus.getStack().getProcessor(selectedSlice).duplicate();
 
-		if (sigma1 < 0 || sigma2 < 0 || sigma3 < 0 || gd.invalidNumber())
-			return false;
-
 		// if preview checkbox was unchecked, replace the preview image by the original
 		if (wasPreview && !this.previewing) {
 			resetPreview();
@@ -565,42 +465,25 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	// extract chosen parameters
 	private void parseDialogParameters(GenericDialog gd) {
-//		maximumNumberOfBlobs = (int) gd.getNextNumber();
-//		gaussianSigma = gd.getNextNumber();
-//		rollingBallRadius = (int) gd.getNextNumber();
-//		sigma3 = gd.getNextNumber();
 		softmaxThreshold = gd.getNextNumber();
 		minArea = (int) gd.getNextNumber();
 		maxArea = (int) gd.getNextNumber();
 		minCircularity = (float) gd.getNextNumber();
 		maxCircularity = (float) gd.getNextNumber();
 		minTrackLength = (int) gd.getNextNumber();
-		// dilationRadius = (int) gd.getNextNumber();
-//		blobMergeThreshold = (float) gd.getNextNumber();
 		childPenaltyThreshold = (float) gd.getNextNumber();
 		mitosisStartIntensityCoefficient = (float) gd.getNextNumber();
 
-		// isTestMode = gd.getNextBoolean();
-		// showImageForWatershedding = gd.getNextBoolean();
 		isConfocal = gd.getNextBoolean();
 		trackMitosis = gd.getNextBoolean();
-//		showBlobs = gd.getNextBoolean();
 		filterComponents = gd.getNextBoolean();
-//		useMaximumFinder = gd.getNextBoolean();
 
 		previewing = gd.getPreviewCheckbox().getState();
 
 		// change image if current slice changed
-		Vector sliders = gd.getSliders();
+		Vector<?> sliders = gd.getSliders();
 		selectedSlice = ((Scrollbar) sliders.get(0)).getValue();
 		currSlice = selectedSlice;
-
-		if (sigma1 > sigmaMax)
-			sigma1 = sigmaMax;
-		if (sigma2 > sigmaMax)
-			sigma2 = sigmaMax;
-		if (sigma3 > sigmaMax)
-			sigma3 = sigmaMax;
 	}
 
 	@Override
@@ -625,24 +508,15 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 		
 		//result = maximaWatershedSegmentation(result, ip, sigma3, minThreshold, maxThreshold);
-		if (!isConfocal) { //we need preprocessing for epifluorescence data (for old version of weights)
-			//result = preprocessing(result, 1.4f, 60, true);
+		if (!isConfocal) {
+			//we need preprocessing for epifluorescence data (for old version of weights)
+//			result = preprocessing(result, 1.4f, 60, true);
 		}
 		
 		/* create a stack from previous, current and next slice */
 		ImageStack stack3 = create3Stack();
 		ImageProcessor[] watershedResMitosisMasks = uNetSegmentation.binarySegmentationFromMaskWithMarkers(stack3, 0.5f, 0.6f);
 		
-		if (currSlice == 6) {
-////			save binary masks img for paper
-//			ImagePlus binMasks = new ImagePlus("bin_masks", watershedResMitosisMasks[3]);
-//			ImagePlus binMarkers = new ImagePlus("bin_markers", watershedResMitosisMasks[4]);
-//			ImagePlus slice6 = new ImagePlus("slice6_img", stack3.getProcessor(2));
-//			IJ.save(binMasks, "G://Tokyo//bin_masks.tif");
-//			IJ.save(binMarkers, "G://Tokyo//bin_markers.tif");
-//			IJ.save(slice6, "G://Tokyo//img_slice.tif");
-//			IJ.save(new ImagePlus("vv",watershedResMitosisMasks[0]), "G://Tokyo//watershed_es.tif");
-		}
 		mitosisStart.setProcessor(watershedResMitosisMasks[1], currSlice);
 		mitosisEnd.setProcessor(watershedResMitosisMasks[2], currSlice);
 		
@@ -658,8 +532,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		
 		ImageProcessor mitStartMarkers = compMitosisStart.getSinglePixelComponents();
 		ImageProcessor mitEndMarkers = compMitosisEnd.getSinglePixelComponents();
-		
-//		result = fillComponentProperties(allComps, ip, false, null, true);
 		
 		// from fillComponentProperties function...
 		if (filterComponents) {
@@ -683,23 +555,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			}
 		}
 
-//		compMitosisStart.addRoisToManager(roiManager, imagePlus, currSlice, "start");
-//		compMitosisEnd.addRoisToManager(roiManager, imagePlus, currSlice, "end");
-
-//		trackingMitStart.addComponentsAnalysis(compMitosisStart);
-//		trackingMitEnd.addComponentsAnalysis(compMitosisEnd);
-
-//			ImageProcessor binary = uNetSegmentation.binarySegmentation(result, (float) softmaxThreshold);
-//			if (useWatershedPostProcessing) {
-//				//make distance-based watershed transform here to separate touching cells
-//				ChamferWeights weights = ChamferWeights.BORGEFORS;
-//				final ImageProcessor dist = BinaryImages.distanceMap(binary, weights.getFloatWeights(), true);
-//				dist.invert();
-//				ImageProcessor watershedded = ExtendedMinimaWatershed.extendedMinimaWatershed(dist, binary, 1, 4, 32, false);
-//				result = fillComponentProperties(watershedded, ip, false, null);
-//			}
-//			else result = fillComponentProperties(binary, ip, false, null);
-
 		result = result.convertToFloatProcessor();
 		result.resetMinAndMax();
 
@@ -722,18 +577,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			ImageProcessor ip = stack.getProcessor(i);
 			run(ip);
 		}
-	}
-	
-	private ImageProcessor preprocessing(ImageProcessor ip, float gaussianSigma, int rollingBallRadius, boolean useGaussian) {
-		if (useGaussian) {
-			rankFilters.rank(result, 1, RankFilters.MEDIAN);
-			//gaussian.GaussianBlur(ip, (float) gaussianSigma);
-		}
-
-		if (rollingBallRadius > 0)
-			backgroundSub.rollingBallBackground(ip, rollingBallRadius, false, false, false, true, false);
-		ImageFunctions.normalizeInPlace(ip, 0, 1);
-		return ip;
 	}
 	
 	public void saveSegmentationResult(Path dir, String name) {
@@ -784,156 +627,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		return res;
 	}
 
-	/*
-	 * Yaginuma version of the algorithm, with finding maxima and marker-controlled
-	 * watershed, then post-processing (0 ver) I changed gradient threshold to canny
-	 * edge detection for flooding
-	 * 
-	 * (1 ver) Marker controlled watershed on gradient of the bandpass (or
-	 * intensity), markers are minima of the bandpass (or intensity). (1 ver)
-	 * Bandpass or intensity is selected by the checkbox
-	 */
-	@Deprecated
-	private ImageProcessor maximaWatershedSegmentation(ImageProcessor ip, ImageProcessor original, double sigma,
-			double minThreshold, double maxThreshold) {
-		ip = preprocessing(ip, (float)gaussianSigma, rollingBallRadius, useGaussian);
-		
-		if (isTestMode) {
-			ImageProcessor testResult = testFunction(result);
-
-			if (previewing && !doesStacks()) {
-				for (int i = 0; i < ip.getPixelCount(); i++) {
-					ip.setf(i, testResult.getf(i));
-				}
-
-				ip.resetMinAndMax();
-			}
-			
-			return ip;
-		}
-		
-		// assume ip is already preprocessed, i.e. filtered, background subtracted
-		ImageProcessor watershedImage = ip.duplicate();
-		ImageProcessor intensityImg;
-		ImageProcessor watershedMask;
-		intensityImg = ip.duplicate();
-
-		int blobDetection_x_radius = 3;
-		int blobDetection_y_radius = 3;
-
-		if (isBandpass) {
-			bandpassFilter(watershedImage);
-		}
-		// create mask for watershed
-		watershedMask = watershedImage.duplicate();
-		// threshold = markerImg.duplicate(); //this should be otsu thresholded image
-		// with convex hulling afterwards
-		// ImageFunctions.thresholdMinMax(watershedMask, minThreshold, maxThreshold);
-
-		// cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
-		// imp_mask = new ImagePlus("mask", test_mask);
-		// imp_mask.show();
-		// ip = imp_mask.getProcessor();
-		// ImagePlus wat = new ImagePlus("mask", watershedMask);
-
-		if (topHatRadius > 0)
-			watershedImage = ImageFunctions.operationMorph(watershedImage, Operation.TOPHAT, Strel.Shape.DISK,
-					topHatRadius);
-
-		ImageFunctions.normalizeInPlace(watershedImage, 0, 1);
-		ImageFunctions.normalizeInPlace(ip, 0, 1);
-
-		BlobDetector blobs = new BlobDetector(ip, null, sigmas);
-		float[] sigmas_bright = { 4, 7, 10, 15, 20 };
-
-		// detect bright blobs
-		ImageProcessor ip_brightBlobs = intensityImg.duplicate();
-		ImageProcessorCalculator.constMultiply(ip_brightBlobs, -1);
-		BlobDetector brightBlobs = new BlobDetector(ip_brightBlobs, cellMask, sigmas_bright);
-
-		// ImageProcessor findMaximaImage = blobs.findBlobsByMaxSigmasImage();
-		ImageProcessor marksDarkBinary, marksBrightBinary;
-		// marks = maxfinder.findMaxima(findMaximaImage, heightTolerance,
-		// MaximumFinder.SINGLE_POINTS, true);
-		marksDarkBinary = blobs.findBlobsByLocalMaximaAsImage((float) softmaxThreshold, true, true, maximumNumberOfBlobs,
-				blobDetection_x_radius, blobDetection_y_radius, true);
-		ImageProcessor marksSigma = blobs.findBlobsByLocalMaximaAsImage((float) softmaxThreshold, false, true,
-				maximumNumberOfBlobs, blobDetection_x_radius, blobDetection_y_radius, true);
-
-		// find bright markers to create more watershed seeds outside of cells
-		marksBrightBinary = brightBlobs.findBlobsByLocalMaximaAsImage((float) heightToleranceBright, true, true,
-				maximumNumberOfBlobs / 4, blobDetection_x_radius, blobDetection_y_radius, false);
-
-		if (useMaximumFinder) {
-			MaximumFinder maxFinder = new MaximumFinder();
-			original.invert();
-			ByteProcessor pluginMaxima = maxFinder.findMaxima(original, softmaxThreshold, MaximumFinder.SINGLE_POINTS, true);
-			marksDarkBinary = pluginMaxima;
-			original.invert();
-		}
-
-		ImageProcessor circles = original.duplicate();
-		ImageFunctions.drawCirclesBySigmaMarkerks(circles, marksSigma, true, false);
-
-		ImageProcessor closingImage = ImageFunctions.operationMorph(ip, Operation.CLOSING, Shape.DISK, 20);
-
-		ImageProcessorCalculator.sub(watershedImage, closingImage);
-		ImageFunctions.normalizeInPlace(watershedImage, 0, 1);
-		// watershedImage = ImageProcessorCalculator.invertedImage(watershedImage);
-
-		if (showImageForWatershedding) {
-			ImagePlus imp = new ImagePlus("preprocessed", watershedImage);
-			imp.show();
-			return watershedImage;
-		}
-
-		ImageFunctions.mergeMarkers(marksDarkBinary, prevComponentsAnalysis, dilationRadius);
-		if (blobMergeThreshold > 0)
-			marksDarkBinary = ImageFunctions.mergeBinaryMarkersInTheSameRegion(watershedImage, marksDarkBinary, 35,
-					blobMergeThreshold);
-
-		// combine markers from bright and dark blobs, AFTER DARK BLOBS MERGING
-		boolean addBrightMarkers = false;
-		if (addBrightMarkers) {
-			ImageFunctions.addMarkers(marksDarkBinary, marksBrightBinary);
-		}
-
-		if (showBlobs && previewing && !startedProcessing) {
-			ImageFunctions.normalizeInPlace(marksDarkBinary, 0, 2);
-			// marksDarkBinary = ImageFunctions.operationMorph(marksDarkBinary,
-			// Operation.DILATION, Strel.Shape.DISK, 2);
-			ip = original;
-			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksSigma, true, false);
-			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksCopy, true, true, 7);
-			// ImageFunctions.colorCirclesBySigmaMarkers(ip, marksDarkBinary, true, true,
-			// 7);
-			ImageFunctions.normalizeInPlace(watershedImage, 0, 255);
-			// ImageFunctions.colorCirclesBySigmaMarkers(watershedImage, marksDarkBinary,
-			// true, true, 7);
-			ImageFunctions.drawCirclesBySigmaMarkerks(ip, marksDarkBinary, true, false);
-			// ImagePlus imp = new ImagePlus("markers", ip);
-			// imp.show();
-			return ip;
-		}
-
-		// intensityImg = watershedImage;
-		ImageFunctions.LabelMarker(marksDarkBinary);
-		if (sigma > 0)
-			gaussian.GradientMagnitudeGaussian(watershedImage, (float) sigma); // watershed is better on gradient...
-		// watershedImage = ImageFunctions.operationMorph(watershedImage,
-		// Operation.OPENING, Strel.Shape.DISK, 3);
-		// ImagePlus grad = new ImagePlus("grad", watershedImage);
-		// grad.show();
-		MarkerControlledWatershedTransform2D watershed = new MarkerControlledWatershedTransform2D(watershedImage,
-				marksDarkBinary, null, 4);
-		ip = watershed.applyWithPriorityQueue();
-
-		// here draw and show colored basins
-		// ImageFunctions.colorWatershedBasins(ip);
-
-		return ip;
-	}
-	
 	private ImageProcessor fillComponentProperties(ImageProcessor ip, ImageProcessor intensityImg, boolean addBrightMarkers, ImageProcessor marksBrightBinary,
 			boolean addToRoiManager) {
 		if (filterComponents) {
@@ -960,17 +653,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 		return ip;
 	}
 
-	private void bandpassFilter(ImageProcessor ip) {
-		ImageProcessor ip1 = ip.duplicate();
-		ImageProcessor ip2 = ip.duplicate();
-		ip2.blurGaussian(sigma2);
-		ip1.blurGaussian(sigma1);
-		ImageProcessorCalculator.sub(ip1, ip2);
-		FloatProcessor fp = null;
-		fp = ip1.toFloat(0, fp);
-		ip.setPixels(0, fp);
-	}
-
 	private void resetPreview() {
 		ImageProcessor image;
 		image = imagePlus.getProcessor();
@@ -987,70 +669,6 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 
 	public void showAbout() {
 		IJ.showMessage("Cell tracking", "A cell tracking method for fluorescent microscopy images");
-	}
-
-	/* function for algorithms testing */
-	private ImageProcessor testFunction(ImageProcessor ip) {
-		ImageProcessor result = ip.duplicate();
-
-		ImagePlus preprocessed = new ImagePlus("pre", result);
-		preprocessed.show();
-		// do some testing and return
-		// ImageFunctions.normalize(result, 0f, 1f);
-		// result = ip;
-		// ImageProcessorCalculator.sub(result,
-		// imagePlus.getStack().getProcessor(selectedSlice - 1));
-		ImageProcessor original = result.duplicate();
-		ImageProcessor test = result.duplicate();
-
-		cellMask = ImageFunctions.getWhiteObjectsMask(ip, 1, 15);
-		if (isBandpass)
-			ImageProcessorCalculator.constMultiply(result, -1);
-
-		FloatHistogram hist = new FloatHistogram(original);
-		float otsu = hist.otsuThreshold();
-
-		if (topHatRadius > 0)
-			original = ImageFunctions.operationMorph(original, Operation.TOPHAT, Strel.Shape.DISK, topHatRadius);
-
-		if (maximumNumberOfBlobs > 0) {
-			test = ImageFunctions.operationMorph(test, Operation.CLOSING, Shape.DISK, maximumNumberOfBlobs);
-			ImageProcessorCalculator.sub(original, test);
-		}
-
-		result = original;
-
-		// ImageProcessor whiteMask = ImageFunctions.maskThresholdMoreThan(test, otsu,
-		// null);
-		// original = whiteMask;
-		// original = ImageFunctions.operationMorph(whiteMask, Operation.OPENING,
-		// Shape.DISK, maximumNumberOfCells);
-		// FloatHistogram histMasked = new FloatHistogram(test, whiteMask);
-		// float otsu2 = histMasked.otsuThreshold();
-		// original = ImageFunctions.maskThresholdLessThan(test, otsu2, whiteMask);
-
-		/*
-		 * Hessian hess = new Hessian(result); hess.calculateHessian((float) sigma1); if
-		 * (filterComponents) result = hess.getLambda2(); else result =
-		 * hess.getLambda1();
-		 */
-		// float[] sigmas = { 1, 20, 30, 50};
-		// ImageFunctions.drawLine(result, 100, 100, 150,50);
-		float[] sigmas_bright = { 7, 10, 15, 20 };
-		BlobDetector blobs = new BlobDetector(result, null, sigmas_bright);
-
-		ImageProcessor blobDots = blobs.findBlobsByLocalMaximaAsImage((float) softmaxThreshold, false, filterComponents,
-				4, 1, 1, true);
-		// result = blobs.findBlobsByMaxSigmasImage();
-		// ImageFunctions.drawCirclesBySigmaMarkerks(original, blobDots, true);
-		// ImageFunctions.drawGaussian(result, 200, 200, (float) sigma1);
-		// original = ImageFunctions.operationMorph(original, Operation.BOTTOMHAT,
-		// Strel.Shape.DISK, topHatRadius);
-		// original = MinimaAndMaxima.extendedMaxima(original, minCircularity);
-		// original = MinimaAndMaxima.regionalMinimaByReconstruction(original, 4);
-		// original = MinimaAndMaxima.extendedMinima(original, otsu);
-
-		return result;
 	}
 
 	public static void main(String[] args) {
@@ -1124,13 +742,5 @@ public class Cell_Tracker implements ExtendedPlugInFilter, DialogListener {
 			// run the plugin
 			IJ.runPlugIn(clazz.getName(), "");
 		}
-	}
-
-	/**
-	 * Creates the name for result image, by adding a suffix to the base name of
-	 * original image. "Taken from MorphoLibJ"
-	 */
-	private String createResultImageName(ImagePlus baseImage) {
-		return baseImage.getShortTitle() + "-" + "result";
 	}
 }

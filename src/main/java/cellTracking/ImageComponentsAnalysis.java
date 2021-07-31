@@ -1,13 +1,10 @@
 package cellTracking;
 
 import java.util.ArrayList;
-import java.util.Vector;
-
 import ij.ImagePlus;
 import ij.gui.PolygonRoi;
 import ij.gui.Roi;
 import ij.gui.Wand;
-import ij.plugin.ImageCalculator;
 import ij.plugin.frame.RoiManager;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
@@ -329,7 +326,6 @@ public class ImageComponentsAnalysis {
 
 	/* calculates penal score (the less, the better) */
 	public double calculateChildPenalScore(int index1, int index2, Point parentCenterPoint, float parentAvrgIntensity) {
-		double score = 0;
 		// take into account avrg intensity, size, distance from parent center
 		double c_int, c_size, c_distance, c_diff_intensity; // coefficient
 		c_int = 1; // for intensity of the child blobs
@@ -946,15 +942,6 @@ public class ImageComponentsAnalysis {
 		if (y < ip.getHeight() && ip.get(x, y + 1) != v_xy)
 			return true;
 		return false;
-	}
-
-	/*
-	 * return true if (x,y) pixel has diagonally connected border neighbouring 'on'
-	 * pixels
-	 */
-	private boolean hasDiagonalBorderNeighbours(ImageProcessor ip, int x, int y) {
-		return isBorderPixel4C(ip, x - 1, y - 1) || isBorderPixel4C(ip, x - 1, y + 1)
-				|| isBorderPixel4C(ip, x + 1, y - 1) || isBorderPixel4C(ip, x + 1, y + 1);
 	}
 
 	public void showComponentsImage() {

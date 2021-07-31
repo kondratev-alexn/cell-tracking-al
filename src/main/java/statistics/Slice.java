@@ -20,5 +20,4 @@ public class Slice implements Measure {
 	public String toString(double val) {
 		return String.format("%.0f", val); 
 	}
-
 }

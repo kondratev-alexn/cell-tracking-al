@@ -26,7 +26,6 @@ import cellTracking.PenaltyFunction;
 public class NearestNeighbourTracking {
 	private Graph cellGraph;
 
-	private int currSlice;
 	private int slicesCount;
 
 	private TracksAdj tracks;
@@ -80,20 +79,17 @@ public class NearestNeighbourTracking {
 	 */
 	public void findNearestComponents(ImageComponentsAnalysis comp1, int t1, ImageComponentsAnalysis comp2, int t2,
 			double radius, double scoreThreshold, ArrayList<ComponentStateLink> allowedConnections) {
-		Point m1, m2;
 		int closestIndex, backClosestIndex;
 		Node v1, v2;
 		for (int i = 0; i < comp2.getComponentsCount(); i++) {
 			if (comp2.getComponentHasParent(i)) { // only add to components that doesn't have parent
 				continue;
 			}
-			m2 = comp2.getComponentMassCenter(i); //
+			comp2.getComponentMassCenter(i);
 			// closestIndex = findClosestPointIndex(m2, comp1, radius);
 			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius, scoreThreshold, allowedConnections);
 			if (closestIndex != -1) { // closest component found, add to graph
-				// should also check back - if for the found component the closest neighbour is
-				// the same, then link them, otherwise skip?
-				m1 = comp1.getComponentMassCenter(closestIndex);
+				comp1.getComponentMassCenter(closestIndex);
 				// backClosestIndex = findClosestPointIndex(m1, comp2, radius);
 				backClosestIndex = findBestScoringComponentIndex(comp1, closestIndex, comp2, radius, scoreThreshold, allowedConnections);
 				if (backClosestIndex != i)
@@ -116,14 +112,13 @@ public class NearestNeighbourTracking {
 	/* this is for back tracking (mitosys should be tracked with this steps) */
 	public void findNearestComponentsBackStep(ImageComponentsAnalysis comp2, int t2, ImageComponentsAnalysis comp1,
 			int t1, double radius, double scoreThreshold, ArrayList<ComponentStateLink> allowedConnections) {
-		Point m2;
 		int closestIndex;
 		Node v1, v2;
 		for (int i = 0; i < comp2.getComponentsCount(); i++) {
 			if (comp2.getComponentHasParent(i)) {
 				continue;
 			}
-			m2 = comp2.getComponentMassCenter(i); // component without parent
+			comp2.getComponentMassCenter(i);
 			// closestIndex = findClosestPointIndex(m2, comp1, radius);
 			closestIndex = findBestScoringComponentIndex(comp2, i, comp1, radius, scoreThreshold, allowedConnections);
 			// here should be daughter-check, not the same scoring function
@@ -341,8 +336,8 @@ public class NearestNeighbourTracking {
 			ArrayList<ImageComponentsAnalysis> comp2List, int nSlices, double maxRadius, double scoreThreshold,
 			double timeDecayCoefficient, ArrayList<ComponentStateLink> allowedConnections) {
 		int[] result = new int[2];
-		int firstBestSlice = t1 + 1, secondBestSlice = t1 + 1;
-		int firstBestIndex = -1, secondBestIndex = -1;
+		int firstBestSlice = t1 + 1;
+		int firstBestIndex = -1;
 		int dt;
 		double score1 = 100, score2 = 100, score;
 		for (int t = t1 + 1; t < t1 + nSlices + 1; t++) {
@@ -374,14 +369,10 @@ public class NearestNeighbourTracking {
 				if (score < score1) {
 					score2 = score1; // previous minimum is now second-minimum
 					score1 = score;
-					secondBestSlice = firstBestSlice;
 					firstBestSlice = t;
-					secondBestIndex = firstBestIndex;
 					firstBestIndex = i2;
 				} else if (score < score2) {
 					score2 = score;
-					secondBestSlice = t;
-					secondBestIndex = i2;
 				}
 			}
 		}
@@ -393,18 +384,11 @@ public class NearestNeighbourTracking {
 	public void analyzeTracksForMitosisByWhiteBlob(float whiteBlobThreshold) {
 		TrackAdj tr;
 		int startAdjIndex, endAdjIndex;
-		int startSlice, endSlice;
-		int currAdjIndex, currSlice, currNode, endComponentIndex;
-		int startNodeIndex;
-
+		int endSlice;
+		int endComponentIndex;
 		Point center;
-		int x0, y0, x1, y1, radius;
-		float avrgVal;
-		FloatHistogram hist;
-		ArrayList<Float> trackValues = new ArrayList<Float>();
+		new ArrayList<Float>();
 		tracks.printTracksInfo();
-		ImageProcessor ip;
-
 		for (int i = 0; i < tracks.tracksCount(); i++) {
 			tr = tracks.getTrack(i);
 
@@ -414,7 +398,7 @@ public class NearestNeighbourTracking {
 			startAdjIndex = tr.getStartAdjIndex();
 			endAdjIndex = tr.getEndAdjIndex();
 
-			startSlice = cellGraph.getNodeSliceByGlobalIndex(startAdjIndex);
+			cellGraph.getNodeSliceByGlobalIndex(startAdjIndex);
 			endSlice = tracks.getLastSliceForTrack(i);
 			endComponentIndex = cellGraph.getNodeIndexByGlobalIndex(endAdjIndex);
 
@@ -448,7 +432,7 @@ public class NearestNeighbourTracking {
 	public void analyzeTracksForMitosisByAverageIntensity(double mitosisStartIntensityCoefficient) {
 		TrackAdj tr;
 		int startAdjIndex, endIndex;
-		int startSlice, endSlice;
+		int startSlice;
 		int currAdjIndex, currSlice, currNode;
 		int startNodeIndex;
 
